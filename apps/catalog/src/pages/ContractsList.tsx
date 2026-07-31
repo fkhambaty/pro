@@ -102,8 +102,14 @@ export default function ContractsList() {
                     <td>
                       {project.stage === "drafting" ? (
                         <Link to={`/app/project/${project.id}`}>Open draft</Link>
-                      ) : (
+                      ) : project.awardedTo ? (
                         <Link to={`/app/contract/${project.id}`}>Open contract</Link>
+                      ) : (
+                        <Link to={`/app/project/${project.id}`}>
+                          {project.bids.length > 0
+                            ? `Review ${project.bids.length} bid${project.bids.length === 1 ? "" : "s"}`
+                            : "Open requirement"}
+                        </Link>
                       )}
                     </td>
                   </tr>

@@ -67,11 +67,13 @@ export default function BuyerHome() {
             )}
 
             {list.map((project) => (
+              // Until someone is hired the useful screen is the bid list, not
+              // an empty contract.
               <Link
                 to={
-                  project.stage === "drafting"
-                    ? `/app/project/${project.id}`
-                    : `/app/contract/${project.id}`
+                  project.awardedTo
+                    ? `/app/contract/${project.id}`
+                    : `/app/project/${project.id}`
                 }
                 key={project.id}
                 className="project-row"

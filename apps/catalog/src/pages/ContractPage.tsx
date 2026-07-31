@@ -150,7 +150,7 @@ export default function ContractPage() {
         <div className="topbar-actions">
           <span className="badge">{project.lockId ?? "Unsigned"}</span>
           <Link className="btn btn-secondary btn-sm" to={`/app/project/${project.id}`}>
-            Requirement
+            Requirement and bids
           </Link>
         </div>
       </header>
