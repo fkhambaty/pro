@@ -49,10 +49,15 @@ type NewProjectInput = {
 type StoreValue = {
   role: Role;
   name: string;
+  userId: string | null;
   connected: boolean;
   loading: boolean;
+  /** False until the first live fetch settles, so pages can hold back empty states. */
+  hydrated: boolean;
   error: string | null;
   projects: Project[];
+  /** Only the requirements the signed-in buyer owns. */
+  myProjects: Project[];
   threads: Thread[];
   notifications: AppNotification[];
   developerAccount: DeveloperAccount;
@@ -68,7 +73,7 @@ type StoreValue = {
   placeBid: (
     projectId: string,
     input: { amount: number; monthlyOps: number; weeks: number; note: string }
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   setBidStatus: (projectId: string, bidId: string, status: Bid["status"]) => void;
   awardBid: (projectId: string, bidId: string) => void;
 
@@ -172,14 +177,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const live = isSupabaseConfigured && Boolean(auth.userId);
 
-  const [projects, setProjects] = useState<Project[]>(PROJECTS);
-  const [threads, setThreads] = useState<Thread[]>(THREADS);
-  const [notifications, setNotifications] =
-    useState<AppNotification[]>(NOTIFICATIONS);
+  // A configured backend must never render seeded demo rows: a real buyer
+  // seeing another company's requirement is a privacy failure, not a preview.
+  const [projects, setProjects] = useState<Project[]>(
+    isSupabaseConfigured ? [] : PROJECTS
+  );
+  const [threads, setThreads] = useState<Thread[]>(
+    isSupabaseConfigured ? [] : THREADS
+  );
+  const [notifications, setNotifications] = useState<AppNotification[]>(
+    isSupabaseConfigured ? [] : NOTIFICATIONS
+  );
   const [developerAccount, setDeveloperAccount] = useState<DeveloperAccount>(
     NEW_DEVELOPER_ACCOUNT
   );
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(!isSupabaseConfigured);
   const [error, setError] = useState<string | null>(null);
   const [postingFeesPaid, setPostingFeesPaid] = useState(0);
 
@@ -206,6 +219,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setLoading(false);
+      setHydrated(true);
     }
   }, [live, auth.userId, auth.role]);
 
@@ -213,14 +227,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (live) refresh();
   }, [live, refresh]);
 
+  /** Resolves true only when the action reached the backend without error. */
   const run = useCallback(
     async (action: () => Promise<void>) => {
       setError(null);
       try {
         await action();
         await refresh();
+        return true;
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
+        return false;
       }
     },
     [refresh]
@@ -346,8 +363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       input: { amount: number; monthlyOps: number; weeks: number; note: string }
     ) => {
       if (live && auth.userId) {
-        await run(() => api.placeBid(projectId, auth.userId as string, input));
-        return;
+        return run(() => api.placeBid(projectId, auth.userId as string, input));
       }
 
       const bid: Bid = {
@@ -367,6 +383,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...project,
         bids: [bid, ...project.bids],
       }));
+      return true;
     },
     [live, auth.userId, auth.displayName, developerAccount.tier, run, patchProject]
   );
@@ -738,14 +755,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
   }, [live, auth.userId, run]);
 
+  // Without a backend the seeded tour is the whole product, so it stays visible.
+  // With a backend, a buyer only ever sees requirements they own.
+  const myProjects = useMemo(
+    () =>
+      isSupabaseConfigured
+        ? projects.filter((project) => project.ownedByMe)
+        : projects,
+    [projects]
+  );
+
   const value = useMemo(
     () => ({
       role: auth.role,
       name: auth.displayName,
+      userId: auth.userId,
       connected: isSupabaseConfigured,
       loading,
+      hydrated,
       error,
       projects,
+      myProjects,
       threads,
       notifications,
       developerAccount,
@@ -775,10 +805,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [
       auth.role,
       auth.displayName,
+      auth.userId,
       auth.signOut,
       loading,
+      hydrated,
       error,
       projects,
+      myProjects,
       threads,
       notifications,
       developerAccount,

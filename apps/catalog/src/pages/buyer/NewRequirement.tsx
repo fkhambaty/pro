@@ -42,6 +42,7 @@ export default function NewRequirement() {
   const [saving, setSaving] = useState(false);
   const [payingFee, setPayingFee] = useState(false);
   const [card, setCard] = useState("");
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const [step, setStep] = useState(1);
   const [scale, setScale] = useState<BuyerScale>("Local business");
@@ -156,24 +157,56 @@ export default function NewRequirement() {
     );
   }
 
-  function canContinue(): boolean {
-    if (step === 2) return outcome.trim().length >= 20;
-    if (step === 3) return mustHaves.length > 0;
-    return true;
+  /** Null when the current step is valid, otherwise the reason it is not. */
+  function stepProblem(): string | null {
+    if (step === 2 && outcome.trim().length < 20) {
+      return "Add a clear outcome (about one sentence) before continuing.";
+    }
+    if (step === 3 && mustHaves.length === 0) {
+      return "Tick at least one must-have so the sketch has something to show.";
+    }
+    if (step === 4) {
+      const min = Number(budgetMin);
+      const max = Number(budgetMax);
+      const run = Number(monthly);
+      const span = Number(weeks);
+      if (!Number.isFinite(min) || min <= 0) {
+        return "Enter a build budget greater than zero.";
+      }
+      if (!Number.isFinite(max) || max <= 0) {
+        return "Enter an upper build budget greater than zero.";
+      }
+      if (max < min) {
+        return "The upper budget cannot be lower than the starting budget.";
+      }
+      if (!Number.isFinite(run) || run < 0) {
+        return "Monthly running cost must be zero or more.";
+      }
+      if (!Number.isFinite(span) || span <= 0) {
+        return "Enter how many weeks you can wait, as a positive number.";
+      }
+    }
+    return null;
   }
 
+  const problem = stepProblem();
+
   function next() {
-    if (!canContinue()) return;
+    if (problem) return;
     if (step === 4) generateScope();
     setStep((s) => Math.min(STEP_COUNT, s + 1));
   }
 
   async function publish() {
     setSaving(true);
+    setPublishError(null);
     try {
       await payPostingFee();
     } catch {
       setSaving(false);
+      setPublishError(
+        "The posting fee could not be charged, so nothing was published. Check the banner above and try again."
+      );
       return;
     }
     const id = await createProject({
@@ -190,7 +223,13 @@ export default function NewRequirement() {
       scope: scopeDraft,
     });
     setSaving(false);
-    if (id) navigate(`/app/project/${id}`);
+    if (id) {
+      navigate(`/app/project/${id}`);
+      return;
+    }
+    setPublishError(
+      "Your requirement could not be saved. Nothing was published — see the banner above for the reason."
+    );
   }
 
   const excludedSelected = new Set(
@@ -546,7 +585,7 @@ export default function NewRequirement() {
                 type="button"
                 className="btn"
                 onClick={next}
-                disabled={!canContinue()}
+                disabled={problem !== null}
               >
                 Continue
               </button>
@@ -569,15 +608,20 @@ export default function NewRequirement() {
               </button>
             )}
           </div>
-          {step === 2 && !canContinue() && (
+          {problem && step < STEP_COUNT && (
             <p className="hint" style={{ marginTop: "0.75rem" }}>
-              Add a clear outcome (about one sentence) before continuing.
+              {problem}
             </p>
           )}
-          {step === 3 && !canContinue() && (
-            <p className="hint" style={{ marginTop: "0.75rem" }}>
-              Tick at least one must-have so the sketch has something to show.
-            </p>
+          {publishError && (
+            <div
+              className="callout callout-warn"
+              style={{ marginTop: "0.85rem" }}
+              role="alert"
+            >
+              <span>!</span>
+              <span>{publishError}</span>
+            </div>
           )}
         </div>
       </div>

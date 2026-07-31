@@ -12,12 +12,16 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 export default function ContractsList() {
-  const { projects, role } = useStore();
+  const { projects, myProjects, role, userId, loading, hydrated } = useStore();
   const isBuyer = role === "buyer";
 
   const list = isBuyer
-    ? projects
-    : projects.filter((project) => project.awardedTo || project.bids.length > 0);
+    ? myProjects
+    : projects.filter((project) =>
+        project.bids.some(
+          (bid) => bid.developerId === userId || bid.developerId === "me"
+        )
+      );
 
   return (
     <>
@@ -30,6 +34,27 @@ export default function ContractsList() {
         </div>
       </header>
       <div className="content">
+        {!hydrated && loading && (
+          <div className="card empty">
+            <strong>Loading contracts…</strong>
+          </div>
+        )}
+
+        {hydrated && list.length === 0 && (
+          <div className="card empty">
+            <strong>No contracts yet</strong>
+            <p>
+              {isBuyer
+                ? "A contract appears here once you lock a requirement and hire a developer."
+                : "A contract appears here once a buyer awards you a locked requirement."}
+            </p>
+            <Link to={isBuyer ? "/app/new" : "/app"}>
+              {isBuyer ? "Describe what you need" : "Find projects"}
+            </Link>
+          </div>
+        )}
+
+        {list.length > 0 && (
         <div className="card">
           <table>
             <thead>
@@ -87,6 +112,7 @@ export default function ContractsList() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </>
   );

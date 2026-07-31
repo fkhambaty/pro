@@ -1,28 +1,38 @@
+import { Link } from "react-router-dom";
 import { money } from "../../format";
 import { BIDDING_MEMBERSHIP_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 
 export default function Earnings() {
-  const { projects, developerAccount, name } = useStore();
+  const { projects, developerAccount, userId, loading, hydrated } = useStore();
 
-  const myContracts = projects.filter(
-    (project) => project.awardedTo && project.awardedTo === name
+  // Scope strictly to contracts this developer won. Never fall back to
+  // someone else's contracts to make the page look populated.
+  const myContracts = projects.filter((project) =>
+    project.bids.some(
+      (bid) =>
+        bid.status === "awarded" &&
+        (bid.developerId === userId || bid.developerId === "me")
+    )
   );
-  const demoContracts = myContracts.length > 0 ? myContracts : projects.filter((p) => p.awardedTo);
 
-  const released = demoContracts
+  const released = myContracts
     .flatMap((project) => project.milestones)
     .filter((milestone) => milestone.status === "released")
     .reduce((sum, milestone) => sum + milestone.amount, 0);
 
-  const pending = demoContracts
+  const pending = myContracts
     .flatMap((project) => project.milestones)
     .filter((milestone) => ["funded", "submitted"].includes(milestone.status))
     .reduce((sum, milestone) => sum + milestone.amount, 0);
 
-  const recurring = demoContracts.reduce(
+  const recurring = myContracts.reduce(
     (sum, project) => sum + project.monthlyOps,
     0
+  );
+
+  const payoutRows = myContracts.flatMap((project) =>
+    project.milestones.map((milestone) => ({ project, milestone }))
   );
 
   return (
@@ -56,21 +66,31 @@ export default function Earnings() {
           <div className="card-head">
             <h2>Payout history</h2>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Contract</th>
-                <th>Milestone</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {demoContracts
-                .flatMap((project) =>
-                  project.milestones.map((milestone) => ({ project, milestone }))
-                )
-                .map(({ project, milestone }) => (
+          {!hydrated && loading ? (
+            <div className="empty">
+              <strong>Loading payouts…</strong>
+            </div>
+          ) : payoutRows.length === 0 ? (
+            <div className="empty">
+              <strong>No payouts yet</strong>
+              <p>
+                Milestones appear here once a buyer awards you a contract and
+                funds the first milestone into escrow.
+              </p>
+              <Link to="/app">Find projects</Link>
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Contract</th>
+                  <th>Milestone</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payoutRows.map(({ project, milestone }) => (
                   <tr key={milestone.id}>
                     <td>{project.lockId ?? project.title}</td>
                     <td>{milestone.title}</td>
@@ -88,8 +108,9 @@ export default function Earnings() {
                     </td>
                   </tr>
                 ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="card card-pad" style={{ marginTop: "1rem" }}>

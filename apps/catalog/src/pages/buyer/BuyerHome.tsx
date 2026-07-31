@@ -3,9 +3,8 @@ import { money } from "../../format";
 import { useStore } from "../../store";
 
 export default function BuyerHome() {
-  const { projects, name } = useStore();
-  const mine = projects.filter((p) => p.ownedByMe || p.org === name);
-  const list = mine.length > 0 ? mine : projects.slice(0, 3);
+  const { myProjects, loading, hydrated } = useStore();
+  const list = myProjects;
 
   const totalBids = list.reduce((sum, p) => sum + p.bids.length, 0);
   const locked = list.filter((p) => p.stage !== "drafting").length;
@@ -50,6 +49,23 @@ export default function BuyerHome() {
             </Link>
           </div>
           <div style={{ padding: "1rem 1.25rem" }} className="stack-sm">
+            {!hydrated && loading && (
+              <p className="hint">Loading your requirements…</p>
+            )}
+
+            {hydrated && list.length === 0 && (
+              <div className="empty-inline">
+                <strong>You have not posted a requirement yet</strong>
+                <p>
+                  Describe what you need in plain language. We turn it into an
+                  agreement you sign before any developer sees it.
+                </p>
+                <Link className="btn btn-accent btn-sm" to="/app/new">
+                  Describe what you need
+                </Link>
+              </div>
+            )}
+
             {list.map((project) => (
               <Link
                 to={

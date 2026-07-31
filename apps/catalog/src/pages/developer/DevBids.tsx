@@ -3,11 +3,11 @@ import { money } from "../../format";
 import { useStore } from "../../store";
 
 export default function DevBids() {
-  const { projects, name } = useStore();
+  const { projects, userId } = useStore();
 
   const rows = projects.flatMap((project) =>
     project.bids
-      .filter((bid) => bid.developerId === "me" || bid.developerName === name)
+      .filter((bid) => bid.developerId === userId || bid.developerId === "me")
       .map((bid) => ({ project, bid }))
   );
 

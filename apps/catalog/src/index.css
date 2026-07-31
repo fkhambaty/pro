@@ -2610,6 +2610,23 @@ tbody tr:last-child td {
   margin-bottom: 0.35rem;
 }
 
+.empty-inline {
+  padding: 1.25rem 0 0.5rem;
+}
+
+.empty-inline strong {
+  display: block;
+  font-size: 0.9375rem;
+  margin-bottom: 0.3rem;
+}
+
+.empty-inline p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  max-width: 34rem;
+  margin-bottom: 0.9rem;
+}
+
 .footer {
   border-top: 1px solid var(--line);
   padding: 2rem 0;

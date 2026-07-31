@@ -3,7 +3,8 @@ import { REQUIREMENT_POSTING_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 
 export default function Payments() {
-  const { projects, postingFeesPaid } = useStore();
+  const { myProjects, postingFeesPaid } = useStore();
+  const projects = myProjects;
 
   const rows = projects.flatMap((project) =>
     project.milestones.map((milestone) => ({

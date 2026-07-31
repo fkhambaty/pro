@@ -15,6 +15,8 @@ export default function DevProject() {
   const [note, setNote] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   if (!project) {
     return (
@@ -33,18 +35,47 @@ export default function DevProject() {
   }
 
   const locked = project.stage !== "drafting";
-  const canBid = locked && developerAccount.membershipPaid;
+  const identityApproved = developerAccount.identityStatus === "approved";
+  const canBid = locked && developerAccount.membershipPaid && identityApproved;
   const readyToSubmit = canBid && accepted && amount.trim() !== "" && !submitted;
 
   async function submitBid() {
     if (!project) return;
-    await placeBid(project.id, {
-      amount: Number(amount) || 0,
-      monthlyOps: Number(monthly) || project.monthlyOps,
-      weeks: Number(weeks) || project.timelineWeeks,
+
+    const bidAmount = Number(amount);
+    if (!Number.isFinite(bidAmount) || bidAmount <= 0) {
+      setFormError("Enter a build price greater than zero.");
+      return;
+    }
+    const bidWeeks = weeks.trim() === "" ? project.timelineWeeks : Number(weeks);
+    if (!Number.isFinite(bidWeeks) || bidWeeks <= 0) {
+      setFormError("Delivery time must be a positive number of weeks.");
+      return;
+    }
+    const bidMonthly =
+      monthly.trim() === "" ? project.monthlyOps : Number(monthly);
+    if (!Number.isFinite(bidMonthly) || bidMonthly < 0) {
+      setFormError("Monthly running cost must be zero or more.");
+      return;
+    }
+
+    setFormError(null);
+    setBusy(true);
+    const ok = await placeBid(project.id, {
+      amount: bidAmount,
+      monthlyOps: bidMonthly,
+      weeks: bidWeeks,
       note: note || "Bid submitted against the locked requirement.",
     });
-    setSubmitted(true);
+    setBusy(false);
+
+    if (ok) {
+      setSubmitted(true);
+      return;
+    }
+    setFormError(
+      "Your bid was not accepted. Check the banner above for the reason, then try again."
+    );
   }
 
   return (
@@ -83,7 +114,22 @@ export default function DevProject() {
                 </div>
               )}
 
-              {locked && !developerAccount.membershipPaid && (
+              {locked && !identityApproved && (
+                <div className="paywall" style={{ marginBottom: "1rem" }}>
+                  <div>
+                    <strong>Verify your identity first</strong>
+                    <p>
+                      Buyers only see bids from developers Okavo has checked
+                      against a government ID.
+                    </p>
+                  </div>
+                  <Link className="btn btn-sm" to="/app/verification">
+                    Start verification
+                  </Link>
+                </div>
+              )}
+
+              {locked && identityApproved && !developerAccount.membershipPaid && (
                 <div className="paywall" style={{ marginBottom: "1rem" }}>
                   <div>
                     <strong>Pay $10 once to bid</strong>
@@ -160,13 +206,24 @@ export default function DevProject() {
                     I accept the locked scope as the definition of done
                   </label>
 
+                  {formError && (
+                    <div
+                      className="callout callout-warn"
+                      style={{ marginBottom: "1rem" }}
+                      role="alert"
+                    >
+                      <span>!</span>
+                      <span>{formError}</span>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     className="btn btn-block"
-                    disabled={!readyToSubmit}
+                    disabled={!readyToSubmit || busy}
                     onClick={submitBid}
                   >
-                    Submit bid
+                    {busy ? "Submitting…" : "Submit bid"}
                   </button>
                 </>
               )}
