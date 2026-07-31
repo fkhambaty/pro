@@ -1,5 +1,10 @@
 # Deploying Okavo
 
+**Live:** https://pro-catalog-nu.vercel.app
+**Vercel project:** `pro-catalog` (root directory `apps/catalog`)
+**Supabase project:** `fzgnzaflvbimbiseqnrz`
+
+
 The app is a static single-page build (Vite) talking directly to Supabase.
 There is no server to run, so any static host works. Config for Vercel lives in
 [vercel.json](../vercel.json); `apps/catalog/public/_redirects` covers Netlify

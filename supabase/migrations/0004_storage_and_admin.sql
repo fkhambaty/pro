@@ -64,9 +64,12 @@ create policy deliverables_read on storage.objects
 -- Admin review needs to update rows it does not own
 -- ---------------------------------------------------------------------------
 
--- The original policy used `for all ... with check (developer_id = auth.uid())`,
--- which blocks an admin from recording a decision. Split it by operation.
+-- The original policies used `for all ... with check (owner = auth.uid())`,
+-- which blocks an admin from recording a decision. Split them by operation.
 drop policy if exists verification_owner on identity_verifications;
+drop policy if exists verification_read on identity_verifications;
+drop policy if exists verification_insert on identity_verifications;
+drop policy if exists verification_review on identity_verifications;
 
 create policy verification_read on identity_verifications
   for select using (developer_id = auth.uid() or is_admin());
@@ -78,6 +81,9 @@ create policy verification_review on identity_verifications
   for update using (developer_id = auth.uid() or is_admin());
 
 drop policy if exists interview_owner on interview_assessments;
+drop policy if exists interview_read on interview_assessments;
+drop policy if exists interview_insert on interview_assessments;
+drop policy if exists interview_review on interview_assessments;
 
 create policy interview_read on interview_assessments
   for select using (developer_id = auth.uid() or is_admin());
@@ -90,6 +96,9 @@ create policy interview_review on interview_assessments
 
 -- Admins need to see every profile to run the review queue.
 drop policy if exists buyer_self on buyer_profiles;
+drop policy if exists buyer_read on buyer_profiles;
+drop policy if exists buyer_write on buyer_profiles;
+drop policy if exists buyer_update on buyer_profiles;
 
 create policy buyer_read on buyer_profiles
   for select using (profile_id = auth.uid() or is_admin());
@@ -102,12 +111,15 @@ create policy buyer_update on buyer_profiles
 
 -- Approving identity flips the developer's status, so admins can update it.
 drop policy if exists developer_self_write on developer_profiles;
+drop policy if exists developer_update on developer_profiles;
 
 create policy developer_update on developer_profiles
   for update using (profile_id = auth.uid() or is_admin());
 
 -- Admin oversight of money and contracts.
 drop policy if exists payments_owner on payments;
+drop policy if exists payments_read on payments;
+drop policy if exists payments_insert on payments;
 
 create policy payments_read on payments
   for select using (profile_id = auth.uid() or is_admin());

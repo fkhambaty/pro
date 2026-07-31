@@ -6,3 +6,4 @@ dist
 .env.*
 apps/*/.vite
 .vercel-token
+.supabase-token
