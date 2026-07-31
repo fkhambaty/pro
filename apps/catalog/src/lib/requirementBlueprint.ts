@@ -325,8 +325,8 @@ function traitsFromOutcome(outcome: string, categoryId: string): Trait {
 function firstSentence(outcome: string): string {
   const cleaned = outcome.trim().replace(/\s+/g, " ");
   if (!cleaned) return "";
-  const match = cleaned.match(/^(.{1,110?}[.!?])(?:\s|$)/);
-  if (match) return match[1];
+  const match = cleaned.match(/^[^.!?]+[.!?]/);
+  if (match) return match[0].trim();
   return cleaned.length > 110 ? `${cleaned.slice(0, 107)}…` : cleaned;
 }
 
