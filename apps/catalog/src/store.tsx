@@ -2,10 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import * as api from "./lib/api";
+import { useAuth } from "./lib/auth";
+import { BIDDING_MEMBERSHIP_CENTS, isSupabaseConfigured } from "./lib/supabase";
 import {
   NEW_DEVELOPER_ACCOUNT,
   NOTIFICATIONS,
@@ -26,22 +30,39 @@ import type {
   Thread,
 } from "./types";
 
+type NewProjectInput = {
+  title: string;
+  category: string;
+  outcome: string;
+  budgetMin: number;
+  budgetMax: number;
+  monthlyOps: number;
+  timelineWeeks: number;
+  scale: Project["scale"];
+  scope: ScopeItem[];
+};
+
 type StoreValue = {
   role: Role;
   name: string;
+  connected: boolean;
+  loading: boolean;
+  error: string | null;
   projects: Project[];
   threads: Thread[];
   notifications: AppNotification[];
   developerAccount: DeveloperAccount;
 
-  signIn: (role: Role, name: string) => void;
   signOut: () => void;
+  refresh: () => Promise<void>;
 
-  addProject: (project: Project) => void;
-  updateScope: (projectId: string, scope: ScopeItem[]) => void;
-  lockProject: (projectId: string) => void;
+  createProject: (input: NewProjectInput) => Promise<string>;
+  lockProject: (projectId: string) => Promise<void>;
 
-  placeBid: (projectId: string, bid: Bid) => void;
+  placeBid: (
+    projectId: string,
+    input: { amount: number; monthlyOps: number; weeks: number; note: string }
+  ) => Promise<void>;
   setBidStatus: (projectId: string, bidId: string, status: Bid["status"]) => void;
   awardBid: (projectId: string, bidId: string) => void;
 
@@ -142,14 +163,58 @@ function defaultMilestones(total: number): Milestone[] {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role>("guest");
-  const [name, setName] = useState("");
+  const auth = useAuth();
+  const live = isSupabaseConfigured && Boolean(auth.userId);
+
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
   const [threads, setThreads] = useState<Thread[]>(THREADS);
   const [notifications, setNotifications] =
     useState<AppNotification[]>(NOTIFICATIONS);
   const [developerAccount, setDeveloperAccount] = useState<DeveloperAccount>(
     NEW_DEVELOPER_ACCOUNT
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!live || !auth.userId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [nextProjects, nextThreads, nextNotifications] = await Promise.all([
+        api.fetchProjects(auth.userId),
+        api.fetchThreads(auth.userId),
+        api.fetchNotifications(auth.userId),
+      ]);
+      setProjects(nextProjects);
+      setThreads(nextThreads);
+      setNotifications(nextNotifications);
+
+      if (auth.role === "developer") {
+        setDeveloperAccount(await api.fetchDeveloperAccount(auth.userId));
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
+    }
+  }, [live, auth.userId, auth.role]);
+
+  useEffect(() => {
+    if (live) refresh();
+  }, [live, refresh]);
+
+  const run = useCallback(
+    async (action: () => Promise<void>) => {
+      setError(null);
+      try {
+        await action();
+        await refresh();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
+    [refresh]
   );
 
   const patchProject = useCallback(
@@ -168,38 +233,75 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
-  const signIn = useCallback((nextRole: Role, nextName: string) => {
-    setRole(nextRole);
-    setName(nextName);
-  }, []);
+  const createProject = useCallback(
+    async (input: NewProjectInput) => {
+      if (live && auth.userId) {
+        try {
+          const id = await api.createProject(auth.userId, input);
+          await refresh();
+          return id;
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+          return "";
+        }
+      }
 
-  const signOut = useCallback(() => {
-    setRole("guest");
-    setName("");
-  }, []);
-
-  const addProject = useCallback((project: Project) => {
-    setProjects((prev) => [project, ...prev]);
-  }, []);
-
-  const updateScope = useCallback(
-    (projectId: string, scope: ScopeItem[]) => {
-      patchProject(projectId, (project) => ({ ...project, scope }));
+      const id = `new-${Date.now()}`;
+      setProjects((prev) => [
+        {
+          id,
+          title: input.title,
+          org: auth.displayName || "My business",
+          scale: input.scale,
+          category: input.category,
+          outcome: input.outcome,
+          budgetMin: input.budgetMin,
+          budgetMax: input.budgetMax,
+          monthlyOps: input.monthlyOps,
+          timelineWeeks: input.timelineWeeks,
+          skills: [input.category],
+          scope: input.scope,
+          stage: "drafting",
+          postedAgo: "Just now",
+          warrantyDays: 30,
+          bids: [],
+          milestones: [],
+          changeOrders: [],
+          versions: [],
+          reviews: [],
+          ownedByMe: true,
+        },
+        ...prev,
+      ]);
+      return id;
     },
-    [patchProject]
+    [live, auth.userId, auth.displayName, refresh]
   );
 
   const lockProject = useCallback(
-    (projectId: string) => {
-      patchProject(projectId, (project) => ({
-        ...project,
+    async (projectId: string) => {
+      const project = projects.find((item) => item.id === projectId);
+      if (live && auth.userId && project) {
+        await run(() =>
+          api.lockProject(
+            projectId,
+            auth.userId as string,
+            project.monthlyOps,
+            project.timelineWeeks
+          )
+        );
+        return;
+      }
+
+      patchProject(projectId, (item) => ({
+        ...item,
         stage: "locked",
         lockedAt: today(),
-        lockId: project.lockId ?? makeLockId(),
+        lockId: item.lockId ?? makeLockId(),
         versions: [
-          ...project.versions,
+          ...item.versions,
           {
-            version: project.versions.length + 1,
+            version: item.versions.length + 1,
             reason: "Requirement locked",
             createdAt: today(),
           },
@@ -214,29 +316,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: today(),
       });
     },
-    [patchProject, notify]
+    [live, auth.userId, projects, run, patchProject, notify]
   );
 
   const placeBid = useCallback(
-    (projectId: string, bid: Bid) => {
+    async (
+      projectId: string,
+      input: { amount: number; monthlyOps: number; weeks: number; note: string }
+    ) => {
+      if (live && auth.userId) {
+        await run(() => api.placeBid(projectId, auth.userId as string, input));
+        return;
+      }
+
+      const bid: Bid = {
+        id: `bid-${Date.now()}`,
+        developerId: "me",
+        developerName: auth.displayName || "You",
+        country: "Remote",
+        tier: developerAccount.tier,
+        amount: input.amount,
+        monthlyOps: input.monthlyOps,
+        weeks: input.weeks,
+        note: input.note,
+        status: "submitted",
+        submittedAt: today(),
+      };
       patchProject(projectId, (project) => ({
         ...project,
         bids: [bid, ...project.bids],
       }));
-      notify({
-        kind: "bid",
-        title: "Bid submitted",
-        body: `Your bid was sent against the locked scope.`,
-        link: `/app/project/${projectId}`,
-        read: false,
-        createdAt: today(),
-      });
     },
-    [patchProject, notify]
+    [live, auth.userId, auth.displayName, developerAccount.tier, run, patchProject]
   );
 
   const setBidStatus = useCallback(
     (projectId: string, bidId: string, status: Bid["status"]) => {
+      if (live) {
+        void run(() => api.setBidStatus(bidId, status));
+        return;
+      }
       patchProject(projectId, (project) => ({
         ...project,
         bids: project.bids.map((bid) =>
@@ -244,37 +363,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
     },
-    [patchProject]
+    [live, run, patchProject]
   );
 
   const awardBid = useCallback(
     (projectId: string, bidId: string) => {
-      patchProject(projectId, (project) => {
-        const winner = project.bids.find((bid) => bid.id === bidId);
-        if (!winner) return project;
-        return {
-          ...project,
-          stage: "in_delivery",
-          awardedTo: winner.developerName,
-          bids: project.bids.map((bid) => ({
-            ...bid,
-            status:
-              bid.id === bidId ? "awarded" : bid.status === "awarded" ? "declined" : bid.status,
-          })),
-          milestones:
-            project.milestones.length > 0
-              ? project.milestones
-              : defaultMilestones(winner.amount),
-          versions: [
-            ...project.versions,
-            {
-              version: project.versions.length + 1,
-              reason: `Countersigned by ${winner.developerName}`,
-              createdAt: today(),
-            },
-          ],
-        };
-      });
+      const project = projects.find((item) => item.id === projectId);
+      const winner = project?.bids.find((bid) => bid.id === bidId);
+      if (live && winner) {
+        void run(() => api.awardBid(projectId, bidId, winner.amount));
+        return;
+      }
+      if (!winner) return;
+
+      patchProject(projectId, (item) => ({
+        ...item,
+        stage: "in_delivery",
+        awardedTo: winner.developerName,
+        bids: item.bids.map((bid) => ({
+          ...bid,
+          status:
+            bid.id === bidId
+              ? "awarded"
+              : bid.status === "awarded"
+                ? "declined"
+                : bid.status,
+        })),
+        milestones:
+          item.milestones.length > 0
+            ? item.milestones
+            : defaultMilestones(winner.amount),
+        versions: [
+          ...item.versions,
+          {
+            version: item.versions.length + 1,
+            reason: `Countersigned by ${winner.developerName}`,
+            createdAt: today(),
+          },
+        ],
+      }));
       notify({
         kind: "contract",
         title: "Contract awarded",
@@ -284,10 +411,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: today(),
       });
     },
-    [patchProject, notify]
+    [live, projects, run, patchProject, notify]
   );
 
   const payMembership = useCallback(() => {
+    if (live && auth.userId) {
+      void run(() =>
+        api.payMembership(auth.userId as string, BIDDING_MEMBERSHIP_CENTS)
+      );
+      return;
+    }
     setDeveloperAccount((prev) => ({
       ...prev,
       membershipPaid: true,
@@ -296,19 +429,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     notify({
       kind: "payment",
       title: "Bidding activated",
-      body: "Your $10 one-time membership is paid. You can bid on locked projects.",
+      body: "Your $10 one-time membership is paid.",
       link: "/app",
       read: false,
       createdAt: today(),
     });
-  }, [notify]);
+  }, [live, auth.userId, run, notify]);
 
   const submitInterview = useCallback(() => {
+    if (live && auth.userId) {
+      void run(() => api.submitInterview(auth.userId as string));
+      return;
+    }
     setDeveloperAccount((prev) => ({ ...prev, interviewStatus: "approved" }));
-  }, []);
+  }, [live, auth.userId, run]);
 
   const fundMilestone = useCallback(
     (projectId: string, milestoneId: string) => {
+      if (live) {
+        void run(() => api.fundMilestone(milestoneId));
+        return;
+      }
       patchProject(projectId, (project) => ({
         ...project,
         milestones: project.milestones.map((milestone) =>
@@ -318,7 +459,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
     },
-    [patchProject]
+    [live, run, patchProject]
   );
 
   const submitMilestone = useCallback(
@@ -328,6 +469,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       summary: string,
       previewUrl: string
     ) => {
+      if (live && auth.userId) {
+        void run(() =>
+          api.submitMilestone(
+            milestoneId,
+            auth.userId as string,
+            summary,
+            previewUrl
+          )
+        );
+        return;
+      }
       patchProject(projectId, (project) => ({
         ...project,
         milestones: project.milestones.map((milestone) =>
@@ -335,29 +487,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? {
                 ...milestone,
                 status: "submitted",
-                deliverable: {
-                  summary,
-                  previewUrl,
-                  submittedAt: today(),
-                },
+                deliverable: { summary, previewUrl, submittedAt: today() },
               }
             : milestone
         ),
       }));
-      notify({
-        kind: "milestone",
-        title: "Milestone submitted",
-        body: "Waiting for the buyer to check it against the locked scope.",
-        link: `/app/contract/${projectId}`,
-        read: false,
-        createdAt: today(),
-      });
     },
-    [patchProject, notify]
+    [live, auth.userId, run, patchProject]
   );
 
   const acceptMilestone = useCallback(
     (projectId: string, milestoneId: string) => {
+      if (live) {
+        void run(() => api.acceptMilestone(milestoneId));
+        return;
+      }
       patchProject(projectId, (project) => {
         const milestones = project.milestones.map((milestone) =>
           milestone.id === milestoneId
@@ -371,16 +515,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           stage: allDone ? "delivered" : project.stage,
         };
       });
-      notify({
-        kind: "payment",
-        title: "Payment released",
-        body: "Escrow released for the accepted milestone.",
-        link: `/app/contract/${projectId}`,
-        read: false,
-        createdAt: today(),
-      });
     },
-    [patchProject, notify]
+    [live, run, patchProject]
   );
 
   const createChangeOrder = useCallback(
@@ -388,6 +524,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       projectId: string,
       input: { title: string; description: string; raisedBy: "buyer" | "developer" }
     ) => {
+      if (live && auth.userId) {
+        void run(() =>
+          api.createChangeOrder(
+            projectId,
+            auth.userId as string,
+            input.title,
+            input.description
+          )
+        );
+        return;
+      }
       const changeOrder: ChangeOrder = {
         id: `co-${Date.now()}`,
         title: input.title,
@@ -401,16 +548,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...project,
         changeOrders: [changeOrder, ...project.changeOrders],
       }));
-      notify({
-        kind: "change_order",
-        title: "Change order raised",
-        body: `${input.title} — awaiting a price.`,
-        link: `/app/contract/${projectId}`,
-        read: false,
-        createdAt: today(),
-      });
     },
-    [patchProject, notify]
+    [live, auth.userId, run, patchProject]
   );
 
   const priceChangeOrder = useCallback(
@@ -420,6 +559,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       amount: number,
       addedWeeks: number
     ) => {
+      if (live) {
+        void run(() => api.priceChangeOrder(changeOrderId, amount, addedWeeks));
+        return;
+      }
       patchProject(projectId, (project) => ({
         ...project,
         changeOrders: project.changeOrders.map((order) =>
@@ -429,21 +572,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
     },
-    [patchProject]
+    [live, run, patchProject]
   );
 
   const decideChangeOrder = useCallback(
     (projectId: string, changeOrderId: string, accepted: boolean) => {
+      if (live) {
+        void run(() => api.decideChangeOrder(projectId, changeOrderId, accepted));
+        return;
+      }
       patchProject(projectId, (project) => {
         const order = project.changeOrders.find((c) => c.id === changeOrderId);
         const changeOrders = project.changeOrders.map((c) =>
           c.id === changeOrderId
-            ? { ...c, status: accepted ? ("accepted" as const) : ("declined" as const) }
+            ? {
+                ...c,
+                status: accepted ? ("accepted" as const) : ("declined" as const),
+              }
             : c
         );
-        if (!accepted || !order) {
-          return { ...project, changeOrders };
-        }
+        if (!accepted || !order) return { ...project, changeOrders };
         return {
           ...project,
           changeOrders,
@@ -468,11 +616,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         };
       });
     },
-    [patchProject]
+    [live, run, patchProject]
   );
 
   const raiseDispute = useCallback(
     (projectId: string, reason: string, raisedBy: "buyer" | "developer") => {
+      if (live && auth.userId) {
+        void run(() => api.raiseDispute(projectId, auth.userId as string, reason));
+        return;
+      }
       const dispute: Dispute = {
         id: `dp-${Date.now()}`,
         reason,
@@ -481,38 +633,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: today(),
       };
       patchProject(projectId, (project) => ({ ...project, dispute }));
-      notify({
-        kind: "contract",
-        title: "Dispute opened",
-        body: "Forma review has been notified. Escrow is held until resolution.",
-        link: `/app/contract/${projectId}`,
-        read: false,
-        createdAt: today(),
-      });
     },
-    [patchProject, notify]
+    [live, auth.userId, run, patchProject]
   );
 
   const resolveDispute = useCallback(
     (projectId: string, note: string) => {
-      patchProject(projectId, (project) =>
-        project.dispute
+      const project = projects.find((item) => item.id === projectId);
+      if (live && project?.dispute) {
+        void run(() => api.resolveDispute(project.dispute!.id, note));
+        return;
+      }
+      patchProject(projectId, (item) =>
+        item.dispute
           ? {
-              ...project,
-              dispute: {
-                ...project.dispute,
-                status: "resolved",
-                resolutionNote: note,
-              },
+              ...item,
+              dispute: { ...item.dispute, status: "resolved", resolutionNote: note },
             }
-          : project
+          : item
       );
     },
-    [patchProject]
+    [live, projects, run, patchProject]
   );
 
   const leaveReview = useCallback(
     (projectId: string, review: Omit<Review, "id" | "createdAt">) => {
+      if (live && auth.userId) {
+        void run(() =>
+          api.leaveReview(projectId, auth.userId as string, {
+            rating: review.rating,
+            matchedExpectation: review.matchedExpectation,
+            comment: review.comment,
+          })
+        );
+        return;
+      }
       patchProject(projectId, (project) => ({
         ...project,
         stage: "closed",
@@ -522,11 +677,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ],
       }));
     },
-    [patchProject]
+    [live, auth.userId, run, patchProject]
   );
 
   const sendMessage = useCallback(
     (threadId: string, body: string) => {
+      if (live && auth.userId) {
+        void run(() => api.sendMessage(threadId, auth.userId as string, body));
+        return;
+      }
       setThreads((prev) =>
         prev.map((thread) =>
           thread.id === threadId
@@ -536,8 +695,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   ...thread.messages,
                   {
                     id: `msg-${Date.now()}`,
-                    from: role === "buyer" ? "buyer" : "developer",
-                    authorName: name || "You",
+                    from: auth.role === "buyer" ? "buyer" : "developer",
+                    authorName: auth.displayName || "You",
                     body,
                     sentAt: timestamp(),
                   },
@@ -547,25 +706,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
       );
     },
-    [role, name]
+    [live, auth.userId, auth.role, auth.displayName, run]
   );
 
   const markAllNotificationsRead = useCallback(() => {
+    if (live && auth.userId) {
+      void run(() => api.markNotificationsRead(auth.userId as string));
+      return;
+    }
     setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
-  }, []);
+  }, [live, auth.userId, run]);
 
   const value = useMemo(
     () => ({
-      role,
-      name,
+      role: auth.role,
+      name: auth.displayName,
+      connected: isSupabaseConfigured,
+      loading,
+      error,
       projects,
       threads,
       notifications,
       developerAccount,
-      signIn,
-      signOut,
-      addProject,
-      updateScope,
+      signOut: auth.signOut,
+      refresh,
+      createProject,
       lockProject,
       placeBid,
       setBidStatus,
@@ -585,16 +750,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markAllNotificationsRead,
     }),
     [
-      role,
-      name,
+      auth.role,
+      auth.displayName,
+      auth.signOut,
+      loading,
+      error,
       projects,
       threads,
       notifications,
       developerAccount,
-      signIn,
-      signOut,
-      addProject,
-      updateScope,
+      refresh,
+      createProject,
       lockProject,
       placeBid,
       setBidStatus,

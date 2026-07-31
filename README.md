@@ -78,6 +78,12 @@ unlocks bidding. Swap the demo checkout for Stripe before launch.
 Schema, policies, triggers and seed data live in [supabase/](supabase/). See
 [supabase/README.md](supabase/README.md) for setup.
 
+Sign-in uses Supabase Auth (email and password). The role you pick at sign-up is
+stored in user metadata, and the `profiles` plus `buyer_profiles` or
+`developer_profiles` rows are created on first authenticated load. When the
+environment variables are missing, the app falls back to demo data and a role
+picker, so a fresh clone still runs.
+
 Tables cover profiles, buyer and developer profiles, skills, identity
 verifications, interview assessments, payments, projects, scope items,
 contracts, immutable contract versions, bids, milestones, deliverables, change

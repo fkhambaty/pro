@@ -16,10 +16,18 @@ import DevBoard from "./pages/developer/DevBoard";
 import DevProject from "./pages/developer/DevProject";
 import Earnings from "./pages/developer/Earnings";
 import Verification from "./pages/developer/Verification";
+import { useAuth } from "./lib/auth";
 import { useStore } from "./store";
 
 function RequireAuth({ children }: { children: ReactElement }) {
-  const { role } = useStore();
+  const { role, ready } = useAuth();
+  if (!ready) {
+    return (
+      <div className="auth-screen">
+        <p style={{ color: "var(--muted)" }}>Loading your workspace…</p>
+      </div>
+    );
+  }
   if (role === "guest") return <Navigate to="/signin" replace />;
   return children;
 }

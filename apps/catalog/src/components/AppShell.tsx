@@ -22,8 +22,17 @@ const DEV_NAV = [
 ];
 
 export default function AppShell() {
-  const { role, name, signOut, projects, notifications, developerAccount } =
-    useStore();
+  const {
+    role,
+    name,
+    signOut,
+    projects,
+    notifications,
+    developerAccount,
+    connected,
+    loading,
+    error,
+  } = useStore();
   const navigate = useNavigate();
   const isBuyer = role === "buyer";
   const nav = isBuyer ? BUYER_NAV : DEV_NAV;
@@ -72,6 +81,14 @@ export default function AppShell() {
         </nav>
 
         <div className="side-foot">
+          <div className="conn">
+            <span className={connected ? "conn-dot live" : "conn-dot"} />
+            {connected
+              ? loading
+                ? "Syncing with Supabase"
+                : "Live database"
+              : "Demo data"}
+          </div>
           {!isBuyer && !developerAccount.membershipPaid && (
             <div
               style={{
@@ -109,6 +126,12 @@ export default function AppShell() {
       </aside>
 
       <div className="main">
+        {error && (
+          <div className="db-error">
+            <strong>Database error</strong>
+            <span>{error}</span>
+          </div>
+        )}
         <Outlet />
       </div>
     </div>

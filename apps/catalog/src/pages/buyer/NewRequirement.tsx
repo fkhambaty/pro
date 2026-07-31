@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { CATEGORY_OPTIONS, MUST_HAVES, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
 import { useStore } from "../../store";
-import type { BuyerScale, Project, ScopeItem } from "../../types";
+import type { BuyerScale, ScopeItem } from "../../types";
 
 const STEP_COUNT = 5;
 
 export default function NewRequirement() {
   const navigate = useNavigate();
-  const { addProject, name } = useStore();
+  const { createProject } = useStore();
+  const [saving, setSaving] = useState(false);
 
   const [step, setStep] = useState(1);
   const [scale, setScale] = useState<BuyerScale>("Local business");
@@ -64,12 +65,10 @@ export default function NewRequirement() {
     setStep((s) => Math.min(STEP_COUNT, s + 1));
   }
 
-  function publish() {
-    const project: Project = {
-      id: `new-${Date.now()}`,
+  async function publish() {
+    setSaving(true);
+    const id = await createProject({
       title: outcome.slice(0, 60) || `${categoryLabel} project`,
-      org: name || "My business",
-      scale,
       category: categoryLabel,
       outcome:
         outcome ||
@@ -78,20 +77,11 @@ export default function NewRequirement() {
       budgetMax: Number(budgetMax) || 0,
       monthlyOps: Number(monthly) || 0,
       timelineWeeks: Number(weeks) || 6,
-      skills: [categoryLabel],
+      scale,
       scope: scopeDraft,
-      stage: "drafting",
-      postedAgo: "Just now",
-      warrantyDays: 30,
-      bids: [],
-      milestones: [],
-      changeOrders: [],
-      versions: [],
-      reviews: [],
-      ownedByMe: true,
-    };
-    addProject(project);
-    navigate(`/app/project/${project.id}`);
+    });
+    setSaving(false);
+    if (id) navigate(`/app/project/${id}`);
   }
 
   return (
@@ -322,8 +312,13 @@ export default function NewRequirement() {
                 Continue
               </button>
             ) : (
-              <button type="button" className="btn" onClick={publish}>
-                Create draft contract
+              <button
+                type="button"
+                className="btn"
+                onClick={publish}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Create draft contract"}
               </button>
             )}
           </div>

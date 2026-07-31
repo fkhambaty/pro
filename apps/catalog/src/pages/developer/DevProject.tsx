@@ -3,11 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import ContractPanel from "../../components/ContractPanel";
 import { money } from "../../format";
 import { useStore } from "../../store";
-import type { Bid } from "../../types";
 
 export default function DevProject() {
   const { id } = useParams();
-  const { projects, placeBid, name, developerAccount } = useStore();
+  const { projects, placeBid, developerAccount } = useStore();
   const project = projects.find((p) => p.id === id);
 
   const [amount, setAmount] = useState("");
@@ -37,26 +36,14 @@ export default function DevProject() {
   const canBid = locked && developerAccount.membershipPaid;
   const readyToSubmit = canBid && accepted && amount.trim() !== "" && !submitted;
 
-  function submitBid() {
+  async function submitBid() {
     if (!project) return;
-    const bid: Bid = {
-      id: `bid-${Date.now()}`,
-      developerId: "me",
-      developerName: name || "You",
-      country: "Remote",
-      tier: developerAccount.tier,
+    await placeBid(project.id, {
       amount: Number(amount) || 0,
       monthlyOps: Number(monthly) || project.monthlyOps,
       weeks: Number(weeks) || project.timelineWeeks,
       note: note || "Bid submitted against the locked requirement.",
-      status: "submitted",
-      submittedAt: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-    };
-    placeBid(project.id, bid);
+    });
     setSubmitted(true);
   }
 

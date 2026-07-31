@@ -28,7 +28,16 @@ supabase db push
 
 Or paste `migrations/0001_schema.sql` into the SQL editor.
 
-## 3. Seed
+## 3. Authentication settings
+
+The app uses Supabase Auth with email and password. Sign-up writes the role into
+user metadata, and the profile rows are created on the first authenticated load
+(so it still works when email confirmation is enabled).
+
+While testing, turn off **Authentication → Sign In / Providers → Confirm email**
+so a new account can sign in immediately. Turn it back on before launch.
+
+## 4. Seed
 
 `seed.sql` inserts skills, three buyers, five developers, three locked projects
 with scope, and their bids.

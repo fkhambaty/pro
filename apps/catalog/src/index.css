@@ -1577,6 +1577,70 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
+/* ---------- auth tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: var(--shadow);
+}
+
+/* ---------- connection state ---------- */
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  color: var(--faint);
+  padding: 0 0.5rem 0.5rem;
+}
+
+.conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.conn-dot.live {
+  background: #3ecf8e;
+}
+
+.db-error {
+  background: var(--danger-soft);
+  border-bottom: 1px solid #f3c8c5;
+  color: var(--danger);
+  padding: 0.75rem 1.75rem;
+  font-size: 0.8125rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.db-error strong {
+  flex-shrink: 0;
+}
+
 .empty {
   text-align: center;
   padding: 3rem 1.5rem;
