@@ -66,6 +66,34 @@ custom SMTP is configured. In Auth → SMTP Settings use GoDaddy mailbox SMTP:
 After SMTP is live, raise the email rate limit and brand the confirmation /
 OTP templates to mention `support@okavo.org`.
 
+## Payments (Stripe)
+
+Money is never written by the browser. `stripe-checkout` opens a Checkout
+session and `stripe-webhook` is the only thing that marks a payment paid, so
+the `payments` table has a read-only policy for signed-in users.
+
+Set these Supabase function secrets:
+
+| Secret | Where it comes from |
+|--------|---------------------|
+| `STRIPE_SECRET_KEY` | Stripe → Developers → API keys (`sk_live_…` / `sk_test_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks → signing secret (`whsec_…`) |
+| `SITE_URL` | `https://okavo.org` |
+
+```bash
+supabase secrets set --project-ref fzgnzaflvbimbiseqnrz \
+  STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+In Stripe, add one webhook endpoint pointing at
+`https://fzgnzaflvbimbiseqnrz.supabase.co/functions/v1/stripe-webhook`
+subscribed to `checkout.session.completed` and
+`checkout.session.async_payment_succeeded`.
+
+Prices live in `supabase/functions/stripe-checkout/index.ts`, never in the
+client: $1 posting fee, $10 bidding membership, and milestone escrow read from
+the locked contract.
+
 ## 3. Storage buckets
 
 Create three **private** buckets: `identity-documents`,
