@@ -598,6 +598,59 @@ export async function countPostingFees(profileId: string) {
   return count ?? 0;
 }
 
+export type IdentitySubmission = {
+  documentType: string;
+  documentCountry: string;
+  document: File;
+  selfie: File | null;
+};
+
+/**
+ * Uploads identity documents to a private bucket and opens a review record.
+ * Objects are filed under the developer's own id, which is what the storage
+ * policy authorises against.
+ */
+export async function submitIdentity(
+  profileId: string,
+  input: IdentitySubmission
+) {
+  const client = db();
+  const stamp = Date.now();
+  const extension = input.document.name.split(".").pop() ?? "bin";
+  const documentPath = `${profileId}/${stamp}-document.${extension}`;
+
+  const { error: uploadError } = await client.storage
+    .from("identity-documents")
+    .upload(documentPath, input.document, { upsert: false });
+  if (uploadError) throw uploadError;
+
+  let selfiePath: string | null = null;
+  if (input.selfie) {
+    const selfieExtension = input.selfie.name.split(".").pop() ?? "bin";
+    selfiePath = `${profileId}/${stamp}-selfie.${selfieExtension}`;
+    const { error: selfieError } = await client.storage
+      .from("identity-documents")
+      .upload(selfiePath, input.selfie, { upsert: false });
+    if (selfieError) throw selfieError;
+  }
+
+  const { error } = await client.from("identity_verifications").insert({
+    developer_id: profileId,
+    status: "submitted",
+    document_type: input.documentType,
+    document_country: input.documentCountry,
+    document_storage_path: documentPath,
+    selfie_storage_path: selfiePath,
+  });
+  if (error) throw error;
+
+  const { error: statusError } = await client
+    .from("developer_profiles")
+    .update({ identity_status: "submitted" })
+    .eq("profile_id", profileId);
+  if (statusError) throw statusError;
+}
+
 export async function submitInterview(profileId: string) {
   const { error } = await db()
     .from("developer_profiles")
@@ -829,6 +882,154 @@ export async function sendMessage(
     .from("message_threads")
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", threadId);
+}
+
+/* ---------------------------------------------------------------- admin -- */
+
+export type ReviewItem = {
+  id: string;
+  developerId: string;
+  developerName: string;
+  country: string;
+  documentType: string;
+  documentCountry: string;
+  documentPath: string;
+  selfiePath: string | null;
+  status: string;
+  submittedAt: string;
+};
+
+export async function fetchVerificationQueue(): Promise<ReviewItem[]> {
+  const { data, error } = await db()
+    .from("identity_verifications")
+    .select(
+      "id, developer_id, status, document_type, document_country, document_storage_path, selfie_storage_path, created_at, developer_profiles ( profiles ( full_name, country_code ) )"
+    )
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => {
+    const profile = one<any>(one<any>(row.developer_profiles)?.profiles);
+    return {
+      id: row.id,
+      developerId: row.developer_id,
+      developerName: profile?.full_name ?? "Developer",
+      country: profile?.country_code ?? "—",
+      documentType: row.document_type,
+      documentCountry: row.document_country,
+      documentPath: row.document_storage_path,
+      selfiePath: row.selfie_storage_path,
+      status: row.status,
+      submittedAt: formatDate(row.created_at),
+    };
+  });
+}
+
+/** Signed URLs let an admin view a private document without making it public. */
+export async function signedDocumentUrl(path: string) {
+  const { data, error } = await db()
+    .storage.from("identity-documents")
+    .createSignedUrl(path, 300);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function decideVerification(
+  verificationId: string,
+  developerId: string,
+  approved: boolean,
+  reason?: string
+) {
+  const { error } = await db()
+    .from("identity_verifications")
+    .update({
+      status: approved ? "approved" : "rejected",
+      rejection_reason: approved ? null : (reason ?? "Not legible"),
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", verificationId);
+  if (error) throw error;
+
+  const { error: profileError } = await db()
+    .from("developer_profiles")
+    .update({
+      identity_status: approved ? "approved" : "rejected",
+      tier: approved ? "verified" : "applicant",
+    })
+    .eq("profile_id", developerId);
+  if (profileError) throw profileError;
+}
+
+export type PlatformInsights = {
+  buyers: number;
+  developers: number;
+  verifiedDevelopers: number;
+  projects: number;
+  lockedProjects: number;
+  bids: number;
+  feesCollectedCents: number;
+  escrowCents: number;
+  pendingReviews: number;
+};
+
+export async function fetchInsights(): Promise<PlatformInsights> {
+  const client = db();
+
+  const countOf = async (
+    table: string,
+    filter?: (query: any) => any
+  ): Promise<number> => {
+    let query = client.from(table).select("*", { count: "exact", head: true });
+    if (filter) query = filter(query);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
+  };
+
+  const [buyers, developers, verifiedDevelopers, projects, lockedProjects, bids, pendingReviews] =
+    await Promise.all([
+      countOf("buyer_profiles"),
+      countOf("developer_profiles"),
+      countOf("developer_profiles", (q) => q.eq("identity_status", "approved")),
+      countOf("projects"),
+      countOf("projects", (q) => q.neq("stage", "drafting")),
+      countOf("bids"),
+      countOf("identity_verifications", (q) => q.eq("status", "submitted")),
+    ]);
+
+  const { data: fees } = await client
+    .from("payments")
+    .select("amount_cents, purpose, status");
+
+  const feesCollectedCents = (fees ?? [])
+    .filter(
+      (row: any) =>
+        row.status === "paid" &&
+        ["bidding_membership", "requirement_posting", "platform_fee"].includes(
+          row.purpose
+        )
+    )
+    .reduce((sum: number, row: any) => sum + row.amount_cents, 0);
+
+  const { data: milestones } = await client
+    .from("milestones")
+    .select("amount_cents, status");
+
+  const escrowCents = (milestones ?? [])
+    .filter((row: any) => ["funded", "submitted"].includes(row.status))
+    .reduce((sum: number, row: any) => sum + row.amount_cents, 0);
+
+  return {
+    buyers,
+    developers,
+    verifiedDevelopers,
+    projects,
+    lockedProjects,
+    bids,
+    feesCollectedCents,
+    escrowCents,
+    pendingReviews,
+  };
 }
 
 export async function markNotificationsRead(userId: string) {

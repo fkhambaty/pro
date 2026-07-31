@@ -27,11 +27,13 @@ type AuthValue = {
   email: string | null;
   role: Role;
   displayName: string;
+  emailVerified: boolean;
   error: string | null;
   notice: string | null;
   signUp: (input: SignUpInput) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
   demoSignIn: (role: Exclude<Role, "guest">, name: string) => void;
   clearMessages: () => void;
 };
@@ -62,8 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
     const { user } = activeSession;
     const meta = user.user_metadata ?? {};
+    const metaRole = meta.role;
     const desiredRole: Exclude<Role, "guest"> =
-      meta.role === "developer" ? "developer" : "buyer";
+      metaRole === "developer" || metaRole === "admin" ? metaRole : "buyer";
     const fullName = (meta.full_name as string) || user.email || "Okavo user";
 
     const { data: existing, error: readError } = await supabase
@@ -96,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             (meta.organization_name as string) || fullName,
           scale: (meta.scale as string) || "local_business",
         });
-      } else {
+      } else if (desiredRole === "developer") {
         await supabase.from("developer_profiles").insert({
           profile_id: user.id,
           headline: "",
@@ -109,7 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setRole(existing.role === "developer" ? "developer" : "buyer");
+    const storedRole = existing.role;
+    setRole(
+      storedRole === "developer" || storedRole === "admin" ? storedRole : "buyer"
+    );
     setDisplayName(existing.full_name);
   }, []);
 
@@ -165,9 +171,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!data.session) {
       setNotice(
-        "Account created. Check your inbox to confirm the address, then sign in."
+        `We sent a verification link to ${input.email}. Confirm the address, then sign in.`
       );
     }
+  }, []);
+
+  const resendVerification = useCallback(async (email: string) => {
+    setError(null);
+    setNotice(null);
+    if (!supabase) return;
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email,
+    });
+    if (resendError) {
+      setError(resendError.message);
+      return;
+    }
+    setNotice(`Verification link sent again to ${email}.`);
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
@@ -208,11 +229,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: session?.user.email ?? null,
       role,
       displayName,
+      emailVerified: Boolean(
+        session?.user.email_confirmed_at ?? session?.user.confirmed_at
+      ),
       error,
       notice,
       signUp,
       signIn,
       signOut,
+      resendVerification,
       demoSignIn,
       clearMessages,
     }),
@@ -226,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signIn,
       signOut,
+      resendVerification,
       demoSignIn,
       clearMessages,
     ]

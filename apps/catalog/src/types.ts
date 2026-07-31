@@ -1,4 +1,4 @@
-export type Role = "guest" | "buyer" | "developer";
+export type Role = "guest" | "buyer" | "developer" | "admin";
 
 export type BuyerScale = "Local business" | "SMB" | "Startup" | "Enterprise";
 

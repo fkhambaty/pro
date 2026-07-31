@@ -197,6 +197,17 @@ export default function SignIn() {
               ? "Create account"
               : "Continue"}
         </button>
+
+        {auth.connected && (
+          <button
+            type="button"
+            className="link-button"
+            disabled={!email.trim() || busy}
+            onClick={() => auth.resendVerification(email.trim())}
+          >
+            Didn&apos;t get the verification email? Send it again
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import RequirementPreview from "../../components/RequirementPreview";
 import { CATEGORY_OPTIONS, MUST_HAVES, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
 import { REQUIREMENT_POSTING_CENTS } from "../../lib/supabase";
@@ -206,6 +207,11 @@ export default function NewRequirement() {
                   Naming exclusions early prevents the most common argument later.
                 </span>
               </div>
+
+              <RequirementPreview
+                category={categoryLabel}
+                mustHaves={mustHaves}
+              />
             </>
           )}
 
@@ -265,7 +271,12 @@ export default function NewRequirement() {
                 next screen — after that, changes are priced.
               </p>
 
-              <div style={{ marginBottom: "1.25rem" }}>
+              <RequirementPreview
+                category={categoryLabel}
+                mustHaves={mustHaves}
+              />
+
+              <div style={{ margin: "1.25rem 0" }}>
                 {scopeDraft.map((item) => (
                   <label
                     className="scope-item"

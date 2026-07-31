@@ -69,33 +69,51 @@ export default function Landing() {
               </div>
             </div>
 
-            <div className="lock-card">
-              <div className="lock-card-head">
-                <span>Requirement Lock</span>
-                <span className="lock-ref">OKV-4F2A91</span>
+            <div>
+              <div className="lock-card">
+                <div className="lock-card-head">
+                  <div>
+                    <strong>Your agreement</strong>
+                    <span>Settled before anyone starts building</span>
+                  </div>
+                  <span className="lock-pill">Agreed</span>
+                </div>
+
+                <div className="lock-card-body">
+                  <p className="lock-group">What you both agree on</p>
+                  <div className="lock-line">
+                    <span className="tick">✓</span> Exactly what you will get,
+                    in plain words
+                  </div>
+                  <div className="lock-line">
+                    <span className="tick">✓</span> What it costs to build, and
+                    to run
+                  </div>
+                  <div className="lock-line">
+                    <span className="tick">✓</span> The date it will be ready
+                  </div>
+                  <div className="lock-line">
+                    <span className="tick">✓</span> Who fixes it if something
+                    breaks
+                  </div>
+                </div>
+
+                <div className="lock-card-foot">
+                  <div className="lock-price">
+                    <span>The price</span>
+                    <strong>You set it</strong>
+                  </div>
+                  <div className="lock-price">
+                    <span>Changes later</span>
+                    <strong>Only if you agree</strong>
+                  </div>
+                </div>
               </div>
-              <div className="lock-card-body">
-                <div className="lock-line">
-                  <span className="tick">✓</span> Customer sign-in and account
-                </div>
-                <div className="lock-line">
-                  <span className="tick">✓</span> Invoice history and downloads
-                </div>
-                <div className="lock-line">
-                  <span className="tick">✓</span> Payment method management
-                </div>
-                <div className="lock-line">
-                  <span className="tick">✓</span> Usage reports export
-                </div>
-                <div className="lock-line">
-                  <span className="tick cross">✕</span> Native mobile app —
-                  excluded
-                </div>
-              </div>
-              <div className="lock-card-foot">
-                <span>Build $9,000–$14,000</span>
-                <span>Run $240 / month</span>
-              </div>
+
+              <p className="lock-caption">
+                The same agreement whether you need a simple website or a system
+                for a thousand staff.
+              </p>
             </div>
           </div>
 
@@ -113,8 +131,8 @@ export default function Landing() {
               <span>Surprise change requests after signing</span>
             </div>
             <div className="scale-item">
-              <strong>$1 / $10</strong>
-              <span>To post a requirement / to unlock bidding</span>
+              <strong>You set</strong>
+              <span>The budget, before anyone quotes</span>
             </div>
           </div>
         </div>

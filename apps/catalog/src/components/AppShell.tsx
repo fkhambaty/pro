@@ -22,6 +22,12 @@ const DEV_NAV = [
   { to: "/app/notifications", label: "Notifications", end: false },
 ];
 
+const ADMIN_NAV = [
+  { to: "/app", label: "Insights", end: true },
+  { to: "/app/verifications", label: "Identity review", end: false },
+  { to: "/app/contracts", label: "All contracts", end: false },
+];
+
 export default function AppShell() {
   const {
     role,
@@ -36,7 +42,8 @@ export default function AppShell() {
   } = useStore();
   const navigate = useNavigate();
   const isBuyer = role === "buyer";
-  const nav = isBuyer ? BUYER_NAV : DEV_NAV;
+  const isAdmin = role === "admin";
+  const nav = isAdmin ? ADMIN_NAV : isBuyer ? BUYER_NAV : DEV_NAV;
 
   const openCount = projects.filter((p) => p.stage === "locked").length;
   const unread = notifications.filter((n) => !n.read).length;
@@ -57,7 +64,11 @@ export default function AppShell() {
       <aside className="sidebar">
         <Logo />
         <div className="side-role">
-          {isBuyer ? "Buyer workspace" : "Developer workspace"}
+          {isAdmin
+            ? "Admin console"
+            : isBuyer
+              ? "Buyer workspace"
+              : "Developer workspace"}
         </div>
 
         <nav className="side-nav">
@@ -88,7 +99,7 @@ export default function AppShell() {
                 : "Live database"
               : "Demo data"}
           </div>
-          {!isBuyer && !developerAccount.membershipPaid && (
+          {!isBuyer && !isAdmin && !developerAccount.membershipPaid && (
             <div
               style={{
                 background: "rgba(47, 84, 235, 0.22)",
@@ -110,11 +121,13 @@ export default function AppShell() {
             <span>
               <strong>{name}</strong>
               <span>
-                {isBuyer
-                  ? "Buyer"
-                  : developerAccount.membershipPaid
-                    ? `${developerAccount.tier} · bidding active`
-                    : `${developerAccount.tier} · bidding locked`}
+                {isAdmin
+                  ? "Administrator"
+                  : isBuyer
+                    ? "Buyer"
+                    : developerAccount.membershipPaid
+                      ? `${developerAccount.tier} · bidding active`
+                      : `${developerAccount.tier} · bidding locked`}
               </span>
             </span>
           </div>

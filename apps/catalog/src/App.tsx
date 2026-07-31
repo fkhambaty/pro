@@ -7,6 +7,8 @@ import Landing from "./pages/Landing";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import SignIn from "./pages/SignIn";
+import AdminHome from "./pages/admin/AdminHome";
+import AdminVerifications from "./pages/admin/AdminVerifications";
 import BuyerHome from "./pages/buyer/BuyerHome";
 import BuyerProject from "./pages/buyer/BuyerProject";
 import NewRequirement from "./pages/buyer/NewRequirement";
@@ -44,6 +46,12 @@ function DeveloperOnly({ children }: { children: ReactElement }) {
   return children;
 }
 
+function AdminOnly({ children }: { children: ReactElement }) {
+  const { role } = useStore();
+  if (role !== "admin") return <Navigate to="/app" replace />;
+  return children;
+}
+
 function Home() {
   const { role } = useStore();
   if (role === "guest") return <Landing />;
@@ -52,6 +60,7 @@ function Home() {
 
 function Dashboard() {
   const { role } = useStore();
+  if (role === "admin") return <AdminHome />;
   return role === "buyer" ? <BuyerHome /> : <DevBoard />;
 }
 
@@ -117,6 +126,14 @@ export default function App() {
             <DeveloperOnly>
               <Verification />
             </DeveloperOnly>
+          }
+        />
+        <Route
+          path="verifications"
+          element={
+            <AdminOnly>
+              <AdminVerifications />
+            </AdminOnly>
           }
         />
       </Route>

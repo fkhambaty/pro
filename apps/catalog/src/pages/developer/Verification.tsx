@@ -1,14 +1,27 @@
 import { useState } from "react";
+import IdentityUpload from "./IdentityUpload";
 import { money } from "../../format";
 import { BIDDING_MEMBERSHIP_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 
 const MEMBERSHIP_PRICE = BIDDING_MEMBERSHIP_CENTS / 100;
 
+const IDENTITY_LABEL: Record<string, string> = {
+  not_started: "Not started",
+  submitted: "In review",
+  in_review: "In review",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
 export default function Verification() {
-  const { name, developerAccount, payMembership, submitInterview } = useStore();
+  const { name, developerAccount, payMembership, submitInterview, refresh } =
+    useStore();
   const [paying, setPaying] = useState(false);
   const [card, setCard] = useState("");
+
+  const identityStatus = developerAccount.identityStatus;
+  const identityApproved = identityStatus === "approved";
 
   const overall = Math.round(
     developerAccount.interviewScores.reduce((sum, s) => sum + s.score, 0) /
@@ -108,11 +121,14 @@ export default function Verification() {
 
             {developerAccount.membershipPaid && (
               <div className="membership-foot">
-                <div className="callout callout-ok">
-                  <span>✓</span>
+                <div
+                  className={identityApproved ? "callout callout-ok" : "callout callout-warn"}
+                >
+                  <span>{identityApproved ? "✓" : "!"}</span>
                   <span>
-                    Membership active. Receipt reference{" "}
-                    <strong>pi_okavo_{Date.now().toString().slice(-8)}</strong>.
+                    {identityApproved
+                      ? "Membership active. You can bid on any locked requirement."
+                      : "Membership paid. Bidding opens once your government ID is approved."}
                   </span>
                 </div>
               </div>
@@ -121,31 +137,49 @@ export default function Verification() {
 
           <div className="card">
             <div className="card-head">
-              <h2>Identity</h2>
-              <span className="badge badge-lock">Approved</span>
+              <h2>Government ID</h2>
+              <span
+                className={
+                  identityApproved
+                    ? "badge badge-lock"
+                    : identityStatus === "rejected"
+                      ? "badge badge-danger"
+                      : "badge badge-draft"
+                }
+              >
+                {IDENTITY_LABEL[identityStatus] ?? identityStatus}
+              </span>
             </div>
-            <div style={{ padding: "0.5rem 1.25rem 1.25rem" }}>
-              <div className="verify-item">
-                <span className="verify-icon">✓</span>
-                <div>
-                  <strong>Government ID verified</strong>
-                  <p>Passport checked against a liveness capture on 4 Jun 2026.</p>
-                </div>
-              </div>
-              <div className="verify-item">
-                <span className="verify-icon">✓</span>
-                <div>
-                  <strong>Payout account linked</strong>
-                  <p>Funds release only after a buyer accepts against locked scope.</p>
-                </div>
-              </div>
-              <div className="verify-item">
-                <span className="verify-icon pending">•</span>
-                <div>
-                  <strong>Annual re-verification</strong>
-                  <p>Due 4 Jun 2027. You will be reminded 30 days ahead.</p>
-                </div>
-              </div>
+            <div style={{ padding: "1.25rem" }}>
+              {identityApproved ? (
+                <>
+                  <div className="verify-item">
+                    <span className="verify-icon">✓</span>
+                    <div>
+                      <strong>Identity confirmed</strong>
+                      <p>
+                        Your document passed review. Buyers see a verified badge,
+                        never the document itself.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="verify-item">
+                    <span className="verify-icon pending">•</span>
+                    <div>
+                      <strong>Annual re-verification</strong>
+                      <p>You will be reminded 30 days before it is due.</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p style={{ color: "var(--body)", marginBottom: "1.25rem" }}>
+                    Bidding requires a verified identity. This is what makes a
+                    buyer in another country comfortable sending you money.
+                  </p>
+                  <IdentityUpload status={identityStatus} onSubmitted={refresh} />
+                </>
+              )}
             </div>
           </div>
 
