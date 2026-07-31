@@ -62,7 +62,7 @@ type StoreValue = {
   notifications: AppNotification[];
   developerAccount: DeveloperAccount;
 
-  signOut: () => void;
+  signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 
   postingFeesPaid: number;

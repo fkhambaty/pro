@@ -32,7 +32,10 @@ function RequireAuth({ children }: { children: ReactElement }) {
       </div>
     );
   }
-  if (role === "guest") return <Navigate to="/signin" replace />;
+  // Signing out drops the role to guest while the workspace is still mounted,
+  // so this is also the redirect that runs on sign-out. Send people home
+  // rather than to a sign-in form they did not ask for.
+  if (role === "guest") return <Navigate to="/" replace />;
   return children;
 }
 

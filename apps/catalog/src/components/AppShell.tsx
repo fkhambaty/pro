@@ -62,10 +62,12 @@ export default function AppShell() {
     return () => document.body.classList.remove("nav-drawer-open");
   }, [navOpen]);
 
-  function handleSignOut() {
+  // Await the sign-out first: navigating while the session is still live
+  // bounces "/" straight back to the workspace and lands on the sign-in page.
+  async function handleSignOut() {
     setNavOpen(false);
-    signOut();
-    navigate("/");
+    await signOut();
+    navigate("/", { replace: true });
   }
 
   function badgeFor(label: string) {
