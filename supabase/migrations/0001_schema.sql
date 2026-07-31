@@ -629,43 +629,102 @@ create policy deliverables_parties on deliverables
   )
   with check (developer_id = auth.uid());
 
-create policy change_orders_parties on change_orders
-  for all using (
+-- Either party may read a change order, but only the raiser may create one.
+-- Updates (pricing, accepting, declining) are done by the counterparty, so the
+-- update policy checks membership of the contract rather than authorship.
+create policy change_orders_read on change_orders
+  for select using (
     exists (
       select 1 from contracts c
       where c.id = contract_id
         and (c.buyer_id = auth.uid() or c.developer_id = auth.uid() or is_admin())
     )
-  )
-  with check (raised_by = auth.uid());
+  );
+
+create policy change_orders_insert on change_orders
+  for insert with check (
+    raised_by = auth.uid()
+    and exists (
+      select 1 from contracts c
+      where c.id = contract_id
+        and (c.buyer_id = auth.uid() or c.developer_id = auth.uid())
+    )
+  );
+
+create policy change_orders_update on change_orders
+  for update using (
+    exists (
+      select 1 from contracts c
+      where c.id = contract_id
+        and (c.buyer_id = auth.uid() or c.developer_id = auth.uid() or is_admin())
+    )
+  );
 
 create policy threads_parties on message_threads
   for all using (buyer_id = auth.uid() or developer_id = auth.uid() or is_admin())
   with check (buyer_id = auth.uid() or developer_id = auth.uid());
 
-create policy messages_parties on messages
-  for all using (
+create policy messages_read on messages
+  for select using (
     exists (
       select 1 from message_threads t
       where t.id = thread_id
         and (t.buyer_id = auth.uid() or t.developer_id = auth.uid() or is_admin())
     )
-  )
-  with check (sender_id = auth.uid());
+  );
+
+create policy messages_insert on messages
+  for insert with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from message_threads t
+      where t.id = thread_id
+        and (t.buyer_id = auth.uid() or t.developer_id = auth.uid())
+    )
+  );
+
+-- The recipient marks a message read, so update is not limited to the sender.
+create policy messages_update on messages
+  for update using (
+    exists (
+      select 1 from message_threads t
+      where t.id = thread_id
+        and (t.buyer_id = auth.uid() or t.developer_id = auth.uid())
+    )
+  );
 
 create policy notifications_owner on notifications
   for all using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
-create policy disputes_parties on disputes
-  for all using (
+create policy disputes_read on disputes
+  for select using (
     exists (
       select 1 from contracts c
       where c.id = contract_id
         and (c.buyer_id = auth.uid() or c.developer_id = auth.uid() or is_admin())
     )
-  )
-  with check (raised_by = auth.uid());
+  );
+
+create policy disputes_insert on disputes
+  for insert with check (
+    raised_by = auth.uid()
+    and exists (
+      select 1 from contracts c
+      where c.id = contract_id
+        and (c.buyer_id = auth.uid() or c.developer_id = auth.uid())
+    )
+  );
+
+-- Resolution is recorded by the counterparty or an admin.
+create policy disputes_update on disputes
+  for update using (
+    exists (
+      select 1 from contracts c
+      where c.id = contract_id
+        and (c.buyer_id = auth.uid() or c.developer_id = auth.uid() or is_admin())
+    )
+  );
 
 create policy reviews_read on reviews
   for select using (true);
