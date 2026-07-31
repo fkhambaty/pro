@@ -1,13 +1,25 @@
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo";
 
+const BUILDS = [
+  "A website",
+  "A mobile app",
+  "An online store",
+  "A booking system",
+  "An internal tool",
+  "A customer portal",
+  "An AI feature",
+  "Whatever you can describe",
+];
+
 const BUYERS = [
+  "A school principal",
   "A bakery with two counters",
   "A clinic in Nairobi",
   "A logistics firm in São Paulo",
-  "A school district",
+  "A government department",
   "A Series B startup",
-  "A Fortune 500 insurer",
+  "A Fortune 500 board",
 ];
 
 export default function Landing() {
@@ -19,6 +31,7 @@ export default function Landing() {
             <Logo />
           </Link>
           <nav className="market-links">
+            <a href="#build">What you can build</a>
             <a href="#how">How it works</a>
             <a href="#buyers">For buyers</a>
             <a href="#developers">For developers</a>
@@ -38,13 +51,13 @@ export default function Landing() {
         <div className="wrap">
           <div className="hero-grid">
             <div>
-              <span className="eyebrow">Software, commissioned</span>
-              <h1>Anyone can have software built. Anywhere.</h1>
+              <span className="eyebrow">Websites · Apps · Software</span>
+              <h1>Where the world comes to have software built.</h1>
               <p className="hero-lead">
-                Okavo connects people who need software with verified AI
-                developers who build it. You describe the outcome in plain
-                language, we turn it into a signed agreement, and only then does
-                anyone bid. What you approved is what gets delivered.
+                Describe what you need in your own words. Okavo turns it into a
+                signed agreement, then verified developers build exactly that.
+                A school principal and a global CEO use the same four steps and
+                get the same certainty.
               </p>
               <div className="hero-actions">
                 <Link className="btn btn-accent btn-lg" to="/signin">
@@ -107,14 +120,33 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="section" id="how">
+      <section className="section" id="build">
         <div className="wrap">
           <div className="section-head">
-            <h2>The part every other marketplace skips</h2>
+            <h2>If you can describe it, it can be built here</h2>
             <p>
-              Most software projects fail because the buyer pictured one thing
-              and received another. Okavo makes the expectation explicit and
-              freezes it before a single line of code is written.
+              One place for everything you might need made — no agency hunt, no
+              shortlist of quotes, no wondering who to trust.
+            </p>
+          </div>
+          <div className="buyers-strip">
+            {BUILDS.map((item) => (
+              <span className="buyer-chip" key={item}>
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-tight" id="how">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Nothing gets built until you sign what it means</h2>
+            <p>
+              Software goes wrong when the person paying pictured one thing and
+              received another. Okavo removes the gap: your expectation becomes
+              a written agreement, signed by both sides, before work begins.
             </p>
           </div>
           <div className="steps">
@@ -155,10 +187,10 @@ export default function Landing() {
       <section className="section-tight">
         <div className="wrap">
           <div className="section-head">
-            <h2>Built for every kind of buyer</h2>
+            <h2>The same four steps, whoever you are</h2>
             <p>
-              The same four steps whether you run one shop or a hundred
-              subsidiaries.
+              Okavo does not have a small-business version and an enterprise
+              version. Everyone gets the lock, the escrow and the guarantee.
             </p>
           </div>
           <div className="buyers-strip">
@@ -263,7 +295,7 @@ export default function Landing() {
       <footer className="footer">
         <div className="wrap footer-inner">
           <Logo size={20} />
-          <span>Commission software anywhere, on a locked agreement.</span>
+          <span>Websites, apps and software — built on a signed agreement.</span>
         </div>
       </footer>
     </>
