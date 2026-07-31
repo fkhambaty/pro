@@ -28,7 +28,7 @@ import type {
   Dispute,
   Milestone,
   Project,
-  Review,
+  ReviewScores,
   Role,
   ScopeItem,
   Thread,
@@ -112,7 +112,10 @@ type StoreValue = {
   ) => void;
   resolveDispute: (projectId: string, note: string) => void;
 
-  leaveReview: (projectId: string, review: Omit<Review, "id" | "createdAt">) => void;
+  leaveReview: (
+    projectId: string,
+    input: { scores: ReviewScores; comment: string; author: string }
+  ) => void;
 
   sendMessage: (threadId: string, body: string) => void;
   markAllNotificationsRead: () => void;
@@ -695,23 +698,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const leaveReview = useCallback(
-    (projectId: string, review: Omit<Review, "id" | "createdAt">) => {
+    (
+      projectId: string,
+      input: { scores: ReviewScores; comment: string; author: string }
+    ) => {
       if (live && auth.userId) {
         void run(() =>
           api.leaveReview(projectId, auth.userId as string, {
-            rating: review.rating,
-            matchedExpectation: review.matchedExpectation,
-            comment: review.comment,
+            scores: input.scores,
+            comment: input.comment,
           })
         );
         return;
       }
+
+      const average =
+        (input.scores.scope +
+          input.scores.quality +
+          input.scores.communication +
+          input.scores.timeliness) /
+        4;
+
       patchProject(projectId, (project) => ({
         ...project,
         stage: "closed",
         reviews: [
           ...project.reviews,
-          { ...review, id: `rv-${Date.now()}`, createdAt: today() },
+          {
+            id: `rv-${Date.now()}`,
+            createdAt: today(),
+            rating: average,
+            scores: input.scores,
+            matchedExpectation: input.scores.scope >= 4,
+            comment: input.comment,
+            author: input.author,
+          },
         ],
       }));
     },

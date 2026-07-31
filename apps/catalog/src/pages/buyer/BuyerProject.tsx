@@ -1,13 +1,37 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ContractPanel from "../../components/ContractPanel";
 import { initials, money } from "../../format";
+import * as api from "../../lib/api";
+import { formatRating } from "../../lib/reviewCriteria";
 import { useStore } from "../../store";
+import type { DeveloperListing } from "../../types";
 
 export default function BuyerProject() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, lockProject, setBidStatus, awardBid } = useStore();
+  const { projects, lockProject, setBidStatus, awardBid, connected } = useStore();
   const project = projects.find((p) => p.id === id);
+
+  // A price means nothing without a track record next to it.
+  const [ratings, setRatings] = useState<Record<string, DeveloperListing>>({});
+
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await api.fetchDeveloperDirectory();
+        if (cancelled) return;
+        setRatings(Object.fromEntries(list.map((dev) => [dev.id, dev])));
+      } catch {
+        // The bids are still usable without the ratings overlay.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
 
   if (!project) {
     return (
@@ -82,7 +106,9 @@ export default function BuyerProject() {
                 )}
 
                 {locked &&
-                  project.bids.map((bid) => (
+                  project.bids.map((bid) => {
+                    const record = ratings[bid.developerId];
+                    return (
                     <div className="bid" key={bid.id}>
                       <div className="bid-top">
                         <div className="bid-who">
@@ -103,6 +129,28 @@ export default function BuyerProject() {
                           </span>
                         </div>
                       </div>
+
+                      {record && (
+                        <div className="bid-record">
+                          <span>
+                            <strong>{formatRating(record.rating)}</strong>
+                            {record.reviewCount === 0
+                              ? " no reviews yet"
+                              : ` from ${record.reviewCount} review${record.reviewCount === 1 ? "" : "s"}`}
+                          </span>
+                          {record.lockedScopeRate !== null && (
+                            <span>
+                              Delivered the locked scope{" "}
+                              <strong>{record.lockedScopeRate}%</strong> of the time
+                            </span>
+                          )}
+                          <span>{record.contractsDelivered} contracts delivered</span>
+                          <Link to={`/app/developers/${bid.developerId}`}>
+                            See reviews
+                          </Link>
+                        </div>
+                      )}
+
                       <p className="bid-note">{bid.note}</p>
                       <div className="bid-actions">
                         {bid.status === "awarded" ? (
@@ -157,7 +205,8 @@ export default function BuyerProject() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
               </div>
             </div>
           </div>

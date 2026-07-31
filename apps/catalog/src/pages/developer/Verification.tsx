@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import IdentityUpload from "./IdentityUpload";
 import { money } from "../../format";
+import * as api from "../../lib/api";
 import { readPaymentReturn, startCheckout } from "../../lib/checkout";
+import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
 import { BIDDING_MEMBERSHIP_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
+import type { DeveloperListing } from "../../types";
 
 const MEMBERSHIP_PRICE = BIDDING_MEMBERSHIP_CENTS / 100;
 
@@ -17,10 +20,34 @@ const IDENTITY_LABEL: Record<string, string> = {
 };
 
 export default function Verification() {
-  const { name, developerAccount, payMembership, submitInterview, refresh, connected } =
-    useStore();
+  const {
+    name,
+    userId,
+    developerAccount,
+    payMembership,
+    submitInterview,
+    refresh,
+    connected,
+  } = useStore();
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [listing, setListing] = useState<DeveloperListing | null>(null);
+
+  useEffect(() => {
+    if (!connected || !userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const record = await api.fetchDeveloperListing(userId);
+        if (!cancelled) setListing(record);
+      } catch {
+        // The rest of the page works without the delivery record.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, userId, developerAccount.membershipPaid]);
 
   const identityStatus = developerAccount.identityStatus;
   const identityApproved = identityStatus === "approved";
@@ -273,27 +300,60 @@ export default function Verification() {
             </div>
           </div>
 
-          <div className="card card-pad">
-            <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.85rem" }}>
-              Delivery record
-            </h3>
-            <div className="stat-row" style={{ marginBottom: 0 }}>
-              <div className="stat">
-                <span>Contracts delivered</span>
-                <strong>27</strong>
+          <div className="card">
+            <div className="card-head">
+              <h2>Your delivery record</h2>
+              <span className="badge badge-accent">
+                {formatRating(listing?.rating ?? null)} / 5
+              </span>
+            </div>
+            <div style={{ padding: "1.25rem" }}>
+              <p className="hint" style={{ marginBottom: "1rem" }}>
+                This is exactly what a buyer sees next to your bid. It is built
+                from closed contracts only — nothing here can be self-reported.
+              </p>
+              <div className="stat-row" style={{ marginBottom: 0 }}>
+                <div className="stat">
+                  <span>Contracts delivered</span>
+                  <strong>{listing?.contractsDelivered ?? 0}</strong>
+                </div>
+                <div className="stat">
+                  <span>Reviews</span>
+                  <strong>{listing?.reviewCount ?? 0}</strong>
+                </div>
+                <div className="stat">
+                  <span>Locked scope delivered</span>
+                  <strong>
+                    {listing?.lockedScopeRate === null ||
+                    listing?.lockedScopeRate === undefined
+                      ? "—"
+                      : `${listing.lockedScopeRate}%`}
+                  </strong>
+                </div>
+                <div className="stat">
+                  <span>Overall rating</span>
+                  <strong>{formatRating(listing?.rating ?? null)}</strong>
+                </div>
               </div>
-              <div className="stat">
-                <span>Accepted first pass</span>
-                <strong>92%</strong>
-              </div>
-              <div className="stat">
-                <span>Change orders raised</span>
-                <strong>1.3</strong>
-              </div>
-              <div className="stat">
-                <span>Disputes</span>
-                <strong>0</strong>
-              </div>
+
+              {listing && listing.reviewCount > 0 && (
+                <div className="score-grid" style={{ marginBottom: 0 }}>
+                  {REVIEW_CRITERIA.map((criterion) => (
+                    <div className="score-cell" key={criterion.key}>
+                      <span>{criterion.short}</span>
+                      <strong>
+                        {formatRating(listing.criteria[criterion.key])}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {listing?.reviewCount === 0 && (
+                <p className="hint" style={{ marginTop: "1rem" }}>
+                  No reviews yet. Your first closed contract starts this record.
+                </p>
+              )}
             </div>
           </div>
         </div>

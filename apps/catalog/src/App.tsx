@@ -11,6 +11,8 @@ import AdminHome from "./pages/admin/AdminHome";
 import AdminVerifications from "./pages/admin/AdminVerifications";
 import BuyerHome from "./pages/buyer/BuyerHome";
 import BuyerProject from "./pages/buyer/BuyerProject";
+import DeveloperProfile from "./pages/buyer/DeveloperProfile";
+import Developers from "./pages/buyer/Developers";
 import NewRequirement from "./pages/buyer/NewRequirement";
 import Payments from "./pages/buyer/Payments";
 import DevBids from "./pages/developer/DevBids";
@@ -101,6 +103,22 @@ export default function App() {
           element={
             <BuyerOnly>
               <Payments />
+            </BuyerOnly>
+          }
+        />
+        <Route
+          path="developers"
+          element={
+            <BuyerOnly>
+              <Developers />
+            </BuyerOnly>
+          }
+        />
+        <Route
+          path="developers/:id"
+          element={
+            <BuyerOnly>
+              <DeveloperProfile />
             </BuyerOnly>
           }
         />

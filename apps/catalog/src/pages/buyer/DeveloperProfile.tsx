@@ -1,0 +1,185 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import * as api from "../../lib/api";
+import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
+import type { DeveloperListing } from "../../types";
+
+export default function DeveloperProfile() {
+  const { id } = useParams();
+  const [developer, setDeveloper] = useState<DeveloperListing | null>(null);
+  const [reviews, setReviews] = useState<api.DeveloperReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const [listing, history] = await Promise.all([
+          api.fetchDeveloperListing(id),
+          api.fetchDeveloperReviews(id),
+        ]);
+        if (!cancelled) {
+          setDeveloper(listing);
+          setReviews(history);
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <>
+        <header className="topbar">
+          <h1>Developer</h1>
+        </header>
+        <div className="content">
+          <div className="card empty">
+            <strong>Loading profile…</strong>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (error || !developer) {
+    return (
+      <>
+        <header className="topbar">
+          <h1>Developer</h1>
+        </header>
+        <div className="content">
+          <div className="card empty">
+            <strong>{error ?? "This developer is no longer listed"}</strong>
+            <Link to="/app/developers">Back to developers</Link>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <header className="topbar">
+        <h1>{developer.name}</h1>
+        <div className="topbar-actions">
+          <span className="badge badge-accent">{developer.tier}</span>
+          <Link className="btn btn-secondary btn-sm" to="/app/developers">
+            All developers
+          </Link>
+        </div>
+      </header>
+
+      <div className="content content-narrow">
+        <div className="stack">
+          <div className="card card-pad">
+            <div className="dev-row-main">
+              <div>
+                <p className="dev-headline">{developer.headline}</p>
+                <div className="project-meta" style={{ marginTop: "0.5rem" }}>
+                  <span>{developer.country}</span>
+                  <span>{developer.contractsDelivered} contracts delivered</span>
+                  {developer.hourlyRate !== null && (
+                    <span>${developer.hourlyRate}/hr</span>
+                  )}
+                </div>
+              </div>
+              <div className="dev-score">
+                <strong>{formatRating(developer.rating)}</strong>
+                <span>
+                  {developer.reviewCount === 0
+                    ? "No reviews yet"
+                    : `${developer.reviewCount} review${developer.reviewCount === 1 ? "" : "s"}`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {developer.reviewCount > 0 && (
+            <div className="card">
+              <div className="card-head">
+                <h2>How buyers scored them</h2>
+                <span className="badge badge-lock">
+                  Locked scope delivered {developer.lockedScopeRate}%
+                </span>
+              </div>
+              <div style={{ padding: "1.25rem" }}>
+                <div className="score-grid">
+                  {REVIEW_CRITERIA.map((criterion) => (
+                    <div className="score-cell" key={criterion.key}>
+                      <span>{criterion.short}</span>
+                      <strong>
+                        {formatRating(developer.criteria[criterion.key])}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="card">
+            <div className="card-head">
+              <h2>Reviews</h2>
+            </div>
+            <div style={{ padding: "1.25rem" }} className="stack-sm">
+              {reviews.length === 0 && (
+                <div className="empty">
+                  <strong>No reviews yet</strong>
+                  <p>
+                    Reviews appear here only after a buyer closes a contract, so
+                    every one of them is attached to real, paid work.
+                  </p>
+                </div>
+              )}
+
+              {reviews.map((review) => (
+                <div className="review-row" key={review.id}>
+                  <div className="review-head">
+                    <div>
+                      <strong>{review.projectTitle}</strong>
+                      <span>
+                        {review.buyerOrg} · {review.createdAt}
+                      </span>
+                    </div>
+                    <span
+                      className={
+                        review.matchedExpectation
+                          ? "badge badge-lock"
+                          : "badge badge-draft"
+                      }
+                    >
+                      {formatRating(review.rating)} / 5
+                    </span>
+                  </div>
+
+                  <div className="score-grid">
+                    {REVIEW_CRITERIA.map((criterion) => (
+                      <div className="score-cell" key={criterion.key}>
+                        <span>{criterion.short}</span>
+                        <strong>{review.scores[criterion.key]}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p>{review.comment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

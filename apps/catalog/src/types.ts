@@ -108,13 +108,44 @@ export type Dispute = {
   resolutionNote?: string;
 };
 
+/** The four questions a buyer answers about a finished contract. */
+export type ReviewScores = {
+  scope: number;
+  quality: number;
+  communication: number;
+  timeliness: number;
+};
+
 export type Review = {
   id: string;
+  /** Average of the four criteria, computed by the database. */
   rating: number;
+  scores: ReviewScores;
   matchedExpectation: boolean;
   comment: string;
   author: string;
   createdAt: string;
+};
+
+/** A developer as a buyer sees them when choosing who to hire. */
+export type DeveloperListing = {
+  id: string;
+  name: string;
+  headline: string;
+  country: string;
+  tier: DeveloperTier;
+  hourlyRate: number | null;
+  rating: number | null;
+  reviewCount: number;
+  contractsDelivered: number;
+  /** Share of reviews where the locked scope was delivered, 0–100. */
+  lockedScopeRate: number | null;
+  criteria: {
+    scope: number | null;
+    quality: number | null;
+    communication: number | null;
+    timeliness: number | null;
+  };
 };
 
 export type Project = {

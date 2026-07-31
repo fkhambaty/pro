@@ -8,6 +8,7 @@ import { useStore } from "../store";
 const BUYER_NAV = [
   { to: "/app", label: "Overview", end: true },
   { to: "/app/new", label: "New requirement", end: false },
+  { to: "/app/developers", label: "Developers", end: false },
   { to: "/app/contracts", label: "Contracts", end: false },
   { to: "/app/payments", label: "Payments", end: false },
   { to: "/app/messages", label: "Messages", end: false },

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { money } from "../format";
 import { readPaymentReturn, startCheckout } from "../lib/checkout";
+import { REVIEW_CRITERIA, formatRating } from "../lib/reviewCriteria";
 import { useStore } from "../store";
+import type { ReviewScores } from "../types";
 
 export default function ContractPage() {
   const { id } = useParams();
@@ -35,7 +37,14 @@ export default function ContractPage() {
   const [disputeReason, setDisputeReason] = useState("");
   const [showDispute, setShowDispute] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewRating, setReviewRating] = useState(5);
+  const [scores, setScores] = useState<ReviewScores>({
+    scope: 5,
+    quality: 5,
+    communication: 5,
+    timeliness: 5,
+  });
+  const reviewAverage =
+    (scores.scope + scores.quality + scores.communication + scores.timeliness) / 4;
   const [fundingId, setFundingId] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
   const handledReturn = useRef(false);
@@ -495,39 +504,67 @@ export default function ContractPage() {
               <div className="card">
                 <div className="card-head">
                   <h2>Close the contract</h2>
+                  <span className="badge badge-accent">
+                    Overall {reviewAverage.toFixed(1)} / 5
+                  </span>
                 </div>
                 <div style={{ padding: "1.25rem" }}>
+                  <p className="hint" style={{ marginBottom: "1.25rem" }}>
+                    Four questions, answered from the contract you signed. The
+                    overall score is their average — you do not set it
+                    separately, so the number always matches the detail.
+                  </p>
+
+                  {REVIEW_CRITERIA.map((criterion) => (
+                    <div className="field" key={criterion.key}>
+                      <label htmlFor={`score-${criterion.key}`}>
+                        {criterion.label}
+                      </label>
+                      <span
+                        className="hint"
+                        style={{ display: "block", marginBottom: "0.4rem" }}
+                      >
+                        {criterion.help}
+                      </span>
+                      <select
+                        id={`score-${criterion.key}`}
+                        value={scores[criterion.key]}
+                        onChange={(event) =>
+                          setScores((prev) => ({
+                            ...prev,
+                            [criterion.key]: Number(event.target.value),
+                          }))
+                        }
+                      >
+                        {criterion.options.map((option, index) => (
+                          <option key={option} value={5 - index}>
+                            {5 - index} — {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+
                   <div className="field">
-                    <label htmlFor="rating">Did you get what you locked?</label>
-                    <select
-                      id="rating"
-                      value={reviewRating}
-                      onChange={(event) => setReviewRating(Number(event.target.value))}
-                    >
-                      <option value={5}>5 — exactly what we agreed</option>
-                      <option value={4}>4 — close, minor gaps</option>
-                      <option value={3}>3 — acceptable after rework</option>
-                      <option value={2}>2 — significant mismatch</option>
-                      <option value={1}>1 — not what was locked</option>
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="review">Comment</label>
+                    <label htmlFor="review">
+                      Anything the next buyer should know
+                    </label>
                     <textarea
                       id="review"
                       rows={3}
                       value={reviewComment}
                       onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="What went well, and what you would watch for."
                     />
                   </div>
+
                   <button
                     type="button"
                     className="btn"
                     onClick={() =>
                       leaveReview(project.id, {
-                        rating: reviewRating,
-                        matchedExpectation: reviewRating >= 4,
-                        comment: reviewComment || "No comment left.",
+                        scores,
+                        comment: reviewComment.trim() || "No comment left.",
                         author: name || project.org,
                       })
                     }
@@ -547,11 +584,19 @@ export default function ContractPage() {
                   {project.reviews.map((review) => (
                     <div key={review.id}>
                       <strong>
-                        {review.rating} / 5 ·{" "}
+                        {formatRating(review.rating)} / 5 ·{" "}
                         {review.matchedExpectation
                           ? "Matched the locked expectation"
                           : "Did not match"}
                       </strong>
+                      <div className="score-grid">
+                        {REVIEW_CRITERIA.map((criterion) => (
+                          <div className="score-cell" key={criterion.key}>
+                            <span>{criterion.short}</span>
+                            <strong>{review.scores[criterion.key]}</strong>
+                          </div>
+                        ))}
+                      </div>
                       <p style={{ color: "var(--body)", marginTop: "0.35rem" }}>
                         {review.comment}
                       </p>

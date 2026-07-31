@@ -175,10 +175,23 @@ async function main() {
     throw new Error("Your buyer or developer account is missing");
   }
 
-  console.log("Removing any previous test data…");
+  console.log("Removing any previous seeded data…");
+  // Seeded requirements are identified by their buyer, not by a marker in the
+  // title, so the marketplace reads like the real thing.
   await sql(`
-    delete from auth.users where email like '%@okavo.test';
+    delete from projects p
+      using buyer_profiles bp, profiles pr
+      where p.buyer_id = bp.profile_id
+        and pr.id = bp.profile_id
+        and pr.email like '%@okavo.test';
+
     delete from projects where title like '[test]%';
+
+    delete from projects p
+      using payments pay
+      where pay.project_id = p.id and pay.provider = 'seed';
+
+    delete from auth.users where email like '%@okavo.test';
   `);
 
   console.log("Creating dummy developers and buyers…");
@@ -281,7 +294,7 @@ async function main() {
     {
       key: "draft",
       buyer: buyerSelf,
-      title: "[test] Bakery ordering and pickup",
+      title: "Bakery ordering and pickup",
       category: "Sell online",
       outcome:
         "Customers order cakes online, choose a pickup time, and pay. I see today's orders on one screen.",
@@ -299,7 +312,7 @@ async function main() {
     {
       key: "openBids",
       buyer: buyerSelf,
-      title: "[test] Customer portal with subscription billing",
+      title: "Customer portal with subscription billing",
       category: "Customer portal",
       outcome:
         "Our customers log in, see their invoices, update payment methods, and download usage reports without emailing support.",
@@ -317,7 +330,7 @@ async function main() {
     {
       key: "inDelivery",
       buyer: buyerSelf,
-      title: "[test] Field service scheduling tool",
+      title: "Field service scheduling tool",
       category: "Replace spreadsheets",
       outcome:
         "My team stops sharing spreadsheets. Jobs are assigned, engineers update status from the field, and I see what is overdue.",
@@ -336,7 +349,7 @@ async function main() {
     {
       key: "clinic",
       buyer: buyerIds["anika.rao@okavo.test"],
-      title: "[test] Clinic appointment booking",
+      title: "Clinic appointment booking",
       category: "Take bookings",
       outcome:
         "Patients choose a doctor, pick a slot, and pay the consult fee upfront. Reception stops double-booking.",
@@ -354,7 +367,7 @@ async function main() {
     {
       key: "bakery2",
       buyer: buyerIds["tom.reyes@okavo.test"],
-      title: "[test] Two-location bakery ordering",
+      title: "Two-location bakery ordering",
       category: "Sell online",
       outcome:
         "Both shops share one menu but keep separate stock counts, and customers pick which shop to collect from.",
@@ -371,7 +384,7 @@ async function main() {
     {
       key: "warehouse",
       buyer: buyerIds["priya.raman@okavo.test"],
-      title: "[test] Warehouse stock dashboard",
+      title: "Warehouse stock dashboard",
       category: "Replace spreadsheets",
       outcome:
         "Managers see live stock across three warehouses and export a weekly report without asking the data team.",
@@ -389,7 +402,7 @@ async function main() {
     {
       key: "renewals",
       buyer: buyerIds["anika.rao@okavo.test"],
-      title: "[test] Membership renewals portal",
+      title: "Membership renewals portal",
       category: "Customer portal",
       outcome:
         "Members renew online, download receipts, and update their details without calling the front desk.",
@@ -406,7 +419,7 @@ async function main() {
     {
       key: "assistant",
       buyer: buyerIds["priya.raman@okavo.test"],
-      title: "[test] AI support assistant over our docs",
+      title: "AI support assistant over our docs",
       category: "Add an AI feature",
       outcome:
         "Visitors ask questions in plain language and get answers from our documentation only, with a link to the source.",
@@ -424,7 +437,7 @@ async function main() {
     {
       key: "mine",
       buyer: buyerIds["priya.raman@okavo.test"],
-      title: "[test] Invoice reconciliation tool",
+      title: "Invoice reconciliation tool",
       category: "Replace spreadsheets",
       outcome:
         "Finance matches supplier invoices against purchase orders automatically and only reviews the exceptions.",
@@ -593,6 +606,248 @@ async function main() {
       from contracts c where c.project_id = ${q(projectIds.mine)};
   `);
 
+  // ---------------------------------------------------------------------
+  // Delivery history. Completed contracts are the only thing that produces a
+  // rating, so the directory needs a believable back catalogue.
+  // ---------------------------------------------------------------------
+
+  console.log("Building delivery history and reviews…");
+
+  const HISTORY = [
+    {
+      dev: "maya.chen@okavo.test",
+      reviews: [
+        [5, 5, 5, 5, "Delivered the locked scope exactly, on the dates we agreed. Invoices reconciled from day one."],
+        [5, 5, 5, 4, "One milestone slipped by three days and she told us a week before. Everything else was flawless."],
+        [5, 5, 5, 5, "The only build we have commissioned that needed no rework at all."],
+        [5, 4, 5, 5, "Two small bugs after launch, fixed within a day. Communication was excellent throughout."],
+        [5, 5, 5, 5, "She pushed back on a change we asked for and was right to. Saved us money."],
+        [5, 5, 4, 5, "Quiet for a couple of days mid-build, but the work spoke for itself."],
+      ],
+      titles: [
+        "Online ordering for a coffee roastery",
+        "Client billing dashboard",
+        "Subscription box management",
+        "B2B price list portal",
+        "Retail loyalty programme",
+        "Event ticketing for a venue",
+      ],
+    },
+    {
+      dev: "lena.fischer@okavo.test",
+      reviews: [
+        [5, 5, 5, 5, "Complex reporting, delivered without drama. The exports match our finance system to the cent."],
+        [5, 5, 4, 5, "Deeply competent. Occasionally had to ask for a status update."],
+        [5, 5, 5, 4, "Ran two days over on the last milestone, flagged early and made up for it."],
+        [4, 5, 5, 5, "One scope item was interpreted differently. Resolved without a change order."],
+      ],
+      titles: [
+        "Warehouse picking app",
+        "Payroll export tool",
+        "Fleet fuel tracking",
+        "Freight quote calculator",
+      ],
+    },
+    {
+      dev: "sofia.alvarez@okavo.test",
+      reviews: [
+        [5, 5, 4, 5, "The assistant only answers from our documents, exactly as locked. No hallucinations in three months."],
+        [4, 5, 5, 4, "Strong engineering. The first version missed one of the locked filters, fixed quickly."],
+        [5, 4, 5, 5, "Excellent to work with. Some rough edges on mobile at handover."],
+      ],
+      titles: [
+        "Legal document intake",
+        "Grant application portal",
+        "Insurance claim intake form",
+      ],
+    },
+    {
+      dev: "arjun.mehta@okavo.test",
+      reviews: [
+        [5, 4, 4, 5, "Fast and on budget. Quality is good rather than exceptional."],
+        [4, 4, 5, 4, "Delivered what we locked. Needed a round of fixes on the reporting screen."],
+        [5, 4, 4, 4, "Good value. I would use him again for a straightforward build."],
+        [4, 4, 4, 5, "Always hit the dates. A couple of scope details needed clarifying mid-build."],
+        [4, 5, 4, 4, "Solid work, reasonable price, no surprises."],
+      ],
+      titles: [
+        "Restaurant table reservations",
+        "Course booking and payments",
+        "Multi-branch appointment booking",
+        "Tenant maintenance requests",
+        "Equipment maintenance log",
+      ],
+    },
+    {
+      dev: "noah.okonkwo@okavo.test",
+      reviews: [
+        [4, 4, 3, 3, "The build matched the lock, but I had to chase for updates and the last milestone was late."],
+        [3, 4, 3, 4, "Two scope items needed rework before I would accept them."],
+        [4, 3, 4, 3, "Design work was strong. The back end needed several fixes after handover."],
+        [4, 4, 4, 4, "Fine. Nothing went wrong, nothing stood out."],
+      ],
+      titles: [
+        "Care home shift roster",
+        "Donation platform for a charity",
+        "Inventory sync between two shops",
+        "Supplier onboarding workflow",
+      ],
+    },
+  ];
+
+  const historyBuyers = [
+    buyerIds["priya.raman@okavo.test"],
+    buyerIds["tom.reyes@okavo.test"],
+    buyerIds["anika.rao@okavo.test"],
+  ];
+
+  let historyIndex = 0;
+  for (const entry of HISTORY) {
+    for (let i = 0; i < entry.reviews.length; i += 1) {
+      const [scope, quality, communication, timeliness, comment] = entry.reviews[i];
+      const buyer = historyBuyers[historyIndex % historyBuyers.length];
+      const title = entry.titles[i];
+      const amount = 300000 + ((historyIndex * 137) % 900000);
+      const monthsAgo = 2 + (historyIndex % 14);
+      historyIndex += 1;
+
+      await sql(`
+        insert into payments (profile_id, purpose, status, amount_cents, provider, paid_at)
+        values (${q(buyer)}, 'requirement_posting', 'paid', 100, 'seed',
+                now() - interval '${monthsAgo} months');
+      `);
+
+      const created = await sql(`
+        insert into projects
+          (buyer_id, title, category, outcome_statement, stage,
+           budget_min_cents, budget_max_cents, monthly_run_cents, timeline_weeks,
+           published_at, created_at)
+        values (${q(buyer)}, ${q(title)}, 'Completed build',
+                ${q(`${title}, delivered against a locked scope.`)}, 'drafting',
+                ${amount}, ${amount + 200000}, 12000, 6,
+                now() - interval '${monthsAgo} months',
+                now() - interval '${monthsAgo} months')
+        returning id;
+      `);
+      const projectId = created[0].id;
+
+      await sql(`
+        insert into scope_items (project_id, label, detail, included, position)
+        values (${q(projectId)}, 'Delivered scope',
+                'Agreed before work started and accepted on completion.', true, 0);
+
+        insert into contracts
+          (project_id, buyer_id, lock_reference, status, agreed_monthly_cents, agreed_weeks)
+        values (${q(projectId)}, ${q(buyer)},
+                'LOCK-' || upper(substr(md5(random()::text), 1, 6)), 'draft', 12000, 6);
+
+        update contracts set status = 'locked',
+                             locked_at = now() - interval '${monthsAgo} months',
+                             buyer_signed_at = now() - interval '${monthsAgo} months'
+          where project_id = ${q(projectId)};
+
+        update projects set stage = 'locked' where id = ${q(projectId)};
+
+        insert into bids
+          (project_id, developer_id, status, amount_cents, monthly_run_cents,
+           delivery_weeks, message, accepts_locked_scope, created_at)
+        values (${q(projectId)}, ${q(devIds[entry.dev])}, 'awarded', ${amount}, 12000, 6,
+                'Fixed price against the locked scope.', true,
+                now() - interval '${monthsAgo} months');
+
+        update contracts
+          set developer_id = ${q(devIds[entry.dev])},
+              status = 'completed',
+              agreed_amount_cents = ${amount},
+              developer_signed_at = now() - interval '${monthsAgo} months',
+              completed_at = now() - interval '${monthsAgo - 1} months'
+          where project_id = ${q(projectId)};
+
+        update projects set stage = 'closed' where id = ${q(projectId)};
+
+        insert into milestones (contract_id, title, description, amount_cents, position, status, released_at)
+        select c.id, 'Delivery', 'Locked scope delivered and accepted.', ${amount}, 0, 'released',
+               now() - interval '${monthsAgo - 1} months'
+          from contracts c where c.project_id = ${q(projectId)};
+
+        insert into reviews
+          (contract_id, author_id, subject_id, score_scope, score_quality,
+           score_communication, score_timeliness, comment, created_at)
+        select c.id, ${q(buyer)}, ${q(devIds[entry.dev])}, ${scope}, ${quality},
+               ${communication}, ${timeliness}, ${q(comment)},
+               now() - interval '${monthsAgo - 1} months'
+          from contracts c where c.project_id = ${q(projectId)};
+      `);
+    }
+  }
+
+  // Your own developer account needs a record too, or its profile looks empty.
+  const selfHistory = [
+    [5, 5, 5, 4, "Delivered the locked scope with one short delay that was flagged early.", "Retail stock reconciliation"],
+    [4, 5, 5, 5, "Excellent communication. One scope item needed a second pass.", "Purchase order approvals"],
+  ];
+
+  for (let i = 0; i < selfHistory.length; i += 1) {
+    const [scope, quality, communication, timeliness, comment, title] = selfHistory[i];
+    const buyer = historyBuyers[i % historyBuyers.length];
+    const monthsAgo = 3 + i * 2;
+    const amount = 640000 + i * 90000;
+
+    await sql(`
+      insert into payments (profile_id, purpose, status, amount_cents, provider, paid_at)
+      values (${q(buyer)}, 'requirement_posting', 'paid', 100, 'seed', now() - interval '${monthsAgo} months');
+    `);
+    const created = await sql(`
+      insert into projects
+        (buyer_id, title, category, outcome_statement, stage,
+         budget_min_cents, budget_max_cents, monthly_run_cents, timeline_weeks, published_at, created_at)
+      values (${q(buyer)}, ${q(title)}, 'Completed build',
+              ${q(`${title}, delivered against a locked scope.`)}, 'drafting',
+              ${amount}, ${amount + 150000}, 14000, 6,
+              now() - interval '${monthsAgo} months', now() - interval '${monthsAgo} months')
+      returning id;
+    `);
+    const projectId = created[0].id;
+
+    await sql(`
+      insert into scope_items (project_id, label, detail, included, position)
+      values (${q(projectId)}, 'Delivered scope', 'Agreed before work started.', true, 0);
+
+      insert into contracts (project_id, buyer_id, lock_reference, status, agreed_monthly_cents, agreed_weeks)
+      values (${q(projectId)}, ${q(buyer)}, 'LOCK-' || upper(substr(md5(random()::text), 1, 6)), 'draft', 14000, 6);
+
+      update contracts set status = 'locked', locked_at = now() - interval '${monthsAgo} months',
+                           buyer_signed_at = now() - interval '${monthsAgo} months'
+        where project_id = ${q(projectId)};
+
+      update projects set stage = 'locked' where id = ${q(projectId)};
+
+      insert into bids (project_id, developer_id, status, amount_cents, monthly_run_cents,
+                        delivery_weeks, message, accepts_locked_scope, created_at)
+      values (${q(projectId)}, ${q(devSelf)}, 'awarded', ${amount}, 14000, 6,
+              'Fixed price against the locked scope.', true, now() - interval '${monthsAgo} months');
+
+      update contracts set developer_id = ${q(devSelf)}, status = 'completed',
+                           agreed_amount_cents = ${amount},
+                           developer_signed_at = now() - interval '${monthsAgo} months',
+                           completed_at = now() - interval '${monthsAgo - 1} months'
+        where project_id = ${q(projectId)};
+
+      update projects set stage = 'closed' where id = ${q(projectId)};
+
+      insert into milestones (contract_id, title, description, amount_cents, position, status, released_at)
+      select c.id, 'Delivery', 'Locked scope delivered and accepted.', ${amount}, 0, 'released',
+             now() - interval '${monthsAgo - 1} months'
+        from contracts c where c.project_id = ${q(projectId)};
+
+      insert into reviews (contract_id, author_id, subject_id, score_scope, score_quality,
+                           score_communication, score_timeliness, comment, created_at)
+      select c.id, ${q(buyer)}, ${q(devSelf)}, ${scope}, ${quality}, ${communication},
+             ${timeliness}, ${q(comment)}, now() - interval '${monthsAgo - 1} months'
+        from contracts c where c.project_id = ${q(projectId)};
+    `);
+  }
+
   console.log("Adding conversations and notifications…");
   await sql(`
     insert into message_threads (project_id, buyer_id, developer_id, subject, last_message_at)
@@ -652,8 +907,9 @@ async function main() {
 
   const summary = await sql(`
     select
-      (select count(*) from projects where title like '[test]%') as projects,
-      (select count(*) from projects p where p.stage = 'locked' and title like '[test]%') as open_for_bids,
+      (select count(*) from projects) as projects,
+      (select count(*) from projects p where p.stage = 'locked') as open_for_bids,
+      (select count(*) from reviews) as reviews,
       (select count(*) from bids) as bids,
       (select count(*) from contracts) as contracts,
       (select count(*) from milestones) as milestones,

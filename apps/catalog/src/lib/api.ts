@@ -8,6 +8,7 @@ import type {
   ChangeOrderStatus,
   ContractVersion,
   DeveloperAccount,
+  DeveloperListing,
   DeveloperTier,
   Dispute,
   Milestone,
@@ -16,6 +17,7 @@ import type {
   Project,
   ProjectStage,
   Review,
+  ReviewScores,
   ScopeItem,
   Thread,
 } from "../types";
@@ -142,7 +144,10 @@ const PROJECT_SELECT = `
     change_orders ( id, title, description, status, amount_cents, added_weeks, raised_by, created_at ),
     contract_versions ( version, reason, created_at ),
     disputes ( id, reason, status, raised_by, created_at, resolution_note ),
-    reviews ( id, rating, matched_expectation, comment, author_id, created_at )
+    reviews (
+      id, rating, matched_expectation, comment, author_id, created_at,
+      score_scope, score_quality, score_communication, score_timeliness
+    )
   )
 `;
 
@@ -241,7 +246,13 @@ function mapProject(row: any, currentUserId: string | null): Project {
 
   const reviews: Review[] = many<any>(contract?.reviews).map((review) => ({
     id: review.id,
-    rating: review.rating,
+    rating: Number(review.rating),
+    scores: {
+      scope: review.score_scope,
+      quality: review.score_quality,
+      communication: review.score_communication,
+      timeliness: review.score_timeliness,
+    },
     matchedExpectation: review.matched_expectation,
     comment: review.comment ?? "",
     author: review.author_id === row.buyer_id ? "Buyer" : "Developer",
@@ -296,6 +307,98 @@ export async function fetchProjects(currentUserId: string | null) {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row) => mapProject(row, currentUserId));
+}
+
+const nullableNumber = (value: unknown): number | null =>
+  value === null || value === undefined ? null : Number(value);
+
+function mapListing(row: any): DeveloperListing {
+  const reviewCount = row.review_count ?? 0;
+  return {
+    id: row.profile_id,
+    name: row.full_name ?? "Developer",
+    headline: row.headline ?? "",
+    country: row.country_code ?? "Remote",
+    tier: TIER_FROM_DB[row.tier ?? "applicant"] ?? "Applicant",
+    hourlyRate: nullableNumber(row.hourly_rate_usd),
+    rating: nullableNumber(row.rating),
+    reviewCount,
+    contractsDelivered: row.contracts_delivered ?? 0,
+    lockedScopeRate:
+      reviewCount > 0
+        ? Math.round((100 * (row.matched_count ?? 0)) / reviewCount)
+        : null,
+    criteria: {
+      scope: nullableNumber(row.rating_scope),
+      quality: nullableNumber(row.rating_quality),
+      communication: nullableNumber(row.rating_communication),
+      timeliness: nullableNumber(row.rating_timeliness),
+    },
+  };
+}
+
+/** Every developer a buyer is allowed to hire: verified and able to bid. */
+export async function fetchDeveloperDirectory(): Promise<DeveloperListing[]> {
+  const { data, error } = await db()
+    .from("developer_directory")
+    .select("*")
+    .eq("identity_status", "approved")
+    .not("bidding_unlocked_at", "is", null);
+  if (error) throw error;
+  return (data ?? []).map(mapListing);
+}
+
+export async function fetchDeveloperListing(
+  profileId: string
+): Promise<DeveloperListing | null> {
+  const { data, error } = await db()
+    .from("developer_directory")
+    .select("*")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapListing(data) : null;
+}
+
+export type DeveloperReview = Review & {
+  projectTitle: string;
+  buyerOrg: string;
+};
+
+/** Public review history for one developer, newest first. */
+export async function fetchDeveloperReviews(
+  profileId: string
+): Promise<DeveloperReview[]> {
+  const { data, error } = await db()
+    .from("reviews")
+    .select(
+      `id, rating, matched_expectation, comment, created_at,
+       score_scope, score_quality, score_communication, score_timeliness,
+       contracts ( projects ( title ), buyer_profiles ( organization_name ) )`
+    )
+    .eq("subject_id", profileId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => {
+    const contract = one<any>(row.contracts);
+    return {
+      id: row.id,
+      rating: Number(row.rating),
+      scores: {
+        scope: row.score_scope,
+        quality: row.score_quality,
+        communication: row.score_communication,
+        timeliness: row.score_timeliness,
+      },
+      matchedExpectation: row.matched_expectation,
+      comment: row.comment ?? "",
+      author: one<any>(contract?.buyer_profiles)?.organization_name ?? "Buyer",
+      createdAt: formatDate(row.created_at),
+      projectTitle: one<any>(contract?.projects)?.title ?? "Contract",
+      buyerOrg: one<any>(contract?.buyer_profiles)?.organization_name ?? "Buyer",
+    };
+  });
 }
 
 export async function fetchDeveloperAccount(
@@ -833,7 +936,7 @@ export async function resolveDispute(disputeId: string, note: string) {
 export async function leaveReview(
   projectId: string,
   authorId: string,
-  input: { rating: number; matchedExpectation: boolean; comment: string }
+  input: { scores: ReviewScores; comment: string }
 ) {
   const contract = await contractIdFor(projectId);
   if (!contract) throw new Error("No contract for this project");
@@ -849,12 +952,15 @@ export async function leaveReview(
       ? contractRow?.buyer_id
       : contractRow?.developer_id;
 
+  // `rating` and `matched_expectation` are generated from these four.
   const { error } = await db().from("reviews").insert({
     contract_id: contract.id,
     author_id: authorId,
     subject_id: subjectId ?? authorId,
-    rating: input.rating,
-    matched_expectation: input.matchedExpectation,
+    score_scope: input.scores.scope,
+    score_quality: input.scores.quality,
+    score_communication: input.scores.communication,
+    score_timeliness: input.scores.timeliness,
     comment: input.comment,
   });
   if (error) throw error;
