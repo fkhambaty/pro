@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The app runs on seeded demo data until Supabase
+Open http://127.0.0.1:5180. The app runs on seeded demo data until Supabase
 credentials are present.
 
 | Command | Does |
