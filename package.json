@@ -1,0 +1,12 @@
+{
+  "name": "forma",
+  "private": true,
+  "workspaces": [
+    "apps/catalog"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/catalog -- --host 127.0.0.1 --port 5173",
+    "build": "npm run build -w apps/catalog",
+    "preview": "npm run preview -w apps/catalog"
+  }
+}
