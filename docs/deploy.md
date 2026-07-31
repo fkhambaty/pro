@@ -43,9 +43,9 @@ Authentication → Sign In / Providers:
 
 Authentication → URL Configuration, once deployed:
 
-- **Site URL**: `https://your-domain.com`
-- **Redirect URLs**: add both the production domain and
-  `https://*-your-team.vercel.app` for preview deployments
+- **Site URL**: `https://okavo.org`
+- **Redirect URLs**: `https://okavo.org/**`, `https://www.okavo.org/**`,
+  `https://pro-catalog-nu.vercel.app/**`, plus local `http://127.0.0.1:5180/**`
 
 Without this, sign-in links bounce to localhost.
 
@@ -85,7 +85,16 @@ key is designed for that — every table has row level security, so the key alon
 grants nothing. The **service role key must never** appear in this app; it
 belongs only in server-side code.
 
-## Custom domain
+## Custom domain (`okavo.org`)
 
-Add it in the host's dashboard, point DNS, then update the Supabase Site URL to
-match.
+Domains are already attached on Vercel (`okavo.org` + `www.okavo.org` → apex).
+On GoDaddy DNS Records set:
+
+| Type | Name | Value | TTL |
+|------|------|--------|-----|
+| A | `@` | `216.198.79.1` | 1 Hour |
+| A | `@` | `64.29.17.1` | 1 Hour |
+| CNAME | `www` | `cname.vercel-dns.com` | 1 Hour |
+
+Remove any old `@` A/AAAA or parking records that conflict. After DNS
+propagates, `https://okavo.org` serves the site.
