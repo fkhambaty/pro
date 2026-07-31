@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import Logo from "./Logo";
 import { initials } from "../format";
@@ -42,6 +43,8 @@ export default function AppShell() {
     error,
   } = useStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
   const isBuyer = role === "buyer";
   const isAdmin = role === "admin";
   const nav = isAdmin ? ADMIN_NAV : isBuyer ? BUYER_NAV : DEV_NAV;
@@ -49,7 +52,17 @@ export default function AppShell() {
   const openCount = projects.filter((p) => p.stage === "locked").length;
   const unread = notifications.filter((n) => !n.read).length;
 
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.classList.toggle("nav-drawer-open", navOpen);
+    return () => document.body.classList.remove("nav-drawer-open");
+  }, [navOpen]);
+
   function handleSignOut() {
+    setNavOpen(false);
     signOut();
     navigate("/");
   }
@@ -60,17 +73,53 @@ export default function AppShell() {
     return null;
   }
 
+  const workspaceLabel = isAdmin
+    ? "Admin console"
+    : isBuyer
+      ? "Buyer workspace"
+      : "Developer workspace";
+
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <Logo />
-        <div className="side-role">
-          {isAdmin
-            ? "Admin console"
-            : isBuyer
-              ? "Buyer workspace"
-              : "Developer workspace"}
+    <div className={navOpen ? "app nav-open" : "app"}>
+      <header className="mobile-bar">
+        <button
+          type="button"
+          className="menu-toggle"
+          aria-expanded={navOpen}
+          aria-controls="app-sidebar"
+          aria-label={navOpen ? "Close menu" : "Open menu"}
+          onClick={() => setNavOpen((open) => !open)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <Logo size={20} />
+        <span className="mobile-bar-role">{workspaceLabel}</span>
+      </header>
+
+      {navOpen && (
+        <button
+          type="button"
+          className="nav-backdrop"
+          aria-label="Close menu"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
+      <aside className="sidebar" id="app-sidebar">
+        <div className="sidebar-brand">
+          <Logo />
+          <button
+            type="button"
+            className="menu-close"
+            aria-label="Close menu"
+            onClick={() => setNavOpen(false)}
+          >
+            ×
+          </button>
         </div>
+        <div className="side-role">{workspaceLabel}</div>
 
         <nav className="side-nav">
           {nav.map((item) => {
@@ -101,25 +150,14 @@ export default function AppShell() {
               : "Demo data"}
           </div>
           {!isBuyer && !isAdmin && !developerAccount.membershipPaid && (
-            <div
-              style={{
-                background: "rgba(47, 84, 235, 0.22)",
-                borderRadius: 8,
-                padding: "0.7rem 0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <strong style={{ color: "#fff", fontSize: "0.8125rem", display: "block" }}>
-                Bidding locked
-              </strong>
-              <span style={{ fontSize: "0.75rem", color: "#c3ccf5" }}>
-                Pay $10 once to bid
-              </span>
+            <div className="side-lock-note">
+              <strong>Bidding locked</strong>
+              <span>Pay $10 once to bid</span>
             </div>
           )}
           <div className="side-user">
             <span className="avatar">{initials(name || "Okavo User")}</span>
-            <span>
+            <span className="side-user-text">
               <strong>{name}</strong>
               <span>
                 {isAdmin

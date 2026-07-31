@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import Logo from "../components/Logo";
@@ -24,11 +25,22 @@ const BUYERS = [
 ];
 
 export default function Landing() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle("market-menu-open", menuOpen);
+    return () => document.body.classList.remove("market-menu-open");
+  }, [menuOpen]);
+
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
   return (
     <>
       <header className="market-nav">
         <div className="wrap market-nav-inner">
-          <Link to="/">
+          <Link to="/" onClick={closeMenu}>
             <Logo />
           </Link>
           <nav className="market-links">
@@ -41,11 +53,49 @@ export default function Landing() {
             <Link className="btn btn-secondary btn-sm" to="/signin">
               Sign in
             </Link>
-            <Link className="btn btn-accent btn-sm" to="/signin">
+            <Link className="btn btn-accent btn-sm nav-cta" to="/signin">
               Get started
             </Link>
+            <button
+              type="button"
+              className="menu-toggle market-menu-toggle"
+              aria-expanded={menuOpen}
+              aria-controls="market-menu"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <div className="market-menu" id="market-menu">
+            <div className="wrap market-menu-inner">
+              <a href="#build" onClick={closeMenu}>
+                What you can build
+              </a>
+              <a href="#how" onClick={closeMenu}>
+                How it works
+              </a>
+              <a href="#buyers" onClick={closeMenu}>
+                For buyers
+              </a>
+              <a href="#developers" onClick={closeMenu}>
+                For developers
+              </a>
+              <div className="market-menu-actions">
+                <Link className="btn btn-secondary" to="/signin" onClick={closeMenu}>
+                  Sign in
+                </Link>
+                <Link className="btn btn-accent" to="/signin" onClick={closeMenu}>
+                  Get started
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <section className="hero">
