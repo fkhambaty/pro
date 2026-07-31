@@ -20,6 +20,34 @@ type SignUpInput = {
   scale?: BuyerScale;
 };
 
+async function notifySupportOfSignup(details: {
+  email: string;
+  role: string;
+  full_name: string;
+  organization_name: string;
+  user_id?: string;
+}) {
+  const base = import.meta.env.VITE_SUPABASE_URL;
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const secret = import.meta.env.VITE_OKAVO_NOTIFY_SECRET;
+  if (!base || !anon || !secret) return;
+
+  try {
+    await fetch(`${base}/functions/v1/notify-signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${anon}`,
+        apikey: anon,
+        "x-okavo-notify": secret,
+      },
+      body: JSON.stringify(details),
+    });
+  } catch {
+    // Never block signup if the support alert fails.
+  }
+}
+
 type AuthValue = {
   ready: boolean;
   connected: boolean;
@@ -168,6 +196,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(signUpError.message);
       return;
     }
+
+    void notifySupportOfSignup({
+      email: input.email,
+      role: input.role,
+      full_name: input.fullName,
+      organization_name: input.organizationName ?? input.fullName,
+      user_id: data.user?.id,
+    });
 
     if (!data.session) {
       setNotice(

@@ -7,3 +7,4 @@ dist
 apps/*/.vite
 .vercel-token
 .supabase-token
+supabase/.temp/
