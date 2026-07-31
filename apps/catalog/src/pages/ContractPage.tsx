@@ -1,14 +1,18 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { money } from "../format";
+import { readPaymentReturn, startCheckout } from "../lib/checkout";
 import { useStore } from "../store";
 
 export default function ContractPage() {
   const { id } = useParams();
+  const location = useLocation();
   const {
     projects,
     role,
     name,
+    connected,
+    refresh,
     fundMilestone,
     submitMilestone,
     acceptMilestone,
@@ -32,6 +36,50 @@ export default function ContractPage() {
   const [showDispute, setShowDispute] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
+  const [fundingId, setFundingId] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
+  const handledReturn = useRef(false);
+
+  // Escrow is only marked funded by the Stripe webhook, so after the redirect
+  // we re-read the contract instead of assuming the money arrived.
+  useEffect(() => {
+    if (handledReturn.current) return;
+    const { purpose, cancelled } = readPaymentReturn(location.search);
+
+    if (cancelled) {
+      handledReturn.current = true;
+      setPayError("Payment was cancelled. This milestone is still unfunded.");
+      return;
+    }
+    if (purpose !== "milestone_funding") return;
+
+    handledReturn.current = true;
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      await refresh();
+      if (attempts >= 6) clearInterval(timer);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [location.search, refresh]);
+
+  async function fundEscrow(projectId: string, milestoneId: string) {
+    if (!connected) {
+      fundMilestone(projectId, milestoneId);
+      return;
+    }
+    setFundingId(milestoneId);
+    setPayError(null);
+    const { error } = await startCheckout({
+      purpose: "milestone_funding",
+      milestoneId,
+      returnPath: `/app/contract/${projectId}`,
+    });
+    if (error) {
+      setFundingId(null);
+      setPayError(error);
+    }
+  }
 
   if (!project) {
     return (
@@ -202,6 +250,13 @@ export default function ContractPage() {
                 </span>
               </div>
               <div style={{ padding: "1.25rem" }} className="stack-sm">
+                {payError && (
+                  <div className="callout callout-warn" role="alert">
+                    <span>!</span>
+                    <span>{payError}</span>
+                  </div>
+                )}
+
                 {project.milestones.length === 0 && (
                   <div className="empty">
                     <strong>No milestones yet</strong>
@@ -243,9 +298,12 @@ export default function ContractPage() {
                         <button
                           type="button"
                           className="btn btn-sm"
-                          onClick={() => fundMilestone(project.id, milestone.id)}
+                          disabled={fundingId === milestone.id}
+                          onClick={() => fundEscrow(project.id, milestone.id)}
                         >
-                          Fund escrow {money(milestone.amount)}
+                          {fundingId === milestone.id
+                            ? "Opening Stripe…"
+                            : `Fund escrow ${money(milestone.amount)}`}
                         </button>
                       )}
                       {isBuyer && milestone.status === "submitted" && (

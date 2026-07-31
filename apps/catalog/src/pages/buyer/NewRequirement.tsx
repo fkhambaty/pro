@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import RequirementPreview from "../../components/RequirementPreview";
 import { CATEGORY_OPTIONS, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
+import { readPaymentReturn, startCheckout } from "../../lib/checkout";
 import {
   defaultActionFor,
   exclusionHintsFor,
@@ -17,6 +18,33 @@ import type { BuyerScale, ScopeItem } from "../../types";
 
 const STEP_COUNT = 5;
 const POSTING_FEE = REQUIREMENT_POSTING_CENTS / 100;
+
+/** Survives the round trip to Stripe, which unloads the page. */
+const DRAFT_KEY = "okavo.requirement.draft";
+
+type Draft = {
+  scale: BuyerScale;
+  category: string;
+  audience: Audience;
+  outcome: string;
+  primaryAction: string;
+  mustHaves: string[];
+  budgetMin: string;
+  budgetMax: string;
+  monthly: string;
+  weeks: string;
+  excluded: string;
+  scopeDraft: ScopeItem[];
+};
+
+function readDraft(): Draft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
+}
 
 const AUDIENCE_OPTIONS: { id: Audience; label: string; hint: string }[] = [
   {
@@ -38,11 +66,11 @@ const AUDIENCE_OPTIONS: { id: Audience; label: string; hint: string }[] = [
 
 export default function NewRequirement() {
   const navigate = useNavigate();
-  const { createProject, payPostingFee } = useStore();
+  const location = useLocation();
+  const { createProject, connected } = useStore();
   const [saving, setSaving] = useState(false);
-  const [payingFee, setPayingFee] = useState(false);
-  const [card, setCard] = useState("");
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [finishing, setFinishing] = useState(false);
 
   const [step, setStep] = useState(1);
   const [scale, setScale] = useState<BuyerScale>("Local business");
@@ -66,6 +94,91 @@ export default function NewRequirement() {
   );
   const prompts = useMemo(() => outcomePromptsFor(category), [category]);
   const exclusionHints = useMemo(() => exclusionHintsFor(category), [category]);
+
+  const handledReturn = useRef(false);
+
+  // Coming back from Stripe: restore the draft and publish it. The webhook
+  // that marks the fee paid can land a moment after the redirect, so the
+  // insert is retried briefly before giving up.
+  useEffect(() => {
+    if (handledReturn.current) return;
+    const { purpose, cancelled } = readPaymentReturn(location.search);
+
+    if (cancelled) {
+      handledReturn.current = true;
+      const draft = readDraft();
+      if (draft) restoreDraft(draft);
+      setPublishError("Payment was cancelled. Nothing has been published.");
+      navigate("/app/new", { replace: true });
+      return;
+    }
+
+    if (purpose !== "requirement_posting") return;
+    handledReturn.current = true;
+
+    const draft = readDraft();
+    if (!draft) {
+      setPublishError(
+        "Your payment went through, but this browser lost the draft. Your posting fee is still on your account and will be used by the next requirement you publish."
+      );
+      navigate("/app/new", { replace: true });
+      return;
+    }
+
+    restoreDraft(draft);
+    setFinishing(true);
+
+    (async () => {
+      const label =
+        CATEGORY_OPTIONS.find((c) => c.id === draft.category)?.label ??
+        "Custom build";
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const id = await createProject({
+          title: draft.outcome.slice(0, 60) || `${label} project`,
+          category: label,
+          outcome: draft.outcome,
+          budgetMin: Number(draft.budgetMin) || 0,
+          budgetMax: Number(draft.budgetMax) || 0,
+          monthlyOps: Number(draft.monthly) || 0,
+          timelineWeeks: Number(draft.weeks) || 6,
+          scale: draft.scale,
+          scope: draft.scopeDraft,
+        });
+
+        if (id) {
+          sessionStorage.removeItem(DRAFT_KEY);
+          setFinishing(false);
+          navigate(`/app/project/${id}`, { replace: true });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+
+      setFinishing(false);
+      setStep(STEP_COUNT);
+      setPublishError(
+        "Your payment succeeded but the requirement could not be saved yet. Your answers are still here — press publish again in a moment and you will not be charged twice."
+      );
+      navigate("/app/new", { replace: true });
+    })();
+  }, [location.search, createProject, navigate]);
+
+  function restoreDraft(draft: Draft) {
+    setScale(draft.scale);
+    setCategory(draft.category);
+    setAudience(draft.audience);
+    setOutcome(draft.outcome);
+    setPrimaryAction(draft.primaryAction);
+    setMustHaves(draft.mustHaves);
+    setBudgetMin(draft.budgetMin);
+    setBudgetMax(draft.budgetMax);
+    setMonthly(draft.monthly);
+    setWeeks(draft.weeks);
+    setExcluded(draft.excluded);
+    setScopeDraft(draft.scopeDraft);
+    setStep(STEP_COUNT);
+  }
 
   const previewProps = {
     scale,
@@ -197,39 +310,44 @@ export default function NewRequirement() {
     setStep((s) => Math.min(STEP_COUNT, s + 1));
   }
 
-  async function publish() {
+  function currentDraft(): Draft {
+    return {
+      scale,
+      category,
+      audience,
+      outcome,
+      primaryAction,
+      mustHaves,
+      budgetMin,
+      budgetMax,
+      monthly,
+      weeks,
+      excluded,
+      scopeDraft,
+    };
+  }
+
+  /** Sends the buyer to Stripe. The requirement is created when they return. */
+  async function payAndPublish() {
+    if (!connected) {
+      setPublishError("Payments are unavailable in demo mode.");
+      return;
+    }
     setSaving(true);
     setPublishError(null);
     try {
-      await payPostingFee();
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(currentDraft()));
     } catch {
-      setSaving(false);
-      setPublishError(
-        "The posting fee could not be charged, so nothing was published. Check the banner above and try again."
-      );
-      return;
+      // A blocked sessionStorage only costs the user a re-entry, not the payment.
     }
-    const id = await createProject({
-      title: outcome.slice(0, 60) || `${categoryLabel} project`,
-      category: categoryLabel,
-      outcome:
-        outcome ||
-        "Describe what should exist when this is finished, in your own words.",
-      budgetMin: Number(budgetMin) || 0,
-      budgetMax: Number(budgetMax) || 0,
-      monthlyOps: Number(monthly) || 0,
-      timelineWeeks: Number(weeks) || 6,
-      scale,
-      scope: scopeDraft,
+    const { error } = await startCheckout({
+      purpose: "requirement_posting",
+      returnPath: "/app/new",
     });
-    setSaving(false);
-    if (id) {
-      navigate(`/app/project/${id}`);
-      return;
+    if (error) {
+      setSaving(false);
+      setPublishError(error);
     }
-    setPublishError(
-      "Your requirement could not be saved. Nothing was published — see the banner above for the reason."
-    );
   }
 
   const excludedSelected = new Set(
@@ -552,22 +670,11 @@ export default function NewRequirement() {
                 <span className="fee-amount">{money(POSTING_FEE)}</span>
               </div>
 
-              {payingFee && (
-                <div className="submit-box" style={{ marginTop: "1rem" }}>
-                  <div className="field" style={{ marginBottom: "0.85rem" }}>
-                    <label htmlFor="card">Card number</label>
-                    <input
-                      id="card"
-                      value={card}
-                      onChange={(event) => setCard(event.target.value)}
-                      placeholder="4242 4242 4242 4242"
-                    />
-                    <span className="hint">
-                      Demo checkout. Wire this to Stripe before launch.
-                    </span>
-                  </div>
-                </div>
-              )}
+              <p className="hint" style={{ marginTop: "0.75rem" }}>
+                Payment is handled by Stripe. Okavo never sees your card
+                details, and your requirement is published the moment the
+                payment clears.
+              </p>
             </>
           )}
 
@@ -589,22 +696,18 @@ export default function NewRequirement() {
               >
                 Continue
               </button>
-            ) : payingFee ? (
-              <button
-                type="button"
-                className="btn btn-accent"
-                onClick={publish}
-                disabled={saving || card.trim().length < 4}
-              >
-                {saving ? "Creating…" : `Pay ${money(POSTING_FEE)} and create`}
-              </button>
             ) : (
               <button
                 type="button"
                 className="btn btn-accent"
-                onClick={() => setPayingFee(true)}
+                onClick={payAndPublish}
+                disabled={saving || finishing}
               >
-                Continue to payment
+                {finishing
+                  ? "Publishing…"
+                  : saving
+                    ? "Opening Stripe…"
+                    : `Pay ${money(POSTING_FEE)} and publish`}
               </button>
             )}
           </div>

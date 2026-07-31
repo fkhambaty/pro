@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import IdentityUpload from "./IdentityUpload";
 import { money } from "../../format";
+import { readPaymentReturn, startCheckout } from "../../lib/checkout";
 import { BIDDING_MEMBERSHIP_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 
@@ -15,10 +17,10 @@ const IDENTITY_LABEL: Record<string, string> = {
 };
 
 export default function Verification() {
-  const { name, developerAccount, payMembership, submitInterview, refresh } =
+  const { name, developerAccount, payMembership, submitInterview, refresh, connected } =
     useStore();
   const [paying, setPaying] = useState(false);
-  const [card, setCard] = useState("");
+  const [payError, setPayError] = useState<string | null>(null);
 
   const identityStatus = developerAccount.identityStatus;
   const identityApproved = identityStatus === "approved";
@@ -28,10 +30,57 @@ export default function Verification() {
       developerAccount.interviewScores.length
   );
 
-  function completePayment() {
-    payMembership();
-    setPaying(false);
-    setCard("");
+  const location = useLocation();
+  const handledReturn = useRef(false);
+
+  // Stripe sends the developer back here. The webhook unlocks bidding, so we
+  // poll briefly rather than claiming success the moment they land.
+  useEffect(() => {
+    if (handledReturn.current) return;
+    const { purpose, cancelled } = readPaymentReturn(location.search);
+
+    if (cancelled) {
+      handledReturn.current = true;
+      setPayError("Payment was cancelled. Bidding is still locked.");
+      return;
+    }
+    if (purpose !== "bidding_membership") return;
+
+    handledReturn.current = true;
+    setPaying(true);
+
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      await refresh();
+      if (attempts >= 6) {
+        clearInterval(timer);
+        setPaying(false);
+      }
+    }, 1500);
+
+    return () => clearInterval(timer);
+  }, [location.search, refresh]);
+
+  useEffect(() => {
+    if (developerAccount.membershipPaid) setPaying(false);
+  }, [developerAccount.membershipPaid]);
+
+  async function startMembershipCheckout() {
+    if (!connected) {
+      payMembership();
+      return;
+    }
+    setPaying(true);
+    setPayError(null);
+    const { error } = await startCheckout({
+      purpose: "bidding_membership",
+      returnPath: "/app/verification",
+    });
+    if (error) {
+      setPaying(false);
+      setPayError(error);
+    }
   }
 
   return (
@@ -71,7 +120,7 @@ export default function Verification() {
               </div>
             </div>
 
-            {!developerAccount.membershipPaid && !paying && (
+            {!developerAccount.membershipPaid && (
               <div className="membership-foot">
                 <ul className="membership-list">
                   <li>Unlimited bids on locked requirements</li>
@@ -79,43 +128,27 @@ export default function Verification() {
                   <li>Payouts after buyer acceptance</li>
                   <li>Non-refundable, charged once per account</li>
                 </ul>
-                <button type="button" className="btn btn-lg" onClick={() => setPaying(true)}>
-                  Pay {money(MEMBERSHIP_PRICE)} and activate bidding
-                </button>
-              </div>
-            )}
 
-            {paying && (
-              <div className="membership-foot">
-                <div className="field">
-                  <label htmlFor="card">Card number</label>
-                  <input
-                    id="card"
-                    value={card}
-                    onChange={(event) => setCard(event.target.value)}
-                    placeholder="4242 4242 4242 4242"
-                  />
-                  <span className="hint">
-                    Demo checkout. Wire this to Stripe before going live.
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: "0.6rem" }}>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={card.trim().length < 4}
-                    onClick={completePayment}
-                  >
-                    Pay {money(MEMBERSHIP_PRICE)}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setPaying(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
+                {payError && (
+                  <div className="callout callout-warn" role="alert">
+                    <span>!</span>
+                    <span>{payError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-lg"
+                  onClick={startMembershipCheckout}
+                  disabled={paying}
+                >
+                  {paying
+                    ? "Opening Stripe…"
+                    : `Pay ${money(MEMBERSHIP_PRICE)} and activate bidding`}
+                </button>
+                <span className="hint">
+                  Secure payment by Stripe. Okavo never sees your card details.
+                </span>
               </div>
             )}
 
