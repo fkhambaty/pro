@@ -49,6 +49,23 @@ Authentication → URL Configuration, once deployed:
 
 Without this, sign-in links bounce to localhost.
 
+### Custom SMTP (send auth mail from `support@okavo.org`)
+
+Free-tier Supabase cannot change the From address or email templates until
+custom SMTP is configured. In Auth → SMTP Settings use GoDaddy mailbox SMTP:
+
+| Field | Value |
+|-------|--------|
+| Sender email | `support@okavo.org` |
+| Sender name | `Okavo` |
+| Host | `smtpout.secureserver.net` |
+| Port | `465` (SSL) or `587` (TLS) |
+| Username | `support@okavo.org` |
+| Password | the mailbox password for `support@okavo.org` |
+
+After SMTP is live, raise the email rate limit and brand the confirmation /
+OTP templates to mention `support@okavo.org`.
+
 ## 3. Storage buckets
 
 Create three **private** buckets: `identity-documents`,

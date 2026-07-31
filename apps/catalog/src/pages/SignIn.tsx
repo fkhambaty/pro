@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import { useAuth } from "../lib/auth";
 import type { BuyerScale, Role } from "../types";
 
@@ -208,6 +209,11 @@ export default function SignIn() {
             Didn&apos;t get the verification email? Send it again
           </button>
         )}
+
+        <p className="auth-support">
+          Need help?{" "}
+          <a href={SUPPORT_MAILTO}>{SUPPORT_EMAIL}</a>
+        </p>
       </div>
     </div>
   );

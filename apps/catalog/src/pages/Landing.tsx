@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import Logo from "../components/Logo";
 
 const BUILDS = [
@@ -314,6 +315,9 @@ export default function Landing() {
         <div className="wrap footer-inner">
           <Logo size={20} />
           <span>Websites, apps and software — built on a signed agreement.</span>
+          <a className="footer-mail" href={SUPPORT_MAILTO}>
+            {SUPPORT_EMAIL}
+          </a>
         </div>
       </footer>
     </>

@@ -826,6 +826,19 @@ p {
   color: var(--paper);
 }
 
+.side-support {
+  display: block;
+  color: var(--faint);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem 0.55rem;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.side-support:hover {
+  color: var(--paper);
+}
+
 .conn {
   display: flex;
   align-items: center;
@@ -2231,6 +2244,28 @@ tbody tr:last-child td {
   gap: 1rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.footer-mail {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footer-mail:hover {
+  text-decoration: underline;
+}
+
+.auth-support {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.auth-support a {
+  color: var(--ink);
+  font-weight: 500;
 }
 
 @media (max-width: 1000px) {

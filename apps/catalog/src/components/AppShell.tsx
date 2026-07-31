@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import Logo from "./Logo";
 import { initials } from "../format";
 import { useStore } from "../store";
@@ -131,6 +132,9 @@ export default function AppShell() {
               </span>
             </span>
           </div>
+          <a className="side-support" href={SUPPORT_MAILTO}>
+            {SUPPORT_EMAIL}
+          </a>
           <button type="button" className="side-signout" onClick={handleSignOut}>
             Sign out
           </button>
