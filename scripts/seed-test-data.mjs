@@ -274,6 +274,8 @@ async function main() {
       set identity_status = 'approved',
           interview_status = 'approved',
           tier = 'verified',
+          hourly_rate_usd = 55,
+          headline = 'Full-stack engineer, end-to-end delivery',
           bidding_unlocked_at = coalesce(developer_profiles.bidding_unlocked_at, now());
 
     insert into interview_assessments

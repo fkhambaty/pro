@@ -370,35 +370,28 @@ export async function fetchDeveloperReviews(
   profileId: string
 ): Promise<DeveloperReview[]> {
   const { data, error } = await db()
-    .from("reviews")
-    .select(
-      `id, rating, matched_expectation, comment, created_at,
-       score_scope, score_quality, score_communication, score_timeliness,
-       contracts ( projects ( title ), buyer_profiles ( organization_name ) )`
-    )
+    .from("developer_reviews")
+    .select("*")
     .eq("subject_id", profileId)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
-  return (data ?? []).map((row: any) => {
-    const contract = one<any>(row.contracts);
-    return {
-      id: row.id,
-      rating: Number(row.rating),
-      scores: {
-        scope: row.score_scope,
-        quality: row.score_quality,
-        communication: row.score_communication,
-        timeliness: row.score_timeliness,
-      },
-      matchedExpectation: row.matched_expectation,
-      comment: row.comment ?? "",
-      author: one<any>(contract?.buyer_profiles)?.organization_name ?? "Buyer",
-      createdAt: formatDate(row.created_at),
-      projectTitle: one<any>(contract?.projects)?.title ?? "Contract",
-      buyerOrg: one<any>(contract?.buyer_profiles)?.organization_name ?? "Buyer",
-    };
-  });
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    rating: Number(row.rating),
+    scores: {
+      scope: row.score_scope,
+      quality: row.score_quality,
+      communication: row.score_communication,
+      timeliness: row.score_timeliness,
+    },
+    matchedExpectation: row.matched_expectation,
+    comment: row.comment ?? "",
+    author: row.buyer_org ?? "Buyer",
+    createdAt: formatDate(row.created_at),
+    projectTitle: row.project_title ?? "Contract",
+    buyerOrg: row.buyer_org ?? "Buyer",
+  }));
 }
 
 export async function fetchDeveloperAccount(
