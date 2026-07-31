@@ -1,4 +1,4 @@
--- Forma — requirement-locked software marketplace
+-- Okavo — commission software anywhere, on a locked agreement
 -- Core schema: identities, projects, contracts, bidding, delivery, money, trust.
 
 create extension if not exists "pgcrypto";
@@ -18,7 +18,7 @@ create type milestone_status as enum ('pending', 'funded', 'in_progress', 'submi
 create type change_order_status as enum ('proposed', 'priced', 'accepted', 'declined', 'withdrawn');
 create type dispute_status as enum ('open', 'evidence', 'resolved_buyer', 'resolved_developer', 'split', 'withdrawn');
 create type payment_status as enum ('pending', 'paid', 'failed', 'refunded');
-create type payment_purpose as enum ('bidding_membership', 'milestone_funding', 'change_order', 'payout', 'platform_fee');
+create type payment_purpose as enum ('bidding_membership', 'requirement_posting', 'milestone_funding', 'change_order', 'payout', 'platform_fee');
 create type notification_kind as enum ('bid', 'contract', 'milestone', 'message', 'change_order', 'dispute', 'payment', 'verification');
 
 -- ---------------------------------------------------------------------------
@@ -128,13 +128,18 @@ create table payments (
   currency text not null default 'USD',
   provider text not null default 'stripe',
   provider_reference text,
+  project_id uuid,
   contract_id uuid,
   milestone_id uuid,
   paid_at timestamptz,
+  -- Set when a one-off fee is spent, so a single payment cannot be reused.
+  consumed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 create index payments_profile_idx on payments (profile_id, purpose, status);
+create index payments_unconsumed_idx on payments (profile_id, purpose)
+  where consumed_at is null;
 
 -- ---------------------------------------------------------------------------
 -- Projects and the requirement lock
@@ -429,6 +434,40 @@ $$;
 create trigger bids_eligibility before insert on bids
   for each row execute function enforce_bid_eligibility();
 
+-- A buyer must have paid a posting fee before a requirement can be created.
+-- The fee is consumed by the insert, so one payment posts exactly one
+-- requirement. This is the buyer-side equivalent of the bidding membership.
+create or replace function enforce_posting_fee()
+returns trigger
+language plpgsql
+as $$
+declare
+  fee_id uuid;
+begin
+  select id into fee_id
+  from payments
+  where profile_id = new.buyer_id
+    and purpose = 'requirement_posting'
+    and status = 'paid'
+    and consumed_at is null
+  order by created_at
+  limit 1;
+
+  if fee_id is null then
+    raise exception 'A posting fee must be paid before creating a requirement';
+  end if;
+
+  update payments
+    set consumed_at = now(), project_id = new.id
+    where id = fee_id;
+
+  return new;
+end;
+$$;
+
+create trigger projects_posting_fee before insert on projects
+  for each row execute function enforce_posting_fee();
+
 -- Paying the membership unlocks bidding.
 create or replace function apply_membership_payment()
 returns trigger
@@ -483,6 +522,9 @@ create trigger contracts_snapshot after update on contracts
 alter table profiles enable row level security;
 alter table buyer_profiles enable row level security;
 alter table developer_profiles enable row level security;
+alter table skills enable row level security;
+alter table developer_skills enable row level security;
+alter table project_skills enable row level security;
 alter table identity_verifications enable row level security;
 alter table interview_assessments enable row level security;
 alter table payments enable row level security;
@@ -733,3 +775,32 @@ create policy reviews_author on reviews
 
 create policy audit_admin_read on audit_events
   for select using (is_admin());
+
+-- Skills are public reference data: readable by everyone, writable by nobody.
+create policy skills_read on skills
+  for select using (true);
+
+create policy developer_skills_read on developer_skills
+  for select using (true);
+
+create policy developer_skills_own on developer_skills
+  for all using (developer_id = auth.uid())
+  with check (developer_id = auth.uid());
+
+create policy project_skills_read on project_skills
+  for select using (
+    exists (
+      select 1 from projects p
+      where p.id = project_id
+        and (p.stage <> 'drafting' or p.buyer_id = auth.uid() or is_admin())
+    )
+  );
+
+create policy project_skills_own on project_skills
+  for all using (
+    exists (select 1 from projects p where p.id = project_id and p.buyer_id = auth.uid())
+    or is_admin()
+  )
+  with check (
+    exists (select 1 from projects p where p.id = project_id and p.buyer_id = auth.uid())
+  );

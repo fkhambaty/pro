@@ -53,6 +53,8 @@ psql "$DATABASE_URL" -f supabase/seed.sql
 
 | Rule | Where |
 |------|-------|
+| A buyer cannot post a requirement without paying the $1 fee | `enforce_posting_fee()` trigger |
+| One posting fee posts exactly one requirement | same trigger, sets `consumed_at` |
 | A developer cannot bid without approved identity | `enforce_bid_eligibility()` trigger |
 | A developer cannot bid without paying the $10 membership | same trigger, checks `bidding_unlocked_at` |
 | Bids are only accepted while the requirement is locked | same trigger |

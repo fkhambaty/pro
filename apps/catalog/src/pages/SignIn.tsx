@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
+import Logo from "../components/Logo";
 import { useAuth } from "../lib/auth";
 import type { BuyerScale, Role } from "../types";
 
@@ -48,11 +49,11 @@ export default function SignIn() {
   return (
     <div className="auth-screen">
       <div className="auth-card">
-        <Link to="/" className="logo" style={{ marginBottom: "1.5rem" }}>
-          <span className="logo-mark">F</span> Forma
+        <Link to="/" style={{ display: "inline-block", marginBottom: "1.5rem" }}>
+          <Logo />
         </Link>
 
-        <h1>{mode === "signin" ? "Sign in to Forma" : "Create your account"}</h1>
+        <h1>{mode === "signin" ? "Sign in to Okavo" : "Create your account"}</h1>
         <p>
           {auth.connected
             ? "Connected to your Supabase project."

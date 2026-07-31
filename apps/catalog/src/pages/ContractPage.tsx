@@ -576,7 +576,7 @@ export default function ContractPage() {
                       onClick={() =>
                         resolveDispute(
                           project.id,
-                          "Resolved by Forma review against the locked scope."
+                          "Resolved by Okavo review against the locked scope."
                         )
                       }
                     >

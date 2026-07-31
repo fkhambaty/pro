@@ -112,7 +112,7 @@ export default function Verification() {
                   <span>✓</span>
                   <span>
                     Membership active. Receipt reference{" "}
-                    <strong>pi_forma_{Date.now().toString().slice(-8)}</strong>.
+                    <strong>pi_okavo_{Date.now().toString().slice(-8)}</strong>.
                   </span>
                 </div>
               </div>

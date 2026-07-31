@@ -1,13 +1,15 @@
-# Forma
+# Okavo
 
-A global marketplace connecting buyers with verified AI developers, where every
-requirement is locked into a signed contract before anyone writes code.
+**Commission software anywhere, on a locked agreement.**
 
-**Buyers** range from a single-location bakery to a global insurer. They describe
-an outcome in plain language, approve what it means, and freeze scope, build
-budget and monthly running cost. **Developers** verify their identity, pass a
-recorded build interview, pay a one-time **$10 membership** to unlock bidding,
-then compete on identical locked scope.
+Okavo connects people who need software with verified AI developers who build
+it. Buyers describe an outcome in plain language, Okavo turns it into a signed
+agreement, and only then do developers bid — all against identical, frozen
+scope. What the buyer approved is what gets delivered.
+
+Buyers range from a two-counter bakery to a Fortune 500 insurer. Developers
+verify their identity, pass a recorded build interview, and pay a one-time
+**$10 membership** to unlock bidding.
 
 ## Run it
 
@@ -21,7 +23,7 @@ credentials are present.
 
 | Command | Does |
 |---------|------|
-| `npm run dev` | Start the marketplace |
+| `npm run dev` | Start the marketplace on port 5180 |
 | `npm run build` | Type-check and build for production |
 | `npm run preview` | Serve the production build |
 
@@ -62,38 +64,60 @@ describe → review scope → sign lock → bids open → hire → fund escrow
 
 Every stage is clickable in the demo.
 
-## The $10 bidding membership
+## Fees — both sides have skin in the game
 
-Browsing is free. Bidding is not. The paywall is enforced in two places:
+| Who | Fee | When |
+|-----|-----|------|
+| Buyer | **$1** | Per requirement, charged at creation |
+| Developer | **$10** | One time, unlocks bidding across the marketplace |
 
-1. **Interface** — the bid form is disabled and points to `/app/verification`.
-2. **Database** — the `enforce_bid_eligibility()` trigger rejects any bid from a
-   developer without `bidding_unlocked_at` set, so a direct API call fails too.
+Browsing is free on both sides. Acting is not. Each fee is enforced twice:
 
-Paying inserts a `payments` row with purpose `bidding_membership`, and a trigger
-unlocks bidding. Swap the demo checkout for Stripe before launch.
+**Buyer posting fee.** The wizard takes payment on the final step. In the
+database, `enforce_posting_fee()` runs before every insert on `projects`, looks
+for a paid and unconsumed `requirement_posting` payment, and marks it consumed —
+so one fee posts exactly one requirement and cannot be replayed.
+
+**Developer bidding membership.** The bid form is disabled and points to
+`/app/verification`. In the database, `enforce_bid_eligibility()` rejects any bid
+from a developer without `bidding_unlocked_at` set.
+
+Both live in Postgres rather than only in the interface, so a direct API call
+fails the same way the UI does. Swap the demo checkouts for Stripe before launch.
 
 ## Supabase
 
 Schema, policies, triggers and seed data live in [supabase/](supabase/). See
 [supabase/README.md](supabase/README.md) for setup.
 
-Sign-in uses Supabase Auth (email and password). The role you pick at sign-up is
+Sign-in uses Supabase Auth (email and password). The role chosen at sign-up is
 stored in user metadata, and the `profiles` plus `buyer_profiles` or
 `developer_profiles` rows are created on first authenticated load. When the
 environment variables are missing, the app falls back to demo data and a role
 picker, so a fresh clone still runs.
 
-Tables cover profiles, buyer and developer profiles, skills, identity
-verifications, interview assessments, payments, projects, scope items,
-contracts, immutable contract versions, bids, milestones, deliverables, change
-orders, message threads, messages, notifications, disputes, reviews and an audit
-log. Row level security is on for every table.
-
 ```bash
 cp apps/catalog/.env.example apps/catalog/.env.local
 # fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 ```
+
+## Brand
+
+| Token | Value |
+|-------|-------|
+| Ink | `#0C0D10` |
+| Paper | `#FBFAF7` |
+| Accent (amber) | `#E8973A` |
+| Lock (emerald) | `#1B7A5A` |
+| Display type | Archivo |
+| Body type | Inter |
+
+The mark is an aperture closed by a bar — the requirement lock.
+
+**Name clearance is still outstanding.** A web search is not a trademark
+search. Before any public launch, commission a formal clearance in India, the
+US and the EU covering Nice Class 42 (software) and Class 35 (marketplace
+services).
 
 ## Repository layout
 
@@ -102,11 +126,11 @@ cp apps/catalog/.env.example apps/catalog/.env.local
 | `apps/catalog/` | The marketplace application |
 | `supabase/` | Migrations, seed data, setup guide |
 | `docs/` | Architecture notes |
-| `ops/`, `apps/demo-growth/` | Earlier vertical-studio prototype, no longer part of the build |
+| `ops/`, `apps/demo-growth/` | Earlier vertical-studio prototype, not part of the build |
 
 ## Before going live
 
-- Replace the demo sign-in with Supabase Auth
 - Wire the $10 checkout and milestone escrow to Stripe Connect
 - Move identity documents and interview recordings into private storage buckets
 - Add an admin surface for verification review and dispute resolution
+- Complete trademark clearance for the Okavo name

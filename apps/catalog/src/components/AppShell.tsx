@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import Logo from "./Logo";
 import { initials } from "../format";
 import { useStore } from "../store";
 
@@ -54,9 +55,7 @@ export default function AppShell() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="logo">
-          <span className="logo-mark">F</span> Forma
-        </div>
+        <Logo />
         <div className="side-role">
           {isBuyer ? "Buyer workspace" : "Developer workspace"}
         </div>
@@ -107,7 +106,7 @@ export default function AppShell() {
             </div>
           )}
           <div className="side-user">
-            <span className="avatar">{initials(name || "Forma User")}</span>
+            <span className="avatar">{initials(name || "Okavo User")}</span>
             <span>
               <strong>{name}</strong>
               <span>

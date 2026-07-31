@@ -2,15 +2,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CATEGORY_OPTIONS, MUST_HAVES, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
+import { REQUIREMENT_POSTING_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 import type { BuyerScale, ScopeItem } from "../../types";
 
 const STEP_COUNT = 5;
+const POSTING_FEE = REQUIREMENT_POSTING_CENTS / 100;
 
 export default function NewRequirement() {
   const navigate = useNavigate();
-  const { createProject } = useStore();
+  const { createProject, payPostingFee } = useStore();
   const [saving, setSaving] = useState(false);
+  const [payingFee, setPayingFee] = useState(false);
+  const [card, setCard] = useState("");
 
   const [step, setStep] = useState(1);
   const [scale, setScale] = useState<BuyerScale>("Local business");
@@ -67,6 +71,12 @@ export default function NewRequirement() {
 
   async function publish() {
     setSaving(true);
+    try {
+      await payPostingFee();
+    } catch {
+      setSaving(false);
+      return;
+    }
     const id = await createProject({
       title: outcome.slice(0, 60) || `${categoryLabel} project`,
       category: categoryLabel,
@@ -295,6 +305,34 @@ export default function NewRequirement() {
                   </div>
                 </div>
               </div>
+
+              <div className="fee-row">
+                <div>
+                  <strong>Posting fee</strong>
+                  <p>
+                    Charged once per requirement. It keeps the board free of
+                    idle posts, so developers treat yours as real work.
+                  </p>
+                </div>
+                <span className="fee-amount">{money(POSTING_FEE)}</span>
+              </div>
+
+              {payingFee && (
+                <div className="submit-box" style={{ marginTop: "1rem" }}>
+                  <div className="field" style={{ marginBottom: "0.85rem" }}>
+                    <label htmlFor="card">Card number</label>
+                    <input
+                      id="card"
+                      value={card}
+                      onChange={(event) => setCard(event.target.value)}
+                      placeholder="4242 4242 4242 4242"
+                    />
+                    <span className="hint">
+                      Demo checkout. Wire this to Stripe before launch.
+                    </span>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -311,14 +349,22 @@ export default function NewRequirement() {
               <button type="button" className="btn" onClick={next}>
                 Continue
               </button>
+            ) : payingFee ? (
+              <button
+                type="button"
+                className="btn btn-accent"
+                onClick={publish}
+                disabled={saving || card.trim().length < 4}
+              >
+                {saving ? "Creating…" : `Pay ${money(POSTING_FEE)} and create`}
+              </button>
             ) : (
               <button
                 type="button"
-                className="btn"
-                onClick={publish}
-                disabled={saving}
+                className="btn btn-accent"
+                onClick={() => setPayingFee(true)}
               >
-                {saving ? "Saving…" : "Create draft contract"}
+                Continue to payment
               </button>
             )}
           </div>

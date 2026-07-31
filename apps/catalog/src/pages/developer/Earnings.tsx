@@ -99,7 +99,7 @@ export default function Earnings() {
           <p style={{ color: "var(--muted)" }}>
             The buyer funds each milestone into escrow before you start it. When
             they accept the work against the locked scope, escrow releases to your
-            payout account. Disputes freeze the milestone until Forma review
+            payout account. Disputes freeze the milestone until Okavo review
             decides against the contract.
           </p>
         </div>

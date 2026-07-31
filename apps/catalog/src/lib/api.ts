@@ -570,6 +570,34 @@ export async function payMembership(profileId: string, amountCents: number) {
   if (error) throw error;
 }
 
+/**
+ * Buys the right to post one requirement. The insert trigger on `projects`
+ * consumes it, so a fee cannot be reused across requirements.
+ */
+export async function payPostingFee(profileId: string, amountCents: number) {
+  const { error } = await db().from("payments").insert({
+    profile_id: profileId,
+    purpose: "requirement_posting",
+    status: "paid",
+    amount_cents: amountCents,
+    provider: "demo",
+    provider_reference: `demo_${Date.now()}`,
+    paid_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function countPostingFees(profileId: string) {
+  const { count, error } = await db()
+    .from("payments")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", profileId)
+    .eq("purpose", "requirement_posting")
+    .eq("status", "paid");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function submitInterview(profileId: string) {
   const { error } = await db()
     .from("developer_profiles")

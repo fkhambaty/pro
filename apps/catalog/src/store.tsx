@@ -9,7 +9,11 @@ import {
 } from "react";
 import * as api from "./lib/api";
 import { useAuth } from "./lib/auth";
-import { BIDDING_MEMBERSHIP_CENTS, isSupabaseConfigured } from "./lib/supabase";
+import {
+  BIDDING_MEMBERSHIP_CENTS,
+  REQUIREMENT_POSTING_CENTS,
+  isSupabaseConfigured,
+} from "./lib/supabase";
 import {
   NEW_DEVELOPER_ACCOUNT,
   NOTIFICATIONS,
@@ -56,6 +60,8 @@ type StoreValue = {
   signOut: () => void;
   refresh: () => Promise<void>;
 
+  postingFeesPaid: number;
+  payPostingFee: () => Promise<void>;
   createProject: (input: NewProjectInput) => Promise<string>;
   lockProject: (projectId: string) => Promise<void>;
 
@@ -175,6 +181,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [postingFeesPaid, setPostingFeesPaid] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!live || !auth.userId) return;
@@ -192,6 +199,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (auth.role === "developer") {
         setDeveloperAccount(await api.fetchDeveloperAccount(auth.userId));
+      } else {
+        setPostingFeesPaid(await api.countPostingFees(auth.userId));
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -232,6 +241,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...prev,
     ]);
   }, []);
+
+  const payPostingFee = useCallback(async () => {
+    if (live && auth.userId) {
+      try {
+        await api.payPostingFee(auth.userId, REQUIREMENT_POSTING_CENTS);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+        throw cause;
+      }
+    }
+    setPostingFeesPaid((count) => count + 1);
+  }, [live, auth.userId]);
 
   const createProject = useCallback(
     async (input: NewProjectInput) => {
@@ -730,6 +751,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       developerAccount,
       signOut: auth.signOut,
       refresh,
+      postingFeesPaid,
+      payPostingFee,
       createProject,
       lockProject,
       placeBid,
@@ -760,6 +783,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       notifications,
       developerAccount,
       refresh,
+      postingFeesPaid,
+      payPostingFee,
       createProject,
       lockProject,
       placeBid,

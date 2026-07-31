@@ -1,4 +1,4 @@
--- Forma seed data.
+-- Okavo seed data.
 -- Profiles reference auth.users, so create the auth users first (locally the
 -- Supabase CLI seeds them, or use the dashboard) and reuse the same UUIDs.
 
@@ -62,6 +62,12 @@ insert into interview_assessments (
   ('33333333-3333-4333-8333-000000000002', 'approved', 'ops-microsystem', 'https://github.com/example/sample', 'https://sample.example', 232, 88, 84, 91, 79, 86, now() - interval '120 days');
 
 -- Projects -----------------------------------------------------------------
+
+-- Each requirement consumes one paid posting fee, so seed one per buyer.
+insert into payments (profile_id, purpose, status, amount_cents, provider_reference, paid_at) values
+  ('22222222-2222-4222-8222-000000000001', 'requirement_posting', 'paid', 100, 'pi_seed_post_rose', now() - interval '7 hours'),
+  ('22222222-2222-4222-8222-000000000002', 'requirement_posting', 'paid', 100, 'pi_seed_post_northline', now() - interval '3 hours'),
+  ('22222222-2222-4222-8222-000000000003', 'requirement_posting', 'paid', 100, 'pi_seed_post_meridian', now() - interval '2 days');
 
 insert into projects (
   id, buyer_id, title, category, outcome_statement, stage,

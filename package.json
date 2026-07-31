@@ -1,5 +1,5 @@
 {
-  "name": "forma",
+  "name": "okavo",
   "private": true,
   "workspaces": [
     "apps/catalog"

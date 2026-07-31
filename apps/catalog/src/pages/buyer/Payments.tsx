@@ -1,8 +1,9 @@
 import { money } from "../../format";
+import { REQUIREMENT_POSTING_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 
 export default function Payments() {
-  const { projects } = useStore();
+  const { projects, postingFeesPaid } = useStore();
 
   const rows = projects.flatMap((project) =>
     project.milestones.map((milestone) => ({
@@ -48,6 +49,36 @@ export default function Payments() {
           <div className="stat">
             <span>Monthly running cost</span>
             <strong>{money(monthly)}</strong>
+          </div>
+        </div>
+
+        <div className="card card-pad" style={{ marginBottom: "1rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.2rem" }}>
+                Posting fees
+              </h3>
+              <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                {money(REQUIREMENT_POSTING_CENTS / 100)} per requirement, charged
+                once at creation. Not deducted from your build budget.
+              </p>
+            </div>
+            <div className="money">
+              <strong>
+                {money((postingFeesPaid * REQUIREMENT_POSTING_CENTS) / 100)}
+              </strong>
+              <span>
+                {postingFeesPaid} requirement{postingFeesPaid === 1 ? "" : "s"}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const meta = user.user_metadata ?? {};
     const desiredRole: Exclude<Role, "guest"> =
       meta.role === "developer" ? "developer" : "buyer";
-    const fullName = (meta.full_name as string) || user.email || "Forma user";
+    const fullName = (meta.full_name as string) || user.email || "Okavo user";
 
     const { data: existing, error: readError } = await supabase
       .from("profiles")
