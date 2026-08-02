@@ -2807,6 +2807,298 @@ tbody tr:last-child td {
   font-size: 0.8125rem;
 }
 
+/* ---------- marketing pages ---------- */
+.page-hero {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 4.5rem 0 3.5rem;
+}
+
+.page-hero h1 {
+  font-size: clamp(1.9rem, 3.8vw, 2.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  max-width: 22ch;
+  margin-bottom: 1rem;
+}
+
+.page-hero p {
+  color: #a8a49b;
+  font-size: 1.0625rem;
+  max-width: 46rem;
+}
+
+.section-more {
+  margin-top: 1.5rem;
+}
+
+.promise-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.promise {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.promise-num {
+  font-family: var(--display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+.promise h2 {
+  font-size: 1.0625rem;
+  margin-bottom: 0.45rem;
+}
+
+.promise p {
+  color: var(--body);
+  max-width: 58ch;
+}
+
+.promise-enforced {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.8125rem;
+  color: var(--muted) !important;
+}
+
+.promise-enforced strong {
+  color: var(--ink);
+  margin-right: 0.35rem;
+}
+
+.promise-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+}
+
+.promise-card strong {
+  display: block;
+  font-size: 0.9375rem;
+  margin-bottom: 0.25rem;
+}
+
+.promise-card p {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.honesty {
+  background: var(--bg);
+}
+
+.honesty h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.6rem;
+}
+
+.honesty h3 {
+  font-size: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.honesty p {
+  color: var(--body);
+  margin-bottom: 0.75rem;
+  max-width: 58ch;
+}
+
+.journey {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+.journey-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.journey-step:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.journey-num {
+  font-family: var(--display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+.journey-step h3 {
+  font-size: 1.0625rem;
+  margin-bottom: 0.4rem;
+}
+
+.journey-step p {
+  color: var(--body);
+  max-width: 62ch;
+}
+
+.journey-meta {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+.faq-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.faq-item {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  list-style: none;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary:hover {
+  color: var(--accent-deep);
+}
+
+.faq-marker {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.faq-marker::before,
+.faq-marker::after {
+  content: "";
+  position: absolute;
+  background: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.faq-marker::before {
+  top: 5px;
+  left: 0;
+  width: 12px;
+  height: 2px;
+}
+
+.faq-marker::after {
+  top: 0;
+  left: 5px;
+  width: 2px;
+  height: 12px;
+}
+
+.faq-item[open] .faq-marker::after {
+  transform: scaleY(0);
+}
+
+.faq-item p {
+  padding: 0 1.25rem 1.15rem;
+  color: var(--body);
+  max-width: 68ch;
+}
+
+.split-prose {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.split-prose h2 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.split-prose p {
+  color: var(--body);
+  margin-bottom: 1rem;
+  max-width: 60ch;
+}
+
+/* Distinct from .signature, which is the contract signing block. */
+.founder-signature {
+  color: var(--muted) !important;
+  font-size: 0.8125rem;
+}
+
+.footer-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+  padding-bottom: 2rem;
+}
+
+.footer-cols h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  margin-bottom: 0.7rem;
+}
+
+.footer-cols a {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--muted);
+}
+
+.footer-cols a:hover {
+  color: var(--ink);
+}
+
+.footer-line {
+  margin-top: 0.6rem;
+  max-width: 24rem;
+}
+
+.footer-base {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
 .footer-inner {
   display: flex;
   justify-content: space-between;
@@ -2892,8 +3184,18 @@ tbody tr:last-child td {
   .terms,
   .signature-row,
   .field-row,
+  .split-prose,
   .messenger {
     grid-template-columns: 1fr;
+  }
+
+  .footer-cols {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .page-hero {
+    padding: 3rem 0 2.5rem;
   }
 
   .hero-grid {
@@ -3148,8 +3450,15 @@ tbody tr:last-child td {
   .steps,
   .stat-row,
   .option-grid,
+  .footer-cols,
   .market-menu-actions {
     grid-template-columns: 1fr;
+  }
+
+  .promise,
+  .journey-step {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 
   .scale-item {

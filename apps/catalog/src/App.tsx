@@ -1,8 +1,12 @@
-import type { ReactElement } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect, type ReactElement } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import About from "./pages/About";
 import ContractPage from "./pages/ContractPage";
 import ContractsList from "./pages/ContractsList";
+import Faq from "./pages/Faq";
+import Guarantee from "./pages/Guarantee";
+import HowItWorks from "./pages/HowItWorks";
 import Landing from "./pages/Landing";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
@@ -74,10 +78,25 @@ function ProjectRoute() {
   return role === "buyer" ? <BuyerProject /> : <DevProject />;
 }
 
+/** Landing on a new page half way down it is disorienting. */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
+    <>
+    <ScrollToTop />
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/how-it-works" element={<HowItWorks />} />
+      <Route path="/guarantee" element={<Guarantee />} />
+      <Route path="/faq" element={<Faq />} />
+      <Route path="/about" element={<About />} />
       <Route path="/signin" element={<SignIn />} />
       <Route
         path="/app"
@@ -160,5 +179,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

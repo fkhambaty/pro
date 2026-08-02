@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
-import Logo from "../components/Logo";
+import MarketingLayout from "../components/MarketingLayout";
+import { FAQS, GUARANTEES } from "../content/trust";
 
 const BUILDS = [
   "A website",
@@ -25,79 +24,8 @@ const BUYERS = [
 ];
 
 export default function Landing() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    document.body.classList.toggle("market-menu-open", menuOpen);
-    return () => document.body.classList.remove("market-menu-open");
-  }, [menuOpen]);
-
-  function closeMenu() {
-    setMenuOpen(false);
-  }
-
   return (
-    <>
-      <header className="market-nav">
-        <div className="wrap market-nav-inner">
-          <Link to="/" onClick={closeMenu}>
-            <Logo />
-          </Link>
-          <nav className="market-links">
-            <a href="#build">What you can build</a>
-            <a href="#how">How it works</a>
-            <a href="#buyers">For buyers</a>
-            <a href="#developers">For developers</a>
-          </nav>
-          <div className="nav-right">
-            <Link className="btn btn-secondary btn-sm" to="/signin">
-              Sign in
-            </Link>
-            <Link className="btn btn-accent btn-sm nav-cta" to="/signin">
-              Get started
-            </Link>
-            <button
-              type="button"
-              className="menu-toggle market-menu-toggle"
-              aria-expanded={menuOpen}
-              aria-controls="market-menu"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          </div>
-        </div>
-        {menuOpen && (
-          <div className="market-menu" id="market-menu">
-            <div className="wrap market-menu-inner">
-              <a href="#build" onClick={closeMenu}>
-                What you can build
-              </a>
-              <a href="#how" onClick={closeMenu}>
-                How it works
-              </a>
-              <a href="#buyers" onClick={closeMenu}>
-                For buyers
-              </a>
-              <a href="#developers" onClick={closeMenu}>
-                For developers
-              </a>
-              <div className="market-menu-actions">
-                <Link className="btn btn-secondary" to="/signin" onClick={closeMenu}>
-                  Sign in
-                </Link>
-                <Link className="btn btn-accent" to="/signin" onClick={closeMenu}>
-                  Get started
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-      </header>
-
+    <MarketingLayout>
       <section className="hero">
         <div className="wrap">
           <div className="hero-grid">
@@ -168,18 +96,21 @@ export default function Landing() {
             </div>
           </div>
 
+          {/* Every figure here is a rule the product enforces, not a count we
+              would have to justify. Do not put growth metrics in this strip
+              until they are real and checkable. */}
           <div className="scale-strip">
             <div className="scale-item">
-              <strong>74</strong>
-              <span>Countries with verified developers</span>
+              <strong>$1</strong>
+              <span>To post a requirement. No cut of your build budget</span>
             </div>
             <div className="scale-item">
-              <strong>1 form</strong>
-              <span>No technical brief required</span>
+              <strong>ID-checked</strong>
+              <span>Every developer, by a person, before they can bid</span>
             </div>
             <div className="scale-item">
-              <strong>0</strong>
-              <span>Surprise change requests after signing</span>
+              <strong>In escrow</strong>
+              <span>Your money, until you accept the work</span>
             </div>
             <div className="scale-item">
               <strong>You set</strong>
@@ -344,6 +275,59 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="section-tight" id="guarantee">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>What Okavo guarantees</h2>
+            <p>
+              Six promises, each one enforced by the product rather than by a
+              policy you would have to argue about later.
+            </p>
+          </div>
+          <div className="grid-2">
+            {GUARANTEES.map((promise) => (
+              <div className="promise-card" key={promise.title}>
+                <span className="tick">✓</span>
+                <div>
+                  <strong>{promise.title}</strong>
+                  <p>{promise.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="section-more">
+            <Link className="btn btn-secondary" to="/guarantee">
+              How each promise is enforced
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="section-tight" id="faq">
+        <div className="wrap">
+          <div className="section-head">
+            <h2>Before you trust us with a project</h2>
+            <p>The questions people actually ask, including the awkward ones.</p>
+          </div>
+          <div className="faq-list">
+            {FAQS.slice(0, 5).map((item) => (
+              <details className="faq-item" key={item.question}>
+                <summary>
+                  <span>{item.question}</span>
+                  <span className="faq-marker" aria-hidden="true" />
+                </summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+          <div className="section-more">
+            <Link className="btn btn-secondary" to="/faq">
+              All questions
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <section className="section-tight">
         <div className="wrap">
           <div className="closer">
@@ -361,15 +345,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="footer">
-        <div className="wrap footer-inner">
-          <Logo size={20} />
-          <span>Websites, apps and software — built on a signed agreement.</span>
-          <a className="footer-mail" href={SUPPORT_MAILTO}>
-            {SUPPORT_EMAIL}
-          </a>
-        </div>
-      </footer>
-    </>
+    </MarketingLayout>
   );
 }
