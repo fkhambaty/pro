@@ -24,7 +24,7 @@ export const PAGES: PageSeo[] = [
     path: "/",
     title: "Okavo — Agree what you'll get before anyone writes code",
     description:
-      "Describe what you need in plain language. Okavo turns it into a signed agreement, holds your money in escrow, and identity-verified developers build exactly that.",
+      "Describe what you need in plain language. Okavo turns it into a signed agreement, then identity-verified developers bid on that exact scope and you pay milestone by milestone.",
     indexed: true,
     priority: 1,
   },
@@ -40,7 +40,7 @@ export const PAGES: PageSeo[] = [
     path: "/guarantee",
     title: "The Okavo guarantee — six promises, and how each is enforced",
     description:
-      "Nothing is built until you sign what it means. Your money stays in escrow until you accept. Changes are quoted, never assumed. Every developer is identity-verified.",
+      "Nothing is built until you sign what it means. You pay milestone by milestone as you accept the work. Changes are quoted, never assumed. Every developer is identity-verified.",
     indexed: true,
     priority: 0.9,
   },
@@ -54,7 +54,7 @@ export const PAGES: PageSeo[] = [
   },
   {
     path: "/faq",
-    title: "Okavo FAQ — costs, escrow, code ownership and vetting",
+    title: "Okavo FAQ — costs, payment, code ownership and vetting",
     description:
       "What it costs, who owns the code, how developers are vetted, what happens if a developer disappears, and how new Okavo really is. Answered plainly.",
     indexed: true,
