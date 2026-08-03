@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useStore } from "../store";
 
 export default function Messages() {
   const { threads, sendMessage, role } = useStore();
-  const [activeId, setActiveId] = useState(threads[0]?.id ?? "");
+  const [params] = useSearchParams();
+  // Arriving from a bid deep-links straight into that conversation.
+  const requested = params.get("thread");
+  const [activeId, setActiveId] = useState(requested ?? threads[0]?.id ?? "");
   const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    if (requested) setActiveId(requested);
+  }, [requested]);
 
   const active = threads.find((thread) => thread.id === activeId) ?? threads[0];
   const mySide = role === "buyer" ? "buyer" : "developer";
@@ -49,6 +57,12 @@ export default function Messages() {
                   <span className="badge">{active.subject}</span>
                 </div>
                 <div className="bubbles">
+                  {active.messages.length === 0 && (
+                    <p className="hint" style={{ padding: "0.5rem 0" }}>
+                      No messages yet. Ask anything about the locked scope
+                      before work starts — it is cheaper to clarify now.
+                    </p>
+                  )}
                   {active.messages.map((message) => (
                     <div
                       key={message.id}

@@ -15,6 +15,21 @@ export default function BuyerProject() {
 
   // A price means nothing without a track record next to it.
   const [ratings, setRatings] = useState<Record<string, DeveloperListing>>({});
+  const [messaging, setMessaging] = useState<string | null>(null);
+
+  /** Opens (creating if needed) the conversation with one bidder. */
+  async function message(developerId: string) {
+    if (!id) return;
+    setMessaging(developerId);
+    try {
+      const threadId = await api.openThread(id, developerId);
+      navigate(`/app/messages?thread=${threadId}`);
+    } catch {
+      navigate("/app/messages");
+    } finally {
+      setMessaging(null);
+    }
+  }
 
   useEffect(() => {
     if (!connected) return;
@@ -195,6 +210,16 @@ export default function BuyerProject() {
                               }
                             >
                               Decline
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              disabled={messaging === bid.developerId}
+                              onClick={() => message(bid.developerId)}
+                            >
+                              {messaging === bid.developerId
+                                ? "Opening…"
+                                : "Ask a question"}
                             </button>
                             {bid.status === "shortlisted" && (
                               <span className="badge badge-accent">

@@ -429,29 +429,59 @@ export async function fetchThreads(userId: string): Promise<Thread[]> {
   const { data, error } = await db()
     .from("message_threads")
     .select(
-      "id, subject, project_id, buyer_id, developer_id, messages ( id, body, sender_id, created_at )"
+      `id, subject, project_id, buyer_id, developer_id,
+       buyer:profiles!message_threads_buyer_id_fkey ( full_name ),
+       developer:profiles!message_threads_developer_id_fkey ( full_name ),
+       messages ( id, body, sender_id, created_at )`
     )
     .order("last_message_at", { ascending: false });
   if (error) throw error;
 
-  return (data ?? []).map((thread: any) => ({
-    id: thread.id,
-    projectId: thread.project_id ?? "",
-    subject: thread.subject,
-    counterpart: thread.buyer_id === userId ? "Developer" : "Buyer",
-    messages: many<any>(thread.messages)
-      .sort(
-        (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
-      .map((message) => ({
-        id: message.id,
-        from: message.sender_id === thread.buyer_id ? "buyer" : "developer",
-        authorName: message.sender_id === userId ? "You" : "Them",
-        body: message.body,
-        sentAt: formatDateTime(message.created_at),
-      })),
-  }));
+  return (data ?? []).map((thread: any) => {
+    const buyerName = one<any>(thread.buyer)?.full_name ?? "Buyer";
+    const developerName = one<any>(thread.developer)?.full_name ?? "Developer";
+    const viewerIsBuyer = thread.buyer_id === userId;
+
+    return {
+      id: thread.id,
+      projectId: thread.project_id ?? "",
+      subject: thread.subject,
+      counterpart: viewerIsBuyer ? developerName : buyerName,
+      messages: many<any>(thread.messages)
+        .sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        .map((message) => ({
+          id: message.id,
+          from:
+            message.sender_id === thread.buyer_id
+              ? ("buyer" as const)
+              : ("developer" as const),
+          authorName:
+            message.sender_id === userId
+              ? "You"
+              : message.sender_id === thread.buyer_id
+                ? buyerName
+                : developerName,
+          body: message.body,
+          sentAt: formatDateTime(message.created_at),
+        })),
+    };
+  });
+}
+
+/**
+ * Returns the conversation between a project's buyer and one developer,
+ * opening it if this is the first time either side has written.
+ */
+export async function openThread(projectId: string, developerId: string) {
+  const { data, error } = await db().rpc("ensure_thread", {
+    target_project: projectId,
+    target_developer: developerId,
+  });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function fetchNotifications(
