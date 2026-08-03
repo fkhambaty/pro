@@ -103,7 +103,9 @@ function setMeta(selector: string, attribute: string, value: string) {
 export function applySeo(pathname: string) {
   if (typeof document === "undefined") return;
   const page = seoFor(pathname);
-  const url = `${SITE_URL}${pathname}`;
+  // Must match the prerendered canonical and the sitemap exactly, or Google
+  // reports the submitted URL as "not canonical".
+  const url = pathname === "/" ? `${SITE_URL}/` : `${SITE_URL}${pathname}`;
 
   document.title = page.title;
   setMeta('meta[name="description"]', "content", page.description);

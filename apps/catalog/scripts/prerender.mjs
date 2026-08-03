@@ -72,8 +72,13 @@ const organisation = {
   foundingDate: "2026",
 };
 
+/** One spelling of every URL, so the canonical and the sitemap always agree. */
+function canonicalUrl(path) {
+  return path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`;
+}
+
 function headFor(page) {
-  const url = `${SITE_URL}${page.path === "/" ? "" : page.path}`;
+  const url = canonicalUrl(page.path);
   const title = escapeHtml(page.title);
   const description = escapeHtml(page.description);
 
@@ -121,20 +126,20 @@ for (const page of pages) {
   writeFileSync(target, html);
 }
 
+// Google ignores <changefreq> and <priority> outright but does read
+// <lastmod>, so the sitemap carries the field that is actually used.
+const lastmod = new Date().toISOString().slice(0, 10);
+
 const sitemap = [
   '<?xml version="1.0" encoding="UTF-8"?>',
-  '<urlset xmlns="http://www.w3.org/1999/9/xhtml">'.replace(
-    "http://www.w3.org/1999/9/xhtml",
-    "http://www.sitemaps.org/schemas/sitemap/0.9"
-  ),
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
   ...pages
     .filter((page) => page.indexed)
     .map((page) =>
       [
         "  <url>",
-        `    <loc>${SITE_URL}${page.path === "/" ? "/" : page.path}</loc>`,
-        `    <changefreq>weekly</changefreq>`,
-        `    <priority>${page.priority.toFixed(1)}</priority>`,
+        `    <loc>${canonicalUrl(page.path)}</loc>`,
+        `    <lastmod>${lastmod}</lastmod>`,
         "  </url>",
       ].join("\n")
     ),
