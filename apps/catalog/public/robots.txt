@@ -5,4 +5,18 @@ Allow: /
 Disallow: /app
 Disallow: /api
 
+# Answer engines are welcome. Stated explicitly so nobody has to infer it.
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://okavo.org/sitemap.xml

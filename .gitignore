@@ -10,3 +10,5 @@ apps/*/.vite
 supabase/.temp/
 
 .okavo-agent
+
+.indexnow-key
