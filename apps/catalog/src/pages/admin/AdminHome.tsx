@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { money } from "../../format";
 import * as api from "../../lib/api";
 import { isSupabaseConfigured } from "../../lib/supabase";
+import { errorMessage } from "../../lib/errors";
 
 const DEMO: api.PlatformInsights = {
   buyers: 3,
@@ -28,7 +29,7 @@ export default function AdminHome() {
       .fetchInsights()
       .then(setInsights)
       .catch((cause) =>
-        setError(cause instanceof Error ? cause.message : String(cause))
+        setError(errorMessage(cause))
       );
   }, []);
 

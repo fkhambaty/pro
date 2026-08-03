@@ -1074,11 +1074,14 @@ export type PlatformInsights = {
 export async function fetchInsights(): Promise<PlatformInsights> {
   const client = db();
 
+  // Count a named column, never "*". Tables like buyer_profiles grant SELECT
+  // per column to hide billing details, and "*" asks for columns we revoked.
   const countOf = async (
     table: string,
+    column: string,
     filter?: (query: any) => any
   ): Promise<number> => {
-    let query = client.from(table).select("*", { count: "exact", head: true });
+    let query = client.from(table).select(column, { count: "exact", head: true });
     if (filter) query = filter(query);
     const { count, error } = await query;
     if (error) throw error;
@@ -1087,13 +1090,15 @@ export async function fetchInsights(): Promise<PlatformInsights> {
 
   const [buyers, developers, verifiedDevelopers, projects, lockedProjects, bids, pendingReviews] =
     await Promise.all([
-      countOf("buyer_profiles"),
-      countOf("developer_profiles"),
-      countOf("developer_profiles", (q) => q.eq("identity_status", "approved")),
-      countOf("projects"),
-      countOf("projects", (q) => q.neq("stage", "drafting")),
-      countOf("bids"),
-      countOf("identity_verifications", (q) => q.eq("status", "submitted")),
+      countOf("buyer_profiles", "profile_id"),
+      countOf("developer_profiles", "profile_id"),
+      countOf("developer_profiles", "profile_id", (q) =>
+        q.eq("identity_status", "approved")
+      ),
+      countOf("projects", "id"),
+      countOf("projects", "id", (q) => q.neq("stage", "drafting")),
+      countOf("bids", "id"),
+      countOf("identity_verifications", "id", (q) => q.eq("status", "submitted")),
     ]);
 
   const { data: fees } = await client
@@ -1129,6 +1134,76 @@ export async function fetchInsights(): Promise<PlatformInsights> {
     escrowCents,
     pendingReviews,
   };
+}
+
+export type AnalyticsOverview = {
+  pageViews: number;
+  uniqueVisitors: number;
+  sessions: number;
+  newVisitors: number;
+  countries: number;
+  signedInViews: number;
+};
+
+export type BreakdownRow = { label: string; views: number; visitors: number };
+
+export type AnalyticsDimension =
+  | "channel"
+  | "referrer_host"
+  | "country"
+  | "city"
+  | "device"
+  | "browser"
+  | "os"
+  | "path"
+  | "utm_source"
+  | "utm_campaign"
+  | "language";
+
+export async function fetchAnalyticsOverview(
+  days: number
+): Promise<AnalyticsOverview> {
+  const { data, error } = await db().rpc("analytics_overview", { days });
+  if (error) throw error;
+  const row = (Array.isArray(data) ? data[0] : data) ?? {};
+  return {
+    pageViews: Number(row.page_views ?? 0),
+    uniqueVisitors: Number(row.unique_visitors ?? 0),
+    sessions: Number(row.sessions ?? 0),
+    newVisitors: Number(row.new_visitors ?? 0),
+    countries: Number(row.countries ?? 0),
+    signedInViews: Number(row.signed_in_views ?? 0),
+  };
+}
+
+export async function fetchAnalyticsBreakdown(
+  dimension: AnalyticsDimension,
+  days: number,
+  maxRows = 12
+): Promise<BreakdownRow[]> {
+  const { data, error } = await db().rpc("analytics_breakdown", {
+    dimension,
+    days,
+    max_rows: maxRows,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    label: row.label,
+    views: Number(row.views),
+    visitors: Number(row.visitors),
+  }));
+}
+
+export async function fetchAnalyticsDaily(
+  days: number
+): Promise<{ day: string; views: number; visitors: number }[]> {
+  const { data, error } = await db().rpc("analytics_daily", { days });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    day: row.day,
+    views: Number(row.views),
+    visitors: Number(row.visitors),
+  }));
 }
 
 export async function markNotificationsRead(userId: string) {

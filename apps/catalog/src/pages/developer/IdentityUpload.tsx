@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as api from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { isSupabaseConfigured } from "../../lib/supabase";
+import { errorMessage } from "../../lib/errors";
 
 const DOCUMENT_TYPES = [
   "Passport",
@@ -70,7 +71,7 @@ export default function IdentityUpload({ status, onSubmitted }: Props) {
       }
       onSubmitted();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }

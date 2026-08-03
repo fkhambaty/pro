@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import * as api from "../../lib/api";
 import { formatRating } from "../../lib/reviewCriteria";
 import type { DeveloperListing, DeveloperTier } from "../../types";
+import { errorMessage } from "../../lib/errors";
 
 type SortKey = "rating" | "delivered" | "rate" | "scope";
 
@@ -50,7 +51,7 @@ export default function Developers() {
         if (!cancelled) setDevelopers(list);
       } catch (cause) {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : String(cause));
+          setError(errorMessage(cause));
         }
       } finally {
         if (!cancelled) setLoading(false);

@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import SignIn from "./pages/SignIn";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminHome from "./pages/admin/AdminHome";
 import AdminVerifications from "./pages/admin/AdminVerifications";
 import BuyerHome from "./pages/buyer/BuyerHome";
@@ -24,6 +25,7 @@ import DevBoard from "./pages/developer/DevBoard";
 import DevProject from "./pages/developer/DevProject";
 import Earnings from "./pages/developer/Earnings";
 import Verification from "./pages/developer/Verification";
+import { trackPageView } from "./lib/analytics";
 import { useAuth } from "./lib/auth";
 import { useStore } from "./store";
 
@@ -87,10 +89,20 @@ function ScrollToTop() {
   return null;
 }
 
+function PageViews() {
+  const { pathname, search } = useLocation();
+  const { userId } = useAuth();
+  useEffect(() => {
+    trackPageView(userId);
+  }, [pathname, search, userId]);
+  return null;
+}
+
 export default function App() {
   return (
     <>
     <ScrollToTop />
+    <PageViews />
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
@@ -173,6 +185,14 @@ export default function App() {
           element={
             <AdminOnly>
               <AdminVerifications />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="traffic"
+          element={
+            <AdminOnly>
+              <AdminAnalytics />
             </AdminOnly>
           }
         />

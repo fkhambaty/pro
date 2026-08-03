@@ -33,6 +33,7 @@ import type {
   ScopeItem,
   Thread,
 } from "./types";
+import { errorMessage } from "./lib/errors";
 
 type NewProjectInput = {
   title: string;
@@ -219,7 +220,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setPostingFeesPaid(await api.countPostingFees(auth.userId));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
       setHydrated(true);
@@ -239,7 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await refresh();
         return true;
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
         return false;
       }
     },
@@ -267,7 +268,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         await api.payPostingFee(auth.userId, REQUIREMENT_POSTING_CENTS);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(errorMessage(cause));
         throw cause;
       }
     }
@@ -282,7 +283,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           await refresh();
           return id;
         } catch (cause) {
-          setError(cause instanceof Error ? cause.message : String(cause));
+          setError(errorMessage(cause));
           return "";
         }
       }

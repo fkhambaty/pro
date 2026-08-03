@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../../lib/api";
 import { isSupabaseConfigured } from "../../lib/supabase";
+import { errorMessage } from "../../lib/errors";
 
 export default function AdminVerifications() {
   const [items, setItems] = useState<api.ReviewItem[]>([]);
@@ -15,7 +16,7 @@ export default function AdminVerifications() {
       setItems(await api.fetchVerificationQueue());
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -30,7 +31,7 @@ export default function AdminVerifications() {
       const url = await api.signedDocumentUrl(path);
       window.open(url, "_blank", "noopener");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     }
   }
 
@@ -40,7 +41,7 @@ export default function AdminVerifications() {
       await api.decideVerification(item.id, item.developerId, approved);
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusyId(null);
     }

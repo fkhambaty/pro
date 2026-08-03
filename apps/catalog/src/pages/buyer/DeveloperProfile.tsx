@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import * as api from "../../lib/api";
 import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
 import type { DeveloperListing } from "../../types";
+import { errorMessage } from "../../lib/errors";
 
 export default function DeveloperProfile() {
   const { id } = useParams();
@@ -27,7 +28,7 @@ export default function DeveloperProfile() {
         }
       } catch (cause) {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : String(cause));
+          setError(errorMessage(cause));
         }
       } finally {
         if (!cancelled) setLoading(false);
