@@ -93,6 +93,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
               <h4>Product</h4>
               <Link to="/how-it-works">How it works</Link>
               <Link to="/guarantee">The guarantee</Link>
+              <Link to="/security">Security</Link>
               <Link to="/faq">Questions</Link>
             </div>
             <div>

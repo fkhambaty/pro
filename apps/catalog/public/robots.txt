@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# The signed-in workspace holds private contracts and has nothing to index.
+Disallow: /app
+Disallow: /api
+
+Sitemap: https://okavo.org/sitemap.xml

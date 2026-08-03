@@ -8,6 +8,7 @@ import Faq from "./pages/Faq";
 import Guarantee from "./pages/Guarantee";
 import HowItWorks from "./pages/HowItWorks";
 import Landing from "./pages/Landing";
+import Security from "./pages/Security";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import SignIn from "./pages/SignIn";
@@ -26,6 +27,7 @@ import DevProject from "./pages/developer/DevProject";
 import Earnings from "./pages/developer/Earnings";
 import Verification from "./pages/developer/Verification";
 import { trackPageView } from "./lib/analytics";
+import { applySeo } from "./lib/seo";
 import { useAuth } from "./lib/auth";
 import { useStore } from "./store";
 
@@ -85,6 +87,7 @@ function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
+    applySeo(pathname);
   }, [pathname]);
   return null;
 }
@@ -107,6 +110,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
       <Route path="/guarantee" element={<Guarantee />} />
+      <Route path="/security" element={<Security />} />
       <Route path="/faq" element={<Faq />} />
       <Route path="/about" element={<About />} />
       <Route path="/signin" element={<SignIn />} />
