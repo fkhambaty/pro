@@ -6,7 +6,11 @@ type Props = {
 };
 
 /**
- * The Okavo mark: an aperture closed by a bar — the requirement lock.
+ * The Okavo mark: a solid tile closed by a bar — the requirement lock.
+ *
+ * Solid rather than outlined so it still reads at 16px in a browser tab. The
+ * tile takes `currentColor`, which means it inverts correctly between the ink
+ * sidebar and the paper marketing pages without a second asset.
  */
 export default function Logo({ size = 24, markOnly = false }: Props) {
   return (
@@ -19,16 +23,15 @@ export default function Logo({ size = 24, markOnly = false }: Props) {
         aria-hidden="true"
         className="logo-mark"
       >
+        <rect x="1" y="1" width="22" height="22" rx="7" fill="currentColor" />
         <rect
-          x="2.25"
-          y="2.25"
-          width="19.5"
-          height="19.5"
-          rx="6.5"
-          stroke="currentColor"
-          strokeWidth="2.5"
+          x="6.4"
+          y="10.2"
+          width="11.2"
+          height="3.6"
+          rx="1.8"
+          fill="var(--accent)"
         />
-        <rect x="7" y="10.4" width="10" height="3.2" rx="1.6" fill="var(--accent)" />
       </svg>
       {!markOnly && <span className="logo-word">Okavo</span>}
     </span>
