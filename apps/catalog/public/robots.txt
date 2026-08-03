@@ -1,28 +1,13 @@
-# Okavo is happy to be crawled, indexed and cited, including by answer
-# engines. Only the signed-in workspace is off limits, because it holds
-# private contracts.
+# Okavo welcomes crawlers, indexers and answer engines. Only the signed-in
+# workspace is off limits, because it holds private contracts.
 #
-# Agents are listed consecutively before the rules on purpose: under RFC 9309
-# that forms one group, so every named agent inherits the same Disallow lines.
-# Giving each agent its own Allow-only group would have quietly exempted them
-# from the /app rule.
+# Deliberately one wildcard group. Under RFC 9309 an agent with no group of
+# its own falls back to "*", so this covers Googlebot, Bingbot,
+# Google-Extended, GPTBot, ClaudeBot, PerplexityBot and everything else,
+# present and future. Naming agents individually only creates ways to get the
+# inheritance wrong.
 
 User-agent: *
-User-agent: Googlebot
-User-agent: Bingbot
-User-agent: Google-Extended
-User-agent: GPTBot
-User-agent: OAI-SearchBot
-User-agent: ChatGPT-User
-User-agent: PerplexityBot
-User-agent: Perplexity-User
-User-agent: ClaudeBot
-User-agent: Claude-Web
-User-agent: anthropic-ai
-User-agent: Applebot
-User-agent: Applebot-Extended
-User-agent: CCBot
-User-agent: meta-externalagent
 Allow: /
 Disallow: /app
 Disallow: /api
