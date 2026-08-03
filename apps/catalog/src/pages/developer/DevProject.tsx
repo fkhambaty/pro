@@ -132,7 +132,7 @@ export default function DevProject() {
               {locked && identityApproved && !developerAccount.membershipPaid && (
                 <div className="paywall" style={{ marginBottom: "1rem" }}>
                   <div>
-                    <strong>Pay $10 once to bid</strong>
+                    <strong>Pay ₹899 once to bid</strong>
                     <p>
                       Your identity is verified. The one-time membership activates
                       bidding across the whole marketplace.

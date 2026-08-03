@@ -156,7 +156,7 @@ export default function AppShell() {
           {!isBuyer && !isAdmin && !developerAccount.membershipPaid && (
             <div className="side-lock-note">
               <strong>Bidding locked</strong>
-              <span>Pay $10 once to bid</span>
+              <span>Pay ₹899 once to bid</span>
             </div>
           )}
           <div className="side-user">

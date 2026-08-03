@@ -18,7 +18,7 @@ const BUYER_STEPS = [
     title: "Sign the lock",
     detail:
       "Signing freezes the scope, the build budget and the monthly running cost. Okavo keeps an unchangeable copy. From this moment nobody can quietly widen or narrow what was agreed, including us.",
-    takes: "$1, charged once per requirement",
+    takes: "₹99, charged once per requirement",
   },
   {
     title: "Compare bids priced against identical scope",
@@ -27,9 +27,9 @@ const BUYER_STEPS = [
     takes: "Most requirements attract bids within a week",
   },
   {
-    title: "Fund one milestone at a time",
+    title: "Pay one milestone at a time",
     detail:
-      "You release money milestone by milestone, and only after you have checked the work against the scope. Escrow is held by our payment provider, not by the developer and not by Okavo.",
+      "You release money milestone by milestone, and only after you have checked the work against the signed scope. Okavo-held escrow is being switched on next; for now you pay your developer directly against that same schedule.",
     takes: "You are never more than one milestone exposed",
   },
   {
@@ -54,7 +54,7 @@ const DEV_STEPS = [
   {
     title: "Pay once, bid freely",
     detail:
-      "A one-time $10 membership unlocks bidding across the whole marketplace. There is no commission on what you earn and no subscription.",
+      "A one-time ₹899 membership unlocks bidding across the whole marketplace. There is no commission on what you earn and no subscription.",
   },
   {
     title: "Bid on settled work",
@@ -64,7 +64,7 @@ const DEV_STEPS = [
   {
     title: "Get paid on acceptance",
     detail:
-      "The buyer funds each milestone into escrow before you start it, so you can see the money exists. It releases to you when they accept the work. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
+      "You are paid milestone by milestone as the buyer accepts the work, against a schedule fixed in the signed contract. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
   },
 ];
 

@@ -1,15 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import IdentityUpload from "./IdentityUpload";
-import { money } from "../../format";
 import * as api from "../../lib/api";
-import { readPaymentReturn, startCheckout } from "../../lib/checkout";
+import { collectFee } from "../../lib/checkout";
+import { MEMBERSHIP_FEE_LABEL } from "../../lib/pricing";
 import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
-import { BIDDING_MEMBERSHIP_CENTS } from "../../lib/supabase";
 import { useStore } from "../../store";
 import type { DeveloperListing } from "../../types";
-
-const MEMBERSHIP_PRICE = BIDDING_MEMBERSHIP_CENTS / 100;
 
 const IDENTITY_LABEL: Record<string, string> = {
   not_started: "Not started",
@@ -22,6 +18,7 @@ const IDENTITY_LABEL: Record<string, string> = {
 export default function Verification() {
   const {
     name,
+    email,
     userId,
     developerAccount,
     payMembership,
@@ -57,38 +54,6 @@ export default function Verification() {
       developerAccount.interviewScores.length
   );
 
-  const location = useLocation();
-  const handledReturn = useRef(false);
-
-  // Stripe sends the developer back here. The webhook unlocks bidding, so we
-  // poll briefly rather than claiming success the moment they land.
-  useEffect(() => {
-    if (handledReturn.current) return;
-    const { purpose, cancelled } = readPaymentReturn(location.search);
-
-    if (cancelled) {
-      handledReturn.current = true;
-      setPayError("Payment was cancelled. Bidding is still locked.");
-      return;
-    }
-    if (purpose !== "bidding_membership") return;
-
-    handledReturn.current = true;
-    setPaying(true);
-
-    let attempts = 0;
-    const timer = setInterval(async () => {
-      attempts += 1;
-      await refresh();
-      if (attempts >= 6) {
-        clearInterval(timer);
-        setPaying(false);
-      }
-    }, 1500);
-
-    return () => clearInterval(timer);
-  }, [location.search, refresh]);
-
   useEffect(() => {
     if (developerAccount.membershipPaid) setPaying(false);
   }, [developerAccount.membershipPaid]);
@@ -98,15 +63,27 @@ export default function Verification() {
       payMembership();
       return;
     }
+
     setPaying(true);
     setPayError(null);
-    const { error } = await startCheckout({
-      purpose: "bidding_membership",
-      returnPath: "/app/verification",
-    });
-    if (error) {
+    const result = await collectFee("bidding_membership", { name, email });
+
+    if (result.status === "paid") {
+      // The webhook has already unlocked bidding; re-read it.
+      await refresh();
       setPaying(false);
-      setPayError(error);
+      return;
+    }
+
+    setPaying(false);
+    if (result.status === "cancelled") {
+      setPayError("Payment was cancelled. Bidding is still locked.");
+    } else if (result.status === "pending") {
+      setPayError(
+        "Your bank is still confirming the payment. Refresh this page in a moment — do not pay again."
+      );
+    } else {
+      setPayError(result.message);
     }
   }
 
@@ -142,7 +119,7 @@ export default function Verification() {
                 </p>
               </div>
               <div className="membership-price">
-                <strong>{money(MEMBERSHIP_PRICE)}</strong>
+                <strong>{MEMBERSHIP_FEE_LABEL}</strong>
                 <span>one time</span>
               </div>
             </div>
@@ -170,11 +147,11 @@ export default function Verification() {
                   disabled={paying}
                 >
                   {paying
-                    ? "Opening Stripe…"
-                    : `Pay ${money(MEMBERSHIP_PRICE)} and activate bidding`}
+                    ? "Opening payment…"
+                    : `Pay ${MEMBERSHIP_FEE_LABEL} and activate bidding`}
                 </button>
                 <span className="hint">
-                  Secure payment by Stripe. Okavo never sees your card details.
+                  Secure payment by Razorpay. Okavo never sees your card details.
                 </span>
               </div>
             )}

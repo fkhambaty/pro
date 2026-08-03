@@ -48,7 +48,7 @@ export const PAGES: PageSeo[] = [
     path: "/security",
     title: "Security and data handling at Okavo",
     description:
-      "How Okavo protects your money, your documents and your data: escrow held by Stripe, row-level database isolation, private identity storage and regional data rules.",
+      "How Okavo protects your money, your documents and your data: payments handled by Razorpay, row-level database isolation, private identity storage and regional data rules.",
     indexed: true,
     priority: 0.7,
   },
@@ -72,7 +72,7 @@ export const PAGES: PageSeo[] = [
     path: "/signin",
     title: "Sign in to Okavo",
     description:
-      "Sign in to post a requirement or bid on locked scope. Buyers pay $1 per requirement; developers pay a one-time $10 membership.",
+      "Sign in to post a requirement or bid on locked scope. Buyers pay ₹99 per requirement; developers pay a one-time ₹899 membership.",
     indexed: false,
   },
 ];

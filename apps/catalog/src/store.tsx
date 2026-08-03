@@ -9,11 +9,8 @@ import {
 } from "react";
 import * as api from "./lib/api";
 import { useAuth } from "./lib/auth";
-import {
-  BIDDING_MEMBERSHIP_CENTS,
-  REQUIREMENT_POSTING_CENTS,
-  isSupabaseConfigured,
-} from "./lib/supabase";
+import { isSupabaseConfigured } from "./lib/supabase";
+import { MEMBERSHIP_FEE_MINOR, POSTING_FEE_MINOR } from "./lib/pricing";
 import {
   NEW_DEVELOPER_ACCOUNT,
   NOTIFICATIONS,
@@ -50,6 +47,7 @@ type NewProjectInput = {
 type StoreValue = {
   role: Role;
   name: string;
+  email: string | null;
   userId: string | null;
   connected: boolean;
   loading: boolean;
@@ -267,7 +265,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const payPostingFee = useCallback(async () => {
     if (live && auth.userId) {
       try {
-        await api.payPostingFee(auth.userId, REQUIREMENT_POSTING_CENTS);
+        await api.payPostingFee(auth.userId, POSTING_FEE_MINOR);
       } catch (cause) {
         setError(errorMessage(cause));
         throw cause;
@@ -460,7 +458,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const payMembership = useCallback(() => {
     if (live && auth.userId) {
       void run(() =>
-        api.payMembership(auth.userId as string, BIDDING_MEMBERSHIP_CENTS)
+        api.payMembership(auth.userId as string, MEMBERSHIP_FEE_MINOR)
       );
       return;
     }
@@ -472,7 +470,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     notify({
       kind: "payment",
       title: "Bidding activated",
-      body: "Your $10 one-time membership is paid.",
+      body: "Your one-time bidding membership is paid.",
       link: "/app",
       read: false,
       createdAt: today(),
@@ -810,6 +808,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       role: auth.role,
       name: auth.displayName,
+      email: auth.email,
       userId: auth.userId,
       connected: isSupabaseConfigured,
       loading,
@@ -847,6 +846,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [
       auth.role,
       auth.displayName,
+      auth.email,
       auth.userId,
       auth.signOut,
       loading,

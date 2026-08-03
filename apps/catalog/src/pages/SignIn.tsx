@@ -111,7 +111,7 @@ export default function SignIn() {
               <span>
                 <strong>I build software</strong>
                 <span>
-                  Verify identity, pay the one-time $10 membership, then bid.
+                  Verify identity, pay the one-time ₹899 membership, then bid.
                 </span>
               </span>
             </button>

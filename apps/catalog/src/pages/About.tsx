@@ -22,7 +22,7 @@ const PRINCIPLES = [
   },
   {
     title: "Say the price out loud",
-    body: "$1 to post a requirement. $10 once for a developer to start bidding. No commission on your build budget, no percentage skimmed from escrow, no enterprise tier with a hidden number.",
+    body: "₹99 to post a requirement. ₹899 once for a developer to start bidding. No commission on your build budget, no percentage skimmed from escrow, no enterprise tier with a hidden number.",
   },
   {
     title: "Everyone gets the same product",

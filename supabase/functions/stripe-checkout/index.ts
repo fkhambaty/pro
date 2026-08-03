@@ -7,7 +7,7 @@ import {
   serviceClient,
   stripeRequest,
   type Purpose,
-} from "../_shared/stripe.ts";
+} from "../_shared/backend.ts";
 
 /**
  * Opens a Stripe Checkout session for one of the platform fees.

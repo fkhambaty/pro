@@ -101,7 +101,7 @@ export default function Landing() {
               until they are real and checkable. */}
           <div className="scale-strip">
             <div className="scale-item">
-              <strong>$1</strong>
+              <strong>₹99</strong>
               <span>To post a requirement. No cut of your build budget</span>
             </div>
             <div className="scale-item">
@@ -109,8 +109,8 @@ export default function Landing() {
               <span>Every developer, by a person, before they can bid</span>
             </div>
             <div className="scale-item">
-              <strong>In escrow</strong>
-              <span>Your money, until you accept the work</span>
+              <strong>Milestones</strong>
+              <span>You pay as work is accepted, never all up front</span>
             </div>
             <div className="scale-item">
               <strong>You set</strong>
@@ -224,7 +224,7 @@ export default function Landing() {
               </li>
               <li>
                 <span className="dot" />
-                Fund milestones into escrow, release only on acceptance
+                Pay milestone by milestone, only on acceptance
               </li>
               <li>
                 <span className="dot" />
@@ -232,7 +232,7 @@ export default function Landing() {
               </li>
               <li>
                 <span className="dot" />
-                $1 per requirement keeps the board serious on both sides
+                ₹99 per requirement keeps the board serious on both sides
               </li>
             </ul>
             <Link className="btn btn-accent" to="/signin">
@@ -244,7 +244,7 @@ export default function Landing() {
             <span className="pov-tag">For developers</span>
             <h3>Prove it once, then build</h3>
             <p>
-              Browsing is free. A one-time $10 membership unlocks bidding.
+              Browsing is free. A one-time ₹899 membership unlocks bidding.
             </p>
             <ul>
               <li>
@@ -261,7 +261,7 @@ export default function Landing() {
               </li>
               <li>
                 <span className="dot" />
-                Escrow funded before you start, released on acceptance
+                Paid milestone by milestone as the buyer accepts
               </li>
               <li>
                 <span className="dot" />

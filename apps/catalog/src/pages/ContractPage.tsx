@@ -1,20 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import { money } from "../format";
-import { readPaymentReturn, startCheckout } from "../lib/checkout";
 import { REVIEW_CRITERIA, formatRating } from "../lib/reviewCriteria";
 import { useStore } from "../store";
 import type { ReviewScores } from "../types";
 
 export default function ContractPage() {
   const { id } = useParams();
-  const location = useLocation();
   const {
     projects,
     role,
     name,
     connected,
-    refresh,
     fundMilestone,
     submitMilestone,
     acceptMilestone,
@@ -45,49 +42,20 @@ export default function ContractPage() {
   });
   const reviewAverage =
     (scores.scope + scores.quality + scores.communication + scores.timeliness) / 4;
-  const [fundingId, setFundingId] = useState<string | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
-  const handledReturn = useRef(false);
 
-  // Escrow is only marked funded by the Stripe webhook, so after the redirect
-  // we re-read the contract instead of assuming the money arrived.
-  useEffect(() => {
-    if (handledReturn.current) return;
-    const { purpose, cancelled } = readPaymentReturn(location.search);
+  // Escrow moves money to a developer, which needs payout rails Okavo has not
+  // switched on yet. Until then the button says so rather than pretending.
+  const escrowLive = false;
 
-    if (cancelled) {
-      handledReturn.current = true;
-      setPayError("Payment was cancelled. This milestone is still unfunded.");
-      return;
-    }
-    if (purpose !== "milestone_funding") return;
-
-    handledReturn.current = true;
-    let attempts = 0;
-    const timer = setInterval(async () => {
-      attempts += 1;
-      await refresh();
-      if (attempts >= 6) clearInterval(timer);
-    }, 1500);
-    return () => clearInterval(timer);
-  }, [location.search, refresh]);
-
-  async function fundEscrow(projectId: string, milestoneId: string) {
+  function fundEscrow(projectId: string, milestoneId: string) {
     if (!connected) {
       fundMilestone(projectId, milestoneId);
       return;
     }
-    setFundingId(milestoneId);
-    setPayError(null);
-    const { error } = await startCheckout({
-      purpose: "milestone_funding",
-      milestoneId,
-      returnPath: `/app/contract/${projectId}`,
-    });
-    if (error) {
-      setFundingId(null);
-      setPayError(error);
-    }
+    setPayError(
+      "Escrow is not switched on yet, so this milestone cannot be funded through Okavo. Agree payment directly with your developer for now — the signed scope still governs what has to be delivered."
+    );
   }
 
   if (!project) {
@@ -307,12 +275,11 @@ export default function ContractPage() {
                         <button
                           type="button"
                           className="btn btn-sm"
-                          disabled={fundingId === milestone.id}
                           onClick={() => fundEscrow(project.id, milestone.id)}
                         >
-                          {fundingId === milestone.id
-                            ? "Opening Stripe…"
-                            : `Fund escrow ${money(milestone.amount)}`}
+                          {escrowLive
+                            ? `Fund escrow ${money(milestone.amount)}`
+                            : `Escrow ${money(milestone.amount)} — not live yet`}
                         </button>
                       )}
                       {isBuyer && milestone.status === "submitted" && (

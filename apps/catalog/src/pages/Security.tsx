@@ -4,9 +4,9 @@ import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 
 const CONTROLS = [
   {
-    area: "Your money",
+    area: "Payments",
     detail:
-      "Escrow is held by Stripe, a licensed payment provider, not in an Okavo bank account. Card details never touch our servers — payment happens on Stripe's own checkout. A milestone cannot be marked funded unless Stripe confirms the payment cleared, and that confirmation is verified by signature.",
+      "Platform fees are collected by Razorpay, an RBI-licensed payment aggregator. Card and UPI details never touch our servers — payment happens inside Razorpay's own checkout. A fee is only ever recorded as paid when Razorpay confirms it by signed webhook, so a modified browser cannot claim a payment that did not happen.",
   },
   {
     area: "Your requirements",

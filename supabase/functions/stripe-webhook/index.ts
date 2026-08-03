@@ -4,7 +4,7 @@ import {
   requireEnv,
   serviceClient,
   verifyStripeSignature,
-} from "../_shared/stripe.ts";
+} from "../_shared/backend.ts";
 
 /**
  * Stripe's callback. This is the only place a payment is ever marked paid,

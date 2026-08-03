@@ -13,8 +13,3 @@ export const supabase: SupabaseClient | null =
 
 export const isSupabaseConfigured = supabase !== null;
 
-/** One-time fee a developer pays to unlock bidding. */
-export const BIDDING_MEMBERSHIP_CENTS = 1000;
-
-/** Charged per requirement, so posting costs a buyer something. */
-export const REQUIREMENT_POSTING_CENTS = 100;

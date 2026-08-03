@@ -1,5 +1,5 @@
 import { money } from "../../format";
-import { REQUIREMENT_POSTING_CENTS } from "../../lib/supabase";
+import { POSTING_FEE_LABEL, POSTING_FEE_MINOR, fee } from "../../lib/pricing";
 import { useStore } from "../../store";
 
 export default function Payments() {
@@ -68,13 +68,13 @@ export default function Payments() {
                 Posting fees
               </h3>
               <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                {money(REQUIREMENT_POSTING_CENTS / 100)} per requirement, charged
+                {POSTING_FEE_LABEL} per requirement, charged
                 once at creation. Not deducted from your build budget.
               </p>
             </div>
             <div className="money">
               <strong>
-                {money((postingFeesPaid * REQUIREMENT_POSTING_CENTS) / 100)}
+                {fee(postingFeesPaid * POSTING_FEE_MINOR)}
               </strong>
               <span>
                 {postingFeesPaid} requirement{postingFeesPaid === 1 ? "" : "s"}

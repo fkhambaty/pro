@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { money } from "../../format";
-import { BIDDING_MEMBERSHIP_CENTS } from "../../lib/supabase";
+import { MEMBERSHIP_FEE_LABEL } from "../../lib/pricing";
 import { useStore } from "../../store";
 
 export default function Earnings() {
@@ -57,7 +57,7 @@ export default function Earnings() {
           <div className="stat">
             <span>Platform fees paid</span>
             <strong>
-              {money(developerAccount.membershipPaid ? BIDDING_MEMBERSHIP_CENTS / 100 : 0)}
+              {developerAccount.membershipPaid ? MEMBERSHIP_FEE_LABEL : "—"}
             </strong>
           </div>
         </div>

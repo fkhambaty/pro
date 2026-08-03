@@ -52,6 +52,12 @@ export default function Guarantee() {
               document you both signed before any money moved — instead of two
               people remembering a conversation differently.
             </p>
+            <p>
+              We also do not yet hold your build payments in escrow. That is
+              being switched on next. Today Okavo collects only its own ₹99
+              posting fee; you pay your developer directly, milestone by
+              milestone, against the schedule in the signed contract.
+            </p>
           </div>
         </div>
       </section>
@@ -62,7 +68,7 @@ export default function Guarantee() {
             <div>
               <h2>See it applied to your own project.</h2>
               <p>
-                Describing what you need is free. The $1 fee is charged only
+                Describing what you need is free. The ₹99 fee is charged only
                 when you publish.
               </p>
             </div>

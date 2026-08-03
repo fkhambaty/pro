@@ -19,10 +19,10 @@ export const GUARANTEES: Promise_[] = [
       "Signing freezes an immutable copy of the scope. Later edits create a new version; the original stays readable.",
   },
   {
-    title: "Your money sits in escrow, not in their account",
-    body: "You fund one milestone at a time. The developer can see it is funded, which is why they start — but they cannot touch it until you accept the work.",
+    title: "You pay milestone by milestone, never all up front",
+    body: "The contract splits the work into milestones with their own amounts and dates. You settle each one only after checking it against the scope you signed, so you are never more than one milestone exposed.",
     enforcedBy:
-      "Escrow is held by our payment provider. A milestone cannot be marked funded unless a real payment cleared.",
+      "Milestones and their amounts are fixed on the signed contract. Okavo-held escrow is being switched on next; until then you pay your developer directly against the same milestone schedule.",
   },
   {
     title: "Changes are quoted, never assumed",
@@ -58,12 +58,12 @@ export const FAQS: FaqItem[] = [
   {
     question: "What does Okavo cost?",
     answer:
-      "Buyers pay $1 to post a requirement. That is it — Okavo does not take a cut of your build budget. You then pay the developer the price you both agreed, milestone by milestone, through escrow. Developers browse for free and pay a one-time $10 membership before their first bid.",
+      "Buyers pay ₹99 to post a requirement. That is it — Okavo does not take a cut of your build budget. You then pay the developer the price you both agreed, milestone by milestone. Developers browse for free and pay a one-time ₹899 membership before their first bid.",
   },
   {
     question: "Why charge anything at all to post?",
     answer:
-      "Because free boards fill with requirements nobody intends to fund, and good developers stop reading them. A dollar is nothing to a serious buyer and enough to stop the noise.",
+      "Because free boards fill with requirements nobody intends to fund, and good developers stop reading them. ₹99 is nothing to a serious buyer and enough to stop the noise.",
   },
   {
     question: "I do not know what I technically need. Is that a problem?",
@@ -73,12 +73,12 @@ export const FAQS: FaqItem[] = [
   {
     question: "What if I do not like what is delivered?",
     answer:
-      "You review each milestone against the scope you signed before releasing that milestone's escrow. If it does not match, you do not accept it, and the money stays where it is until the work is corrected or the disagreement is resolved.",
+      "You review each milestone against the scope you signed before you release payment for it. If it does not match, you do not accept it, and you do not pay for that milestone until the work is corrected or the disagreement is resolved.",
   },
   {
     question: "What if the developer disappears halfway through?",
     answer:
-      "You have only released escrow for milestones you already accepted, so you are never out of pocket for work you did not receive. Unreleased funds are still yours, and the requirement can be reopened to other developers with the same signed scope.",
+      "You have only paid for milestones you already accepted, so you are never out of pocket for work you did not receive. The requirement can be reopened to other developers with the same signed scope, and their bids are priced against that same definition of done.",
   },
   {
     question: "Who owns the code?",

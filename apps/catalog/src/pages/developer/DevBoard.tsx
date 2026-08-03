@@ -45,7 +45,7 @@ export default function DevBoard() {
             <div>
               <strong>Bidding is locked on your account</strong>
               <p>
-                Browsing is free. A one-time $10 membership unlocks bidding and
+                Browsing is free. A one-time ₹899 membership unlocks bidding and
                 keeps the board free of throwaway proposals.
               </p>
             </div>
