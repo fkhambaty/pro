@@ -120,6 +120,7 @@ type StoreValue = {
 
   sendMessage: (threadId: string, body: string) => void;
   markAllNotificationsRead: () => void;
+  markNotificationRead: (notificationId: string) => void;
 };
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -770,12 +771,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const markAllNotificationsRead = useCallback(() => {
+    // Clear the badge immediately; the refresh inside run() confirms it.
+    setNotifications((prev) =>
+      prev.every((item) => item.read)
+        ? prev
+        : prev.map((item) => ({ ...item, read: true }))
+    );
     if (live && auth.userId) {
       void run(() => api.markNotificationsRead(auth.userId as string));
-      return;
     }
-    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
   }, [live, auth.userId, run]);
+
+  const markNotificationRead = useCallback(
+    (notificationId: string) => {
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notificationId ? { ...item, read: true } : item
+        )
+      );
+      if (live && auth.userId) {
+        void run(() => api.markNotificationRead(notificationId));
+      }
+    },
+    [live, auth.userId, run]
+  );
 
   // Without a backend the seeded tour is the whole product, so it stays visible.
   // With a backend, a buyer only ever sees requirements they own.
@@ -823,6 +842,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       leaveReview,
       sendMessage,
       markAllNotificationsRead,
+      markNotificationRead,
     }),
     [
       auth.role,
@@ -858,6 +878,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       leaveReview,
       sendMessage,
       markAllNotificationsRead,
+      markNotificationRead,
     ]
   );
 

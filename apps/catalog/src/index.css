@@ -1054,10 +1054,33 @@ p {
 }
 
 .stat strong {
+  display: block;
   font-family: var(--display);
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+
+.stat-link {
+  display: block;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.stat-link:hover {
+  border-color: var(--ink);
+}
+
+.stat-link:hover strong {
+  color: var(--accent-deep);
+}
+
+.stat-note {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  font-style: normal;
+  color: var(--accent-deep);
+  font-weight: 500;
 }
 
 .grid-2 {
@@ -2570,6 +2593,30 @@ tbody tr:last-child td {
   gap: 0.85rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--line-2);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  font: inherit;
+  color: inherit;
+}
+
+.notice-link {
+  cursor: pointer;
+}
+
+.notice-link:hover {
+  background: var(--line-2);
+}
+
+.notice-open {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--accent-deep);
+  font-weight: 500;
 }
 
 .notice:last-child {

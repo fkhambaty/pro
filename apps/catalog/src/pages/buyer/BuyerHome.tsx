@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import StatCard from "../../components/StatCard";
 import { money } from "../../format";
 import { useStore } from "../../store";
 
@@ -9,6 +10,11 @@ export default function BuyerHome() {
   const totalBids = list.reduce((sum, p) => sum + p.bids.length, 0);
   const locked = list.filter((p) => p.stage !== "drafting").length;
   const committed = list.reduce((sum, p) => sum + p.monthlyOps, 0);
+
+  // If bids are waiting on a decision, that is where the number should lead.
+  const awaitingChoice = list.find(
+    (project) => !project.awardedTo && project.bids.length > 0
+  );
 
   return (
     <>
@@ -23,22 +29,27 @@ export default function BuyerHome() {
 
       <div className="content">
         <div className="stat-row">
-          <div className="stat">
-            <span>Requirements</span>
-            <strong>{list.length}</strong>
-          </div>
-          <div className="stat">
-            <span>Locked contracts</span>
-            <strong>{locked}</strong>
-          </div>
-          <div className="stat">
-            <span>Bids received</span>
-            <strong>{totalBids}</strong>
-          </div>
-          <div className="stat">
-            <span>Monthly run cost</span>
-            <strong>{money(committed)}</strong>
-          </div>
+          <StatCard
+            label="Requirements"
+            value={list.length}
+            to={list.length ? "/app/contracts" : "/app/new"}
+          />
+          <StatCard
+            label="Locked contracts"
+            value={locked}
+            to="/app/contracts"
+          />
+          <StatCard
+            label="Bids received"
+            value={totalBids}
+            to={awaitingChoice ? `/app/project/${awaitingChoice.id}` : "/app/contracts"}
+            note={awaitingChoice ? "Waiting on your decision" : undefined}
+          />
+          <StatCard
+            label="Monthly run cost"
+            value={money(committed)}
+            to="/app/payments"
+          />
         </div>
 
         <div className="card">

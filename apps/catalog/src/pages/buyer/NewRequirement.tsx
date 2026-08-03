@@ -46,6 +46,15 @@ function readDraft(): Draft | null {
   }
 }
 
+/** Starting points for buyers who have no idea what software costs. */
+const BUDGET_RANGES = [
+  { label: "Under $2,000", min: 500, max: 2000 },
+  { label: "$2,000 – $5,000", min: 2000, max: 5000 },
+  { label: "$5,000 – $15,000", min: 5000, max: 15000 },
+  { label: "$15,000 – $40,000", min: 15000, max: 40000 },
+  { label: "$40,000 +", min: 40000, max: 100000 },
+];
+
 const AUDIENCE_OPTIONS: { id: Audience; label: string; hint: string }[] = [
   {
     id: "customers",
@@ -79,10 +88,12 @@ export default function NewRequirement() {
   const [outcome, setOutcome] = useState("");
   const [primaryAction, setPrimaryAction] = useState(defaultActionFor("store"));
   const [mustHaves, setMustHaves] = useState<string[]>(suggestedMustHaves("store"));
-  const [budgetMin, setBudgetMin] = useState("3000");
-  const [budgetMax, setBudgetMax] = useState("6000");
-  const [monthly, setMonthly] = useState("120");
-  const [weeks, setWeeks] = useState("6");
+  // Deliberately empty: a pre-filled budget is the buyer accepting our guess,
+  // which produces bids nobody meant.
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [monthly, setMonthly] = useState("");
+  const [weeks, setWeeks] = useState("");
   const [excluded, setExcluded] = useState("");
   const [scopeDraft, setScopeDraft] = useState<ScopeItem[]>([]);
 
@@ -556,14 +567,40 @@ export default function NewRequirement() {
               <h2 style={{ marginBottom: "0.35rem" }}>Budget and timeline</h2>
               <p className="hint" style={{ marginBottom: "1.25rem" }}>
                 Two numbers matter: what you can pay to build it, and what you
-                can pay every month to keep it running.
+                can pay every month to keep it running. Developers bid inside
+                the range you set, so an honest range gets honest quotes.
               </p>
+
+              <h3 className="wizard-subhead">Pick a range, or set your own</h3>
+              <div className="chips" style={{ gap: "0.5rem", marginBottom: "1.25rem" }}>
+                {BUDGET_RANGES.map((range) => (
+                  <button
+                    type="button"
+                    key={range.label}
+                    className={`toggle-chip${
+                      budgetMin === String(range.min) &&
+                      budgetMax === String(range.max)
+                        ? " selected"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      setBudgetMin(String(range.min));
+                      setBudgetMax(String(range.max));
+                    }}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="field-row">
                 <div className="field">
                   <label htmlFor="min">Build budget from (USD)</label>
                   <input
                     id="min"
+                    inputMode="numeric"
                     value={budgetMin}
+                    placeholder="e.g. 3000"
                     onChange={(event) => setBudgetMin(event.target.value)}
                   />
                 </div>
@@ -571,25 +608,36 @@ export default function NewRequirement() {
                   <label htmlFor="max">Build budget up to (USD)</label>
                   <input
                     id="max"
+                    inputMode="numeric"
                     value={budgetMax}
+                    placeholder="e.g. 6000"
                     onChange={(event) => setBudgetMax(event.target.value)}
                   />
                 </div>
               </div>
+              <span className="hint" style={{ display: "block", marginTop: "-0.5rem", marginBottom: "1.25rem" }}>
+                Not sure? Pick the closest range above. You can still change it
+                until you sign.
+              </span>
               <div className="field-row">
                 <div className="field">
                   <label htmlFor="monthly">Monthly running cost (USD)</label>
                   <input
                     id="monthly"
+                    inputMode="numeric"
                     value={monthly}
+                    placeholder="e.g. 120"
                     onChange={(event) => setMonthly(event.target.value)}
                   />
+                  <span className="hint">Hosting, email, support. Zero is fine.</span>
                 </div>
                 <div className="field">
                   <label htmlFor="weeks">Wanted within (weeks)</label>
                   <input
                     id="weeks"
+                    inputMode="numeric"
                     value={weeks}
+                    placeholder="e.g. 6"
                     onChange={(event) => setWeeks(event.target.value)}
                   />
                 </div>

@@ -1206,6 +1206,15 @@ export async function fetchAnalyticsDaily(
   }));
 }
 
+export async function markNotificationRead(notificationId: string) {
+  const { error } = await db()
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .is("read_at", null);
+  if (error) throw error;
+}
+
 export async function markNotificationsRead(userId: string) {
   const { error } = await db()
     .from("notifications")
