@@ -2843,16 +2843,29 @@ tbody tr:last-child td {
 .trend {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
+  gap: 3px;
   height: 120px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1px;
 }
 
+/* Capped so a single day of data does not render as one solid block. */
 .trend-col {
-  flex: 1;
-  min-width: 2px;
+  flex: 1 1 auto;
+  min-width: 3px;
+  max-width: 34px;
   height: 100%;
   display: flex;
   align-items: flex-end;
+}
+
+.trend-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--muted);
 }
 
 .trend-bar {

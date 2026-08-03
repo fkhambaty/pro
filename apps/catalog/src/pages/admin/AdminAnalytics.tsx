@@ -60,17 +60,33 @@ function Bars({ rows }: { rows: api.BreakdownRow[] }) {
 function Trend({ rows }: { rows: { day: string; views: number; visitors: number }[] }) {
   if (rows.length === 0) return null;
   const top = Math.max(1, ...rows.map((row) => row.views));
+  const day = (value: string) =>
+    new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+
   return (
-    <div className="trend">
-      {rows.map((row) => (
-        <div className="trend-col" key={row.day} title={`${row.day}: ${row.views} views`}>
+    <>
+      <div className="trend">
+        {rows.map((row) => (
           <div
-            className="trend-bar"
-            style={{ height: `${Math.max(2, (row.views / top) * 100)}%` }}
-          />
-        </div>
-      ))}
-    </div>
+            className="trend-col"
+            key={row.day}
+            title={`${day(row.day)} · ${row.views} views · ${row.visitors} visitors`}
+          >
+            <div
+              className="trend-bar"
+              style={{ height: `${Math.max(2, (row.views / top) * 100)}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="trend-axis">
+        <span>{day(rows[0].day)}</span>
+        <span>
+          Peak {top.toLocaleString()} view{top === 1 ? "" : "s"}
+        </span>
+        <span>{day(rows[rows.length - 1].day)}</span>
+      </div>
+    </>
   );
 }
 
