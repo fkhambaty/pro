@@ -243,7 +243,7 @@ export default function BuyerProject() {
                 </div>
                 <div className="timeline-item">
                   <strong>3</strong>
-                  <p>Hire, fund milestones into escrow</p>
+                  <p>Hire, then pay milestone by milestone</p>
                 </div>
                 <div className="timeline-item">
                   <strong>4</strong>

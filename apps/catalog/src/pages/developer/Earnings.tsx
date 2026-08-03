@@ -75,7 +75,7 @@ export default function Earnings() {
               <strong>No payouts yet</strong>
               <p>
                 Milestones appear here once a buyer awards you a contract and
-                funds the first milestone into escrow.
+                settles the first milestone.
               </p>
               <Link to="/app">Find projects</Link>
             </div>
@@ -118,10 +118,11 @@ export default function Earnings() {
             How payouts work
           </h3>
           <p style={{ color: "var(--muted)" }}>
-            The buyer funds each milestone into escrow before you start it. When
-            they accept the work against the locked scope, escrow releases to your
-            payout account. Disputes freeze the milestone until Okavo review
-            decides against the contract.
+            You are paid milestone by milestone against the schedule in the
+            signed contract, as the buyer accepts each one. Okavo-held escrow is
+            being switched on next; until then payment is settled directly with
+            the buyer against that same schedule, and the locked scope is what
+            decides whether a milestone is complete.
           </p>
         </div>
       </div>

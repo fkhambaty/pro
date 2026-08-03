@@ -7,6 +7,10 @@
   "scripts": {
     "dev": "npm run dev -w apps/catalog -- --host 127.0.0.1 --port 5180 --strictPort",
     "build": "npm run build -w apps/catalog",
-    "preview": "npm run preview -w apps/catalog"
+    "preview": "npm run preview -w apps/catalog",
+    "okavo": "node scripts/okavo.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
   }
 }
