@@ -3,14 +3,12 @@ import MarketingLayout from "../components/MarketingLayout";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 
 /**
- * REPLACE BEFORE ANY REAL LAUNCH PUSH.
- *
- * This is deliberately written in the founder's voice but says nothing that
- * is not verifiable. Rewrite it in your own words — a founder note that reads
- * like it was drafted by a committee is worse than none at all.
+ * Company voice, deliberately. An unsigned letter written in the first person
+ * reads worse than no letter at all, so if a named founder note goes back in,
+ * put the name back with it.
  */
-const FOUNDER_NOTE = [
-  "I started Okavo because I kept watching the same thing happen. Someone who is excellent at running a bakery, a clinic or a logistics firm decides they need software. They describe what they want. Money changes hands. Months later they receive something that is technically what they asked for and practically not what they meant.",
+const WHY_OKAVO = [
+  "Okavo exists because the same thing keeps happening. Someone who is excellent at running a bakery, a clinic or a logistics firm decides they need software. They describe what they want. Money changes hands. Months later they receive something that is technically what they asked for and practically not what they meant.",
   "Nobody in that story is a villain. The developer built what they understood. The buyer described what they pictured. The gap between those two things is where the money goes.",
   "So Okavo is built around one stubborn rule: the expectation becomes a document, signed by both people, before a line of code is written. Everything else in the product exists to protect that rule.",
 ];
@@ -22,11 +20,11 @@ const PRINCIPLES = [
   },
   {
     title: "Say the price out loud",
-    body: "₹99 to post a requirement. ₹899 once for a developer to start bidding. No commission on your build budget, no percentage skimmed from escrow, no enterprise tier with a hidden number.",
+    body: "₹99 to post a requirement. ₹899 once for a developer to start bidding. No commission on your build budget, nothing skimmed off what you pay your developer, no enterprise tier with a hidden number.",
   },
   {
     title: "Everyone gets the same product",
-    body: "There is no small-business version and no enterprise version. A school principal and a global CEO go through the same four steps and get the same lock, escrow and guarantee.",
+    body: "There is no small-business version and no enterprise version. A school principal and a global CEO go through the same four steps and get the same lock, the same milestones and the same guarantee.",
   },
   {
     title: "Never claim what we cannot show",
@@ -53,13 +51,10 @@ export default function About() {
         <div className="wrap">
           <div className="split-prose">
             <div>
-              <h2>From the founder</h2>
-              {FOUNDER_NOTE.map((paragraph) => (
+              <h2>Why Okavo exists</h2>
+              {WHY_OKAVO.map((paragraph) => (
                 <p key={paragraph.slice(0, 24)}>{paragraph}</p>
               ))}
-              <p className="founder-signature">
-                Fakhruddin Khambaty · Founder, Okavo
-              </p>
             </div>
 
             <aside className="card card-pad honesty">

@@ -3205,11 +3205,6 @@ tbody tr:last-child td {
   max-width: 60ch;
 }
 
-/* Distinct from .signature, which is the contract signing block. */
-.founder-signature {
-  color: var(--muted) !important;
-  font-size: 0.8125rem;
-}
 
 .footer-cols {
   display: grid;
