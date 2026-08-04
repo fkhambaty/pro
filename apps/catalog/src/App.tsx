@@ -4,6 +4,7 @@ import AppShell from "./components/AppShell";
 import About from "./pages/About";
 import ContractPage from "./pages/ContractPage";
 import ContractsList from "./pages/ContractsList";
+import ExampleWalkthrough from "./pages/ExampleWalkthrough";
 import Faq from "./pages/Faq";
 import Guarantee from "./pages/Guarantee";
 import HowItWorks from "./pages/HowItWorks";
@@ -109,6 +110,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
+      <Route path="/example" element={<ExampleWalkthrough />} />
       <Route path="/guarantee" element={<Guarantee />} />
       <Route path="/security" element={<Security />} />
       <Route path="/faq" element={<Faq />} />

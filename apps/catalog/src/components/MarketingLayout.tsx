@@ -5,6 +5,7 @@ import Logo from "./Logo";
 
 const NAV = [
   { href: "/how-it-works", label: "How it works" },
+  { href: "/example", label: "Example" },
   { href: "/guarantee", label: "Guarantee" },
   { href: "/faq", label: "FAQ" },
   { href: "/about", label: "About" },
@@ -92,6 +93,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <div>
               <h4>Product</h4>
               <Link to="/how-it-works">How it works</Link>
+              <Link to="/example">Example walkthrough</Link>
               <Link to="/guarantee">The guarantee</Link>
               <Link to="/security">Security</Link>
               <Link to="/faq">Questions</Link>

@@ -37,6 +37,14 @@ export const PAGES: PageSeo[] = [
     priority: 0.9,
   },
   {
+    path: "/example",
+    title: "Okavo example — Rose Street Bakery walkthrough",
+    description:
+      "Follow Tom the baker and Arjun the developer from plain-language answers to sample screens, freeze, hire, funding gate, and delivery against a locked checklist.",
+    indexed: true,
+    priority: 0.85,
+  },
+  {
     path: "/guarantee",
     title: "The Okavo guarantee — six promises, and how each is enforced",
     description:

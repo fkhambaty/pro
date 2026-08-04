@@ -2980,6 +2980,74 @@ tbody tr:last-child td {
   max-width: 46rem;
 }
 
+.story-wrap {
+  max-width: 42rem;
+}
+
+.story-intro {
+  margin-bottom: 2rem;
+}
+
+.story-intro h2 {
+  font-family: var(--display);
+  font-size: clamp(1.45rem, 2.4vw, 1.85rem);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.65rem;
+}
+
+.story-intro p {
+  color: var(--body);
+  font-size: 1.0625rem;
+  margin: 0;
+}
+
+.story-scene {
+  border-left: 2px solid var(--line);
+  padding: 0 0 1.75rem 1.25rem;
+  margin: 0;
+}
+
+.story-scene:last-child {
+  padding-bottom: 0;
+}
+
+.story-day {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-deep, var(--accent));
+  margin-bottom: 0.35rem;
+}
+
+.story-scene h3 {
+  font-family: var(--display);
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.65rem;
+}
+
+.story-body p {
+  color: var(--body);
+  margin: 0 0 0.75rem;
+}
+
+.story-body p:last-child {
+  margin-bottom: 0;
+}
+
+.story-quote {
+  margin: 0 0 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft, #fbeedc);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  border: 1px solid var(--line);
+}
+
 .section-more {
   margin-top: 1.5rem;
 }

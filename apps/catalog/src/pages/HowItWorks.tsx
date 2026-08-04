@@ -61,7 +61,7 @@ const DEV_STEPS = [
   {
     title: "Pay once, bid freely",
     detail:
-      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding across the whole marketplace. There is no commission on what you earn and no subscription.`,
+      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding. Okavo also takes a flat 10% commission on the awarded build. There is no subscription.`,
   },
   {
     title: "Bid on settled work",
@@ -86,6 +86,10 @@ export default function HowItWorks() {
             Most software disputes are not about effort. They are about two
             people who pictured different things and only found out at the end.
             Okavo removes the gap by making the expectation a document.
+          </p>
+          <p style={{ marginTop: "0.75rem" }}>
+            Prefer a story with faces?{" "}
+            <Link to="/example">Follow the Rose Street Bakery walkthrough</Link>.
           </p>
         </div>
       </section>
@@ -144,14 +148,20 @@ export default function HowItWorks() {
         <div className="wrap">
           <div className="closer">
             <div>
-              <h2>Read the guarantee next.</h2>
+              <h2>See it as a bakery story — or read the guarantee.</h2>
               <p>
-                Six promises, and the mechanism that enforces each one.
+                The example walkthrough retells these steps with Tom and Arjun.
+                The guarantee lists six promises and what enforces each one.
               </p>
             </div>
-            <Link className="btn btn-accent btn-lg" to="/guarantee">
-              The guarantee
-            </Link>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+              <Link className="btn btn-accent btn-lg" to="/example">
+                Example walkthrough
+              </Link>
+              <Link className="btn btn-secondary btn-lg" to="/guarantee">
+                The guarantee
+              </Link>
+            </div>
           </div>
         </div>
       </section>
