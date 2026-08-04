@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
+import { MEMBERSHIP_FEE_LABEL, POSTING_FEE_LABEL } from "../lib/pricing";
 
 const BUYER_STEPS = [
   {
@@ -18,7 +19,7 @@ const BUYER_STEPS = [
     title: "Sign the lock",
     detail:
       "Signing freezes the scope, the build budget and the monthly running cost. Okavo keeps an unchangeable copy. From this moment nobody can quietly widen or narrow what was agreed, including us.",
-    takes: "₹99, charged once per requirement",
+    takes: `${POSTING_FEE_LABEL}, charged once per requirement`,
   },
   {
     title: "Compare bids priced against identical scope",
@@ -54,7 +55,7 @@ const DEV_STEPS = [
   {
     title: "Pay once, bid freely",
     detail:
-      "A one-time ₹899 membership unlocks bidding across the whole marketplace. There is no commission on what you earn and no subscription.",
+      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding across the whole marketplace. There is no commission on what you earn and no subscription.`,
   },
   {
     title: "Bid on settled work",

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
 import { GUARANTEES } from "../content/trust";
+import { POSTING_FEE_LABEL } from "../lib/pricing";
 
 export default function Guarantee() {
   return (
@@ -54,9 +55,10 @@ export default function Guarantee() {
             </p>
             <p>
               We also do not yet hold your build payments in escrow. That is
-              being switched on next. Today Okavo collects only its own ₹99
-              posting fee; you pay your developer directly, milestone by
-              milestone, against the schedule in the signed contract.
+              being switched on next. Today Okavo collects only its own{" "}
+              {POSTING_FEE_LABEL} posting fee; you pay your developer directly,
+              milestone by milestone, against the schedule in the signed
+              contract.
             </p>
           </div>
         </div>
@@ -68,8 +70,8 @@ export default function Guarantee() {
             <div>
               <h2>See it applied to your own project.</h2>
               <p>
-                Describing what you need is free. The ₹99 fee is charged only
-                when you publish.
+                Describing what you need is free. The {POSTING_FEE_LABEL} fee is
+                charged only when you publish.
               </p>
             </div>
             <Link className="btn btn-accent btn-lg" to="/signin">

@@ -4,7 +4,7 @@ import RequirementPreview from "../../components/RequirementPreview";
 import { CATEGORY_OPTIONS, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
 import { collectFee } from "../../lib/checkout";
-import { POSTING_FEE_LABEL } from "../../lib/pricing";
+import { POSTING_FEE_LABEL, POSTING_SETTLEMENT_HINT } from "../../lib/pricing";
 import {
   defaultActionFor,
   exclusionHintsFor,
@@ -704,7 +704,7 @@ export default function NewRequirement() {
                 Payment is handled by Razorpay. Okavo never sees your card
                 details. After payment clears you get a draft — you sign the
                 lock on the next screen, and only then can verified developers
-                bid.
+                bid. {POSTING_SETTLEMENT_HINT}
               </p>
             </>
           )}

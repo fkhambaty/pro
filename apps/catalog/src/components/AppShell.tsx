@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import Logo from "./Logo";
 import { initials } from "../format";
+import { MEMBERSHIP_FEE_LABEL } from "../lib/pricing";
 import { useStore } from "../store";
 
 const BUYER_NAV = [
@@ -156,7 +157,7 @@ export default function AppShell() {
           {!isBuyer && !isAdmin && !developerAccount.membershipPaid && (
             <div className="side-lock-note">
               <strong>Bidding locked</strong>
-              <span>Pay ₹899 once to bid</span>
+              <span>Pay {MEMBERSHIP_FEE_LABEL} once to bid</span>
             </div>
           )}
           <div className="side-user">

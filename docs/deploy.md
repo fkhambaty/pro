@@ -91,7 +91,8 @@ subscribed to `checkout.session.completed` and
 `checkout.session.async_payment_succeeded`.
 
 Prices for platform fees live in `apps/catalog/src/lib/pricing.ts` (display) and
-the Razorpay edge functions (charge): ₹99 posting fee, ₹899 bidding membership.
+the Razorpay edge functions (charge in INR paise): ₹99 posting / ₹899 membership,
+shown on the site as $1 / $11 until Stripe USD checkout is live.
 Milestone build amounts are agreed on the locked contract; Okavo-held escrow is
 not live yet — buyers pay developers directly against that schedule.
 

@@ -1,3 +1,10 @@
+import {
+  MEMBERSHIP_FEE_INR_LABEL,
+  MEMBERSHIP_FEE_LABEL,
+  POSTING_FEE_INR_LABEL,
+  POSTING_FEE_LABEL,
+} from "../lib/pricing";
+
 /**
  * Marketing claims live here so there is exactly one place to check them
  * against what the product actually does. Every promise below must match
@@ -60,12 +67,12 @@ export const FAQS: FaqItem[] = [
   {
     question: "What does Okavo cost?",
     answer:
-      "Buyers pay ₹99 to post a requirement. That is it — Okavo does not take a cut of your build budget. You then pay the developer the price you both agreed, milestone by milestone. Developers browse for free and pay a one-time ₹899 membership before their first bid.",
+      `Buyers pay ${POSTING_FEE_LABEL} to post a requirement. That is it — Okavo does not take a cut of your build budget. You then pay the developer the price you both agreed, milestone by milestone. Developers browse for free and pay a one-time ${MEMBERSHIP_FEE_LABEL} membership before their first bid. Fees are shown in USD; until Stripe USD checkout is live, Razorpay collects the INR equivalent (${POSTING_FEE_INR_LABEL} / ${MEMBERSHIP_FEE_INR_LABEL}).`,
   },
   {
     question: "Why charge anything at all to post?",
     answer:
-      "Because free boards fill with requirements nobody intends to fund, and good developers stop reading them. ₹99 is nothing to a serious buyer and enough to stop the noise.",
+      `Because free boards fill with requirements nobody intends to fund, and good developers stop reading them. ${POSTING_FEE_LABEL} is nothing to a serious buyer and enough to stop the noise.`,
   },
   {
     question: "I do not know what I technically need. Is that a problem?",

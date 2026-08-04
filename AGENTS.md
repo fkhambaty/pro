@@ -64,7 +64,8 @@ and can be recreated at any time; the others are real.
   database but not enabled; the marketing copy says so explicitly. Keep it that
   way until it is true.
 - Prices live in `apps/catalog/src/lib/pricing.ts`. Change them there, never
-  inline, or the site will quote one number and charge another.
+ inline, or the site will quote one number and charge another. Fees are shown
+ in USD; Razorpay still collects INR equivalents until Stripe USD is live.
 - Payment amounts are decided in the edge functions, never accepted from the
   browser, and a payment is only marked paid by a signature-verified webhook.
 

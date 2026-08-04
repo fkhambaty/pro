@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
+import { MEMBERSHIP_FEE_LABEL, POSTING_FEE_LABEL } from "../lib/pricing";
 
 /**
  * Company voice, deliberately. An unsigned letter written in the first person
@@ -20,7 +21,7 @@ const PRINCIPLES = [
   },
   {
     title: "Say the price out loud",
-    body: "₹99 to post a requirement. ₹899 once for a developer to start bidding. No commission on your build budget, nothing skimmed off what you pay your developer, no enterprise tier with a hidden number.",
+    body: `${POSTING_FEE_LABEL} to post a requirement. ${MEMBERSHIP_FEE_LABEL} once for a developer to start bidding. No commission on your build budget, nothing skimmed off what you pay your developer, no enterprise tier with a hidden number.`,
   },
   {
     title: "Everyone gets the same product",

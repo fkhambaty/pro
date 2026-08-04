@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
 import { FAQS, GUARANTEES } from "../content/trust";
+import { MEMBERSHIP_FEE_LABEL, POSTING_FEE_LABEL } from "../lib/pricing";
 
 const BUILDS = [
   "A website",
@@ -101,7 +102,7 @@ export default function Landing() {
               until they are real and checkable. */}
           <div className="scale-strip">
             <div className="scale-item">
-              <strong>₹99</strong>
+              <strong>{POSTING_FEE_LABEL}</strong>
               <span>To post a requirement. No cut of your build budget</span>
             </div>
             <div className="scale-item">
@@ -235,7 +236,7 @@ export default function Landing() {
               </li>
               <li>
                 <span className="dot" />
-                ₹99 per requirement keeps the board serious on both sides
+                {POSTING_FEE_LABEL} per requirement keeps the board serious on both sides
               </li>
             </ul>
             <Link className="btn btn-accent" to="/signin">
@@ -247,7 +248,7 @@ export default function Landing() {
             <span className="pov-tag">For developers</span>
             <h3>Prove it once, then build</h3>
             <p>
-              Browsing is free. A one-time ₹899 membership unlocks bidding.
+              Browsing is free. A one-time {MEMBERSHIP_FEE_LABEL} membership unlocks bidding.
             </p>
             <ul>
               <li>

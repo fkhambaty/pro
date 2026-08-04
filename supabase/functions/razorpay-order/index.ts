@@ -17,9 +17,10 @@ import {
 type Purpose = "requirement_posting" | "bidding_membership";
 
 const CATALOG: Record<Purpose, { amount: number; label: string }> = {
-  // Amounts are in paise.
-  requirement_posting: { amount: 9900, label: "Okavo requirement posting fee" },
-  bidding_membership: { amount: 89900, label: "Okavo bidding membership" },
+  // Amounts are in paise (INR). Site displays USD equivalents; Indian Razorpay
+  // merchant accounts charge INR until Stripe Connect USD is live.
+  requirement_posting: { amount: 9900, label: "Okavo requirement posting fee ($1)" },
+  bidding_membership: { amount: 89900, label: "Okavo bidding membership ($11)" },
 };
 
 const CURRENCY = "INR";

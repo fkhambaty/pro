@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
 import { useAuth } from "../lib/auth";
+import { MEMBERSHIP_FEE_LABEL } from "../lib/pricing";
 import type { BuyerScale, Role } from "../types";
 
 type Mode = "signin" | "signup";
@@ -176,7 +177,7 @@ export default function SignIn() {
               <span>
                 <strong>I build software</strong>
                 <span>
-                  Verify identity, pay the one-time ₹899 membership, then bid.
+                  Verify identity, pay the one-time {MEMBERSHIP_FEE_LABEL} membership, then bid.
                 </span>
               </span>
             </button>

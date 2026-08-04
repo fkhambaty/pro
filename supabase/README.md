@@ -53,10 +53,10 @@ psql "$DATABASE_URL" -f supabase/seed.sql
 
 | Rule | Where |
 |------|-------|
-| A buyer cannot post a requirement without paying the ₹99 fee | `enforce_posting_fee()` trigger |
+| A buyer cannot post a requirement without paying the $1 (₹99) fee | `enforce_posting_fee()` trigger |
 | One posting fee posts exactly one requirement | same trigger, sets `consumed_at` |
 | A developer cannot bid without approved identity | `enforce_bid_eligibility()` trigger |
-| A developer cannot bid without paying the ₹899 membership | same trigger, checks `bidding_unlocked_at` |
+| A developer cannot bid without paying the $11 (₹899) membership | same trigger, checks `bidding_unlocked_at` |
 | Bids are only accepted while the requirement is locked | same trigger |
 | Every bid must accept the locked scope | same trigger |
 | Paying the membership unlocks bidding | `apply_membership_payment()` trigger |

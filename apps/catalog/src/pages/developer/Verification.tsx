@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import IdentityUpload from "./IdentityUpload";
 import * as api from "../../lib/api";
 import { collectFee } from "../../lib/checkout";
-import { MEMBERSHIP_FEE_LABEL } from "../../lib/pricing";
+import { MEMBERSHIP_FEE_LABEL, MEMBERSHIP_SETTLEMENT_HINT } from "../../lib/pricing";
 import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
 import { useStore } from "../../store";
 import type { DeveloperListing } from "../../types";
@@ -154,7 +154,8 @@ export default function Verification() {
                     : `Pay ${MEMBERSHIP_FEE_LABEL} and activate bidding`}
                 </button>
                 <span className="hint">
-                  Secure payment by Razorpay. Okavo never sees your card details.
+                  Secure payment by Razorpay. Okavo never sees your card details.{" "}
+                  {MEMBERSHIP_SETTLEMENT_HINT}
                 </span>
               </div>
             )}

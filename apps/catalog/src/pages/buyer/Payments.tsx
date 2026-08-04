@@ -1,5 +1,5 @@
 import { money } from "../../format";
-import { POSTING_FEE_LABEL, POSTING_FEE_MINOR, fee } from "../../lib/pricing";
+import { POSTING_FEE_LABEL, POSTING_FEE_MINOR, fee, POSTING_SETTLEMENT_HINT } from "../../lib/pricing";
 import { useStore } from "../../store";
 
 export default function Payments() {
@@ -68,8 +68,8 @@ export default function Payments() {
                 Posting fees
               </h3>
               <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
-                {POSTING_FEE_LABEL} per requirement, charged
-                once at creation. Not deducted from your build budget.
+                {POSTING_FEE_LABEL} per requirement, charged once at creation.
+                Not deducted from your build budget. {POSTING_SETTLEMENT_HINT}
               </p>
             </div>
             <div className="money">

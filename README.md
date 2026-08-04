@@ -8,7 +8,7 @@ agreement, and only then do developers bid — all against identical, frozen
 scope. What the buyer approved is what gets delivered.
 
 Buyers range from a two-counter bakery to a Fortune 500 insurer. Developers
-verify their identity and pay a one-time **₹899 membership** to unlock bidding.
+verify their identity and pay a one-time **$11 membership** to unlock bidding.
 A recorded build interview is the next gate.
 
 ## Run it
@@ -52,7 +52,7 @@ Sign in at `/signin` and pick a role. The workspace changes completely.
 | `/app/bids` | Bid pipeline and outcomes |
 | `/app/contract/:id` | Submit milestones, raise change orders |
 | `/app/earnings` | Accepted milestones, in progress, retainers |
-| `/app/verification` | Identity, build interview, **₹899 membership** |
+| `/app/verification` | Identity, build interview, **$11 membership** |
 
 ## The lifecycle
 
@@ -71,8 +71,8 @@ Every stage is clickable in the demo.
 
 | Who | Fee | When |
 |-----|-----|------|
-| Buyer | **₹99** | Per requirement, charged at creation |
-| Developer | **₹899** | One time, unlocks bidding across the marketplace |
+| Buyer | **$1** | Per requirement, charged at creation (Razorpay collects INR equivalent until Stripe USD) |
+| Developer | **$11** | One time, unlocks bidding (Razorpay collects INR equivalent until Stripe USD) |
 
 Browsing is free on both sides. Acting is not. Each fee is enforced twice:
 

@@ -72,7 +72,7 @@ export const PAGES: PageSeo[] = [
     path: "/signin",
     title: "Sign in to Okavo",
     description:
-      "Sign in to post a requirement or bid on locked scope. Buyers pay ₹99 per requirement; developers pay a one-time ₹899 membership.",
+      "Sign in to post a requirement or bid on locked scope. Buyers pay $1 per requirement; developers pay a one-time $11 membership.",
     indexed: false,
   },
 ];
