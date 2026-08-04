@@ -36,15 +36,15 @@ export default function Payments() {
       <div className="content">
         <div className="stat-row">
           <div className="stat">
-            <span>Held in escrow</span>
+            <span>Confirmed outside Okavo</span>
             <strong>{money(funded)}</strong>
           </div>
           <div className="stat">
-            <span>Released to developers</span>
+            <span>Accepted</span>
             <strong>{money(released)}</strong>
           </div>
           <div className="stat">
-            <span>Not yet funded</span>
+            <span>Not yet confirmed</span>
             <strong>{money(upcoming)}</strong>
           </div>
           <div className="stat">

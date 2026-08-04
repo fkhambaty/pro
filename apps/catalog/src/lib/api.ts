@@ -786,10 +786,11 @@ export async function submitInterview(profileId: string) {
 }
 
 export async function fundMilestone(milestoneId: string) {
-  const { error } = await db()
-    .from("milestones")
-    .update({ status: "funded", funded_at: new Date().toISOString() })
-    .eq("id", milestoneId);
+  // Buyer attests they paid the developer outside Okavo. Creates a paid
+  // payments row so enforce_milestone_funding allows status=funded.
+  const { error } = await db().rpc("attest_external_milestone_payment", {
+    p_milestone_id: milestoneId,
+  });
   if (error) throw error;
 }
 

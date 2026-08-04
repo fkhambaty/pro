@@ -8,8 +8,8 @@ agreement, and only then do developers bid — all against identical, frozen
 scope. What the buyer approved is what gets delivered.
 
 Buyers range from a two-counter bakery to a Fortune 500 insurer. Developers
-verify their identity, pass a recorded build interview, and pay a one-time
-**$10 membership** to unlock bidding.
+verify their identity and pay a one-time **₹899 membership** to unlock bidding.
+A recorded build interview is the next gate.
 
 ## Run it
 
@@ -38,9 +38,9 @@ Sign in at `/signin` and pick a role. The workspace changes completely.
 | `/app` | Overview: requirements, bids, monthly commitments |
 | `/app/new` | Five-step guided intake in plain language |
 | `/app/project/:id` | Requirement, lock signature, incoming bids, hire |
-| `/app/contract/:id` | The contract: scope, milestones, escrow, change orders |
+| `/app/contract/:id` | The contract: scope, milestones, change orders |
 | `/app/contracts` | Every contract and its stage |
-| `/app/payments` | Escrow held, released and upcoming |
+| `/app/payments` | Milestone ledger (confirmed outside Okavo until escrow ships) |
 | `/app/messages` | Conversations with developers |
 
 ### Developer
@@ -51,16 +51,19 @@ Sign in at `/signin` and pick a role. The workspace changes completely.
 | `/app/project/:id` | Locked contract plus the bid form |
 | `/app/bids` | Bid pipeline and outcomes |
 | `/app/contract/:id` | Submit milestones, raise change orders |
-| `/app/earnings` | Payouts, escrow, retainers |
-| `/app/verification` | Identity, build interview, **$10 membership** |
+| `/app/earnings` | Accepted milestones, in progress, retainers |
+| `/app/verification` | Identity, build interview, **₹899 membership** |
 
 ## The lifecycle
 
 ```
-describe → review scope → sign lock → bids open → hire → fund escrow
-   → submit milestone → accept against scope → release payment
+describe → review scope → sign lock → bids open → hire
+   → confirm paid outside Okavo → submit milestone → accept against scope
    → change orders / disputes → review → close
 ```
+
+(Okavo-held escrow for build payments is next; until then buyers pay developers
+directly against the locked milestone schedule.)
 
 Every stage is clickable in the demo.
 
@@ -68,8 +71,8 @@ Every stage is clickable in the demo.
 
 | Who | Fee | When |
 |-----|-----|------|
-| Buyer | **$1** | Per requirement, charged at creation |
-| Developer | **$10** | One time, unlocks bidding across the marketplace |
+| Buyer | **₹99** | Per requirement, charged at creation |
+| Developer | **₹899** | One time, unlocks bidding across the marketplace |
 
 Browsing is free on both sides. Acting is not. Each fee is enforced twice:
 
@@ -130,7 +133,7 @@ services).
 
 ## Before going live
 
-- Wire the $10 checkout and milestone escrow to Stripe Connect
+- Prove Razorpay posting and membership fees end to end; switch on Okavo-held escrow when payout rails are ready
 - Move identity documents and interview recordings into private storage buckets
 - Add an admin surface for verification review and dispute resolution
 - Complete trademark clearance for the Okavo name

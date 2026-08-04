@@ -90,9 +90,10 @@ In Stripe, add one webhook endpoint pointing at
 subscribed to `checkout.session.completed` and
 `checkout.session.async_payment_succeeded`.
 
-Prices live in `supabase/functions/stripe-checkout/index.ts`, never in the
-client: $1 posting fee, $10 bidding membership, and milestone escrow read from
-the locked contract.
+Prices for platform fees live in `apps/catalog/src/lib/pricing.ts` (display) and
+the Razorpay edge functions (charge): ₹99 posting fee, ₹899 bidding membership.
+Milestone build amounts are agreed on the locked contract; Okavo-held escrow is
+not live yet — buyers pay developers directly against that schedule.
 
 ## 3. Storage buckets
 

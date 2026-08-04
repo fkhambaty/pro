@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { money } from "../../format";
+import { MEMBERSHIP_FEE_LABEL } from "../../lib/pricing";
 import { useStore } from "../../store";
 
 const SCALES = ["Local business", "SMB", "Startup", "Enterprise"];
@@ -45,13 +46,13 @@ export default function DevBoard() {
             <div>
               <strong>Bidding is locked on your account</strong>
               <p>
-                Browsing is free. A one-time ₹899 membership unlocks bidding and
-                keeps the board free of throwaway proposals.
+                Browsing is free. A one-time {MEMBERSHIP_FEE_LABEL} membership
+                unlocks bidding and keeps the board free of throwaway proposals.
               </p>
             </div>
             <div>
               <Link className="btn btn-sm" to="/app/verification">
-                Activate bidding for $10
+                Activate bidding for {MEMBERSHIP_FEE_LABEL}
               </Link>
             </div>
           </div>

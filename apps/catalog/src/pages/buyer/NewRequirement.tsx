@@ -702,8 +702,9 @@ export default function NewRequirement() {
 
               <p className="hint" style={{ marginTop: "0.75rem" }}>
                 Payment is handled by Razorpay. Okavo never sees your card
-                details, and your requirement is published the moment the
-                payment clears.
+                details. After payment clears you get a draft — you sign the
+                lock on the next screen, and only then can verified developers
+                bid.
               </p>
             </>
           )}

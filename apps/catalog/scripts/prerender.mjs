@@ -67,7 +67,7 @@ const organisation = {
   url: SITE_URL,
   logo: `${SITE_URL}/favicon.svg`,
   description:
-    "Okavo turns a plain-language description into a signed agreement, then identity-verified developers build exactly that, paid through escrow.",
+    "Okavo turns a plain-language description into a signed agreement, then identity-verified developers build exactly that, paid milestone by milestone against the locked scope.",
   email: "support@okavo.org",
   foundingDate: "2026",
 };

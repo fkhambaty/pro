@@ -1,7 +1,9 @@
 /**
  * Marketing claims live here so there is exactly one place to check them
- * against what the product actually does. Every promise below is enforced in
- * the application or the database — nothing here is aspirational.
+ * against what the product actually does. Every promise below must match
+ * live behaviour. Where a feature is not switched on yet (Okavo-held escrow,
+ * recorded build interview as a bid gate), say so explicitly — never as
+ * present-tense product.
  */
 
 export type Promise_ = {
@@ -88,17 +90,17 @@ export const FAQS: FaqItem[] = [
   {
     question: "How are developers vetted?",
     answer:
-      "Two gates. Government ID checked by a person, and a recorded build interview where the developer ships a complete product end to end. The assessment scores security, efficiency under time pressure, maintainability and recovery from mistakes. Buyers see the resulting tier and the developer's record against closed contracts, not raw scores.",
+      "Today, one hard gate before a bid is possible: government ID checked by a person. The database refuses a bid from anyone whose identity has not been approved. A recorded build interview (ship a product end to end, scored on security, efficiency, maintainability and recovery) is the next gate we are switching on; until then buyers see identity status and the developer's record against closed contracts.",
   },
   {
     question: "Is Okavo an agency?",
     answer:
-      "No. Okavo does not employ the developers and does not mark up their work. We set the rules of the transaction — the signed scope, the escrow, the change orders — and stay out of the pricing.",
+      "No. Okavo does not employ the developers and does not mark up their work. We set the rules of the transaction — the signed scope, milestone schedule, and change orders — and stay out of the pricing. Okavo-held escrow for build payments is being switched on next; until then you pay your developer directly against that same schedule.",
   },
   {
     question: "How new is Okavo?",
     answer:
-      "New. We launched in 2026 and we are deliberately small: a hand-verified group of developers rather than an open flood of applicants. If you want a marketplace with a decade of logos on the homepage, we are not that yet. What we can promise today is the mechanism above — signed scope, escrow, verified identity — which protects you whether we are ten developers or ten thousand.",
+      "New. We launched in 2026 and we are deliberately small: a hand-verified group of developers rather than an open flood of applicants. If you want a marketplace with a decade of logos on the homepage, we are not that yet. What we can promise today is signed scope and verified identity — which protect you whether we are ten developers or ten thousand. Okavo-held escrow is next.",
   },
   {
     question: "Where are the developers based?",

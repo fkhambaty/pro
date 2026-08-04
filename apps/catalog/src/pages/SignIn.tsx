@@ -13,12 +13,15 @@ export default function SignIn() {
   const [role, setRole] = useState<Exclude<Role, "guest">>("buyer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [organization, setOrganization] = useState("");
   const [scale] = useState<BuyerScale>("Local business");
   const [busy, setBusy] = useState(false);
 
-  if (auth.role !== "guest") return <Navigate to="/app" replace />;
+  if (auth.role !== "guest" && !auth.passwordRecovery) {
+    return <Navigate to="/app" replace />;
+  }
 
   async function submit() {
     setBusy(true);
@@ -45,6 +48,68 @@ export default function SignIn() {
       });
     }
     setBusy(false);
+  }
+
+  async function requestReset() {
+    if (!email.trim()) return;
+    setBusy(true);
+    await auth.resetPassword(email.trim());
+    setBusy(false);
+  }
+
+  async function saveNewPassword() {
+    setBusy(true);
+    await auth.updatePassword(newPassword);
+    setBusy(false);
+  }
+
+  if (auth.passwordRecovery) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <Link to="/" style={{ display: "inline-block", marginBottom: "1.5rem" }}>
+            <Logo />
+          </Link>
+          <h1>Choose a new password</h1>
+          <p>Enter a new password for {auth.email ?? "your account"}.</p>
+
+          <div className="field">
+            <label htmlFor="newPassword">New password</label>
+            <input
+              id="newPassword"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              placeholder="At least 6 characters"
+            />
+          </div>
+
+          {auth.error && (
+            <div className="callout callout-warn" style={{ marginBottom: "1rem" }}>
+              <span>!</span>
+              <span>{auth.error}</span>
+            </div>
+          )}
+
+          {auth.notice && (
+            <div className="callout callout-ok" style={{ marginBottom: "1rem" }}>
+              <span>✓</span>
+              <span>{auth.notice}</span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="btn btn-block btn-lg"
+            onClick={saveNewPassword}
+            disabled={busy || newPassword.length < 6}
+          >
+            {busy ? "Working…" : "Save password"}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -198,6 +263,17 @@ export default function SignIn() {
               ? "Create account"
               : "Continue"}
         </button>
+
+        {auth.connected && mode === "signin" && (
+          <button
+            type="button"
+            className="link-button"
+            disabled={!email.trim() || busy}
+            onClick={requestReset}
+          >
+            Forgot password? Email me a reset link
+          </button>
+        )}
 
         {auth.connected && (
           <button

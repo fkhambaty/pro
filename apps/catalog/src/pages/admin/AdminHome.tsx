@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import AreaTrend from "../../components/charts/AreaTrend";
+import ChartCard from "../../components/charts/ChartCard";
+import Donut from "../../components/charts/Donut";
+import HBar from "../../components/charts/HBar";
+import Meter from "../../components/charts/Meter";
 import { money } from "../../format";
 import * as api from "../../lib/api";
+import { adminComposition } from "../../lib/roleAnalytics";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { errorMessage } from "../../lib/errors";
+import type { TrendPoint } from "../../lib/chartMath";
 
 const DEMO: api.PlatformInsights = {
   buyers: 3,
@@ -21,6 +28,7 @@ export default function AdminHome() {
   const [insights, setInsights] = useState<api.PlatformInsights | null>(
     isSupabaseConfigured ? null : DEMO
   );
+  const [traffic, setTraffic] = useState<TrendPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,16 +36,51 @@ export default function AdminHome() {
     api
       .fetchInsights()
       .then(setInsights)
-      .catch((cause) =>
-        setError(errorMessage(cause))
-      );
+      .catch((cause) => setError(errorMessage(cause)));
+
+    api
+      .fetchAnalyticsDaily(30)
+      .then((rows) =>
+        setTraffic(
+          rows.map((row) => ({
+            id: row.day,
+            label: new Date(row.day).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+            }),
+            value: row.views,
+            secondary: row.visitors,
+          }))
+        )
+      )
+      .catch(() => {
+        // Traffic is optional on Insights — full detail lives on /app/traffic.
+      });
   }, []);
+
+  const composition = useMemo(
+    () => (insights ? adminComposition(insights) : []),
+    [insights]
+  );
+
+  const lockRate = insights?.projects
+    ? Math.round((insights.lockedProjects / insights.projects) * 100)
+    : 0;
+  const verifiedShare = insights?.developers
+    ? Math.round((insights.verifiedDevelopers / insights.developers) * 100)
+    : 0;
+  const bidsPerLock = insights?.lockedProjects
+    ? insights.bids / insights.lockedProjects
+    : 0;
 
   return (
     <>
       <header className="topbar">
         <h1>Platform insights</h1>
         <div className="topbar-actions">
+          <Link className="btn btn-secondary btn-sm" to="/app/traffic">
+            Traffic
+          </Link>
           <Link className="btn btn-secondary btn-sm" to="/app/verifications">
             Review queue
           </Link>
@@ -89,58 +132,89 @@ export default function AdminHome() {
                 <strong>{insights.bids}</strong>
               </div>
               <div className="stat">
-                <span>Held in escrow</span>
+                <span>Milestones in progress</span>
                 <strong>{money(insights.escrowCents / 100)}</strong>
               </div>
             </div>
 
-            <div className="grid-2">
-              <div className="card card-pad">
-                <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.85rem" }}>
-                  Platform revenue
-                </h3>
-                <div className="money" style={{ textAlign: "left" }}>
+            <div className="chart-grid">
+              <ChartCard
+                title="Marketplace composition"
+                hint="Live counts from the database — not estimates"
+                empty={composition.length === 0}
+              >
+                <HBar rows={composition} />
+              </ChartCard>
+
+              <ChartCard
+                title="People on the platform"
+                hint="Buyers vs developers by verification"
+                empty={composition.length === 0}
+              >
+                <Donut
+                  slices={composition.filter((row) =>
+                    ["buyers", "verified", "unverified"].includes(row.id)
+                  )}
+                  centerLabel="people"
+                  centerValue={String(
+                    insights.buyers + insights.developers
+                  )}
+                />
+              </ChartCard>
+            </div>
+
+            <div className="chart-grid-3">
+              <ChartCard title="Lock rate" hint="Locked ÷ all requirements">
+                <Meter
+                  value={lockRate}
+                  label="locked"
+                  tone="accent"
+                  caption={`${insights.lockedProjects} of ${insights.projects} requirements signed`}
+                />
+              </ChartCard>
+              <ChartCard
+                title="Verified share"
+                hint="Identity-approved developers"
+              >
+                <Meter
+                  value={verifiedShare}
+                  label="verified"
+                  tone="lock"
+                  caption={`${insights.verifiedDevelopers} of ${insights.developers} developers`}
+                />
+              </ChartCard>
+              <ChartCard title="Platform fees" hint="Posting + membership, paid">
+                <div className="money" style={{ textAlign: "left", padding: "0.5rem 0" }}>
                   <strong style={{ fontSize: "2rem" }}>
                     {money(insights.feesCollectedCents / 100)}
                   </strong>
                   <span>
-                    Posting fees and bidding memberships collected to date
+                    {bidsPerLock
+                      ? `${bidsPerLock.toFixed(1)} bids per locked contract`
+                      : "No locked contracts yet"}
                   </span>
                 </div>
-              </div>
-
-              <div className="card card-pad">
-                <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.85rem" }}>
-                  Marketplace health
-                </h3>
-                <div className="stack-sm">
-                  <div className="stat-line">
-                    <span>Bids per locked contract</span>
-                    <strong>
-                      {insights.lockedProjects
-                        ? (insights.bids / insights.lockedProjects).toFixed(1)
-                        : "—"}
-                    </strong>
-                  </div>
-                  <div className="stat-line">
-                    <span>Lock rate</span>
-                    <strong>
-                      {insights.projects
-                        ? `${Math.round((insights.lockedProjects / insights.projects) * 100)}%`
-                        : "—"}
-                    </strong>
-                  </div>
-                  <div className="stat-line">
-                    <span>Verified share of developers</span>
-                    <strong>
-                      {insights.developers
-                        ? `${Math.round((insights.verifiedDevelopers / insights.developers) * 100)}%`
-                        : "—"}
-                    </strong>
-                  </div>
-                </div>
-              </div>
+              </ChartCard>
             </div>
+
+            <ChartCard
+              title="Site traffic — last 30 days"
+              hint="Page views and unique visitors. Open Traffic for channels and geography."
+              action={
+                <Link className="btn btn-secondary btn-sm" to="/app/traffic">
+                  Full traffic
+                </Link>
+              }
+              empty={traffic.length === 0}
+              emptyTitle="No traffic in this window"
+              emptyBody="Visits are counted on the live site. Local development is ignored on purpose."
+            >
+              <AreaTrend
+                points={traffic}
+                primaryLabel="view"
+                secondaryLabel="visitor"
+              />
+            </ChartCard>
           </>
         )}
       </div>

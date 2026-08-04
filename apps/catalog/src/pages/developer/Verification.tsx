@@ -128,8 +128,11 @@ export default function Verification() {
               <div className="membership-foot">
                 <ul className="membership-list">
                   <li>Unlimited bids on locked requirements</li>
-                  <li>Escrow-protected contracts</li>
-                  <li>Payouts after buyer acceptance</li>
+                  <li>Same frozen scope every bidder sees</li>
+                  <li>
+                    Buyer pays you milestone by milestone against the signed
+                    schedule (Okavo-held escrow is next)
+                  </li>
                   <li>Non-refundable, charged once per account</li>
                 </ul>
 

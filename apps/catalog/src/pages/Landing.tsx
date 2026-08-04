@@ -110,7 +110,9 @@ export default function Landing() {
             </div>
             <div className="scale-item">
               <strong>Milestones</strong>
-              <span>You pay as work is accepted, never all up front</span>
+              <span>
+                Pay your developer as work is accepted, never all up front
+              </span>
             </div>
             <div className="scale-item">
               <strong>You set</strong>
@@ -190,7 +192,8 @@ export default function Landing() {
             <h2>The same four steps, whoever you are</h2>
             <p>
               Okavo does not have a small-business version and an enterprise
-              version. Everyone gets the lock, the escrow and the guarantee.
+              version. Everyone gets the lock and the guarantee. Okavo-held
+              escrow for build payments is next.
             </p>
           </div>
           <div className="buyers-strip">

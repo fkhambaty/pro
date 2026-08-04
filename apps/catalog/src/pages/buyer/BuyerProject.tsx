@@ -116,7 +116,7 @@ export default function BuyerProject() {
                 {locked && project.bids.length === 0 && (
                   <div className="empty">
                     <strong>No bids yet</strong>
-                    Verified developers are being notified.
+                    Locked. Verified developers can now bid.
                   </div>
                 )}
 

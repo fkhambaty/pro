@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import AreaTrend from "../../components/charts/AreaTrend";
+import ChartCard from "../../components/charts/ChartCard";
+import Donut from "../../components/charts/Donut";
+import HBar from "../../components/charts/HBar";
 import * as api from "../../lib/api";
 import { errorMessage } from "../../lib/errors";
+import type { NamedValue, TrendPoint } from "../../lib/chartMath";
 
 const RANGES = [
   { days: 1, label: "24 hours" },
@@ -28,66 +33,26 @@ const BREAKDOWNS: {
   { dimension: "language", title: "Languages", hint: "Browser language" },
 ];
 
-type Data = {
-  overview: api.AnalyticsOverview;
-  daily: { day: string; views: number; visitors: number }[];
-  breakdowns: Record<string, api.BreakdownRow[]>;
+const DEVICE_TONES: Record<string, NamedValue["tone"]> = {
+  desktop: "ink",
+  mobile: "accent",
+  tablet: "lock",
+  phone: "accent",
 };
 
-function Bars({ rows }: { rows: api.BreakdownRow[] }) {
-  const top = Math.max(1, ...rows.map((row) => row.views));
-  return (
-    <div className="bar-list">
-      {rows.map((row) => (
-        <div className="bar-row" key={row.label}>
-          <div className="bar-track">
-            <div
-              className="bar-fill"
-              style={{ width: `${Math.max(3, (row.views / top) * 100)}%` }}
-            />
-            <span className="bar-label">{row.label}</span>
-          </div>
-          <span className="bar-value">
-            {row.views.toLocaleString()}
-            <em>{row.visitors.toLocaleString()}</em>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
+type Data = {
+  overview: api.AnalyticsOverview;
+  daily: TrendPoint[];
+  breakdowns: Record<string, NamedValue[]>;
+};
 
-function Trend({ rows }: { rows: { day: string; views: number; visitors: number }[] }) {
-  if (rows.length === 0) return null;
-  const top = Math.max(1, ...rows.map((row) => row.views));
-  const day = (value: string) =>
-    new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-
-  return (
-    <>
-      <div className="trend">
-        {rows.map((row) => (
-          <div
-            className="trend-col"
-            key={row.day}
-            title={`${day(row.day)} · ${row.views} views · ${row.visitors} visitors`}
-          >
-            <div
-              className="trend-bar"
-              style={{ height: `${Math.max(2, (row.views / top) * 100)}%` }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="trend-axis">
-        <span>{day(rows[0].day)}</span>
-        <span>
-          Peak {top.toLocaleString()} view{top === 1 ? "" : "s"}
-        </span>
-        <span>{day(rows[rows.length - 1].day)}</span>
-      </div>
-    </>
-  );
+function toBars(rows: api.BreakdownRow[], tone?: NamedValue["tone"]): NamedValue[] {
+  return rows.map((row) => ({
+    id: row.label,
+    label: row.label,
+    value: row.views,
+    tone: tone ?? DEVICE_TONES[row.label.toLowerCase()] ?? "accent",
+  }));
 }
 
 export default function AdminAnalytics() {
@@ -108,12 +73,24 @@ export default function AdminAnalytics() {
         ),
       ]);
 
-      const breakdowns: Record<string, api.BreakdownRow[]> = {};
+      const breakdowns: Record<string, NamedValue[]> = {};
       BREAKDOWNS.forEach((item, index) => {
-        breakdowns[item.dimension] = lists[index] ?? [];
+        breakdowns[item.dimension] = toBars(lists[index] ?? []);
       });
 
-      setData({ overview, daily, breakdowns });
+      setData({
+        overview,
+        daily: daily.map((row) => ({
+          id: row.day,
+          label: new Date(row.day).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+          }),
+          value: row.views,
+          secondary: row.visitors,
+        })),
+        breakdowns,
+      });
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -129,6 +106,24 @@ export default function AdminAnalytics() {
   const returning = overview
     ? Math.max(0, overview.uniqueVisitors - overview.newVisitors)
     : 0;
+
+  const visitorMix = useMemo((): NamedValue[] => {
+    if (!overview) return [];
+    return [
+      {
+        id: "new",
+        label: "New visitors",
+        value: overview.newVisitors,
+        tone: "accent" as const,
+      },
+      {
+        id: "returning",
+        label: "Returning",
+        value: returning,
+        tone: "lock" as const,
+      },
+    ].filter((row) => row.value > 0);
+  }, [overview, returning]);
 
   return (
     <>
@@ -217,35 +212,43 @@ export default function AdminAnalytics() {
               </div>
             ) : (
               <>
-                <div className="card card-pad" style={{ marginBottom: "1rem" }}>
-                  <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.85rem" }}>
-                    Page views per day
-                  </h3>
-                  <Trend rows={data.daily} />
+                <div className="chart-grid">
+                  <ChartCard
+                    title="Page views per day"
+                    hint="Orange = views · green = unique visitors"
+                  >
+                    <AreaTrend
+                      points={data.daily}
+                      primaryLabel="view"
+                      secondaryLabel="visitor"
+                    />
+                  </ChartCard>
+                  <ChartCard
+                    title="New vs returning"
+                    hint="Unique visitors in this range"
+                    empty={visitorMix.length === 0}
+                  >
+                    <Donut
+                      slices={visitorMix}
+                      centerLabel="visitors"
+                      centerValue={overview.uniqueVisitors.toLocaleString()}
+                    />
+                  </ChartCard>
                 </div>
 
-                <div className="grid-2">
+                <div className="chart-grid">
                   {BREAKDOWNS.map((item) => {
                     const rows = data.breakdowns[item.dimension] ?? [];
                     return (
-                      <div className="card" key={item.dimension}>
-                        <div className="card-head">
-                          <div>
-                            <h3 style={{ fontSize: "0.9375rem" }}>{item.title}</h3>
-                            <span className="hint">{item.hint}</span>
-                          </div>
-                          <span className="bar-legend">
-                            views <em>visitors</em>
-                          </span>
-                        </div>
-                        <div style={{ padding: "1rem 1.25rem" }}>
-                          {rows.length === 0 ? (
-                            <p className="hint">Nothing recorded yet.</p>
-                          ) : (
-                            <Bars rows={rows} />
-                          )}
-                        </div>
-                      </div>
+                      <ChartCard
+                        key={item.dimension}
+                        title={item.title}
+                        hint={item.hint}
+                        empty={rows.length === 0}
+                        emptyTitle="Nothing recorded yet"
+                      >
+                        <HBar rows={rows} />
+                      </ChartCard>
                     );
                   })}
                 </div>

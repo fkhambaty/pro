@@ -53,7 +53,7 @@ Without (4) and (5), FORMA is a strong services company — valuable, not infras
 | **Catalog** | Verticals, SKUs, exclusions, price X / monthly Y |
 | **Briefing** | Discovery capture; AI-assisted draft |
 | **Canon** | Versioned screens, flows, acceptance checklist, signature |
-| **Ledger** | Deposits, milestones, escrow release, change orders, invoices |
+| **Ledger** | Deposits, milestones, change orders, invoices (Okavo-held escrow when live) |
 | **Delivery** | Assignment, builder workbench, evidence, reassignment |
 | **Trust** | Work-sample certification, tiers, identity/KYC by corridor |
 | **Runtime** | Per-customer app/DB/deploy/backups/domains/secrets |

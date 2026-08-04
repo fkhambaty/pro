@@ -1,29 +1,58 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import AreaTrend from "../../components/charts/AreaTrend";
+import ChartCard from "../../components/charts/ChartCard";
+import Donut from "../../components/charts/Donut";
+import HBar from "../../components/charts/HBar";
+import Meter from "../../components/charts/Meter";
 import { money } from "../../format";
 import { MEMBERSHIP_FEE_LABEL } from "../../lib/pricing";
+import {
+  developerBidOutcomes,
+  developerContractValues,
+  developerMilestoneMoney,
+  developerWinTrend,
+} from "../../lib/roleAnalytics";
 import { useStore } from "../../store";
 
 export default function Earnings() {
   const { projects, developerAccount, userId, loading, hydrated } = useStore();
 
-  // Scope strictly to contracts this developer won. Never fall back to
-  // someone else's contracts to make the page look populated.
-  const myContracts = projects.filter((project) =>
-    project.bids.some(
-      (bid) =>
-        bid.status === "awarded" &&
-        (bid.developerId === userId || bid.developerId === "me")
-    )
+  const myBids = useMemo(
+    () =>
+      projects.flatMap((project) =>
+        project.bids.filter(
+          (bid) => bid.developerId === userId || bid.developerId === "me"
+        )
+      ),
+    [projects, userId]
   );
 
-  const released = myContracts
-    .flatMap((project) => project.milestones)
+  const myContracts = useMemo(
+    () =>
+      projects.filter((project) =>
+        project.bids.some(
+          (bid) =>
+            bid.status === "awarded" &&
+            (bid.developerId === userId || bid.developerId === "me")
+        )
+      ),
+    [projects, userId]
+  );
+
+  const milestones = useMemo(
+    () => myContracts.flatMap((project) => project.milestones),
+    [myContracts]
+  );
+
+  const released = milestones
     .filter((milestone) => milestone.status === "released")
     .reduce((sum, milestone) => sum + milestone.amount, 0);
 
-  const pending = myContracts
-    .flatMap((project) => project.milestones)
-    .filter((milestone) => ["funded", "submitted"].includes(milestone.status))
+  const pending = milestones
+    .filter((milestone) =>
+      ["funded", "submitted"].includes(milestone.status)
+    )
     .reduce((sum, milestone) => sum + milestone.amount, 0);
 
   const recurring = myContracts.reduce(
@@ -35,6 +64,21 @@ export default function Earnings() {
     project.milestones.map((milestone) => ({ project, milestone }))
   );
 
+  const bidOutcomes = useMemo(() => developerBidOutcomes(myBids), [myBids]);
+  const moneyMix = useMemo(
+    () => developerMilestoneMoney(milestones),
+    [milestones]
+  );
+  const contractValues = useMemo(
+    () => developerContractValues(myContracts),
+    [myContracts]
+  );
+  const winTrend = useMemo(() => developerWinTrend(myBids), [myBids]);
+
+  const awarded = myBids.filter((bid) => bid.status === "awarded").length;
+  const winRate =
+    myBids.length === 0 ? 0 : Math.round((awarded / myBids.length) * 100);
+
   return (
     <>
       <header className="topbar">
@@ -43,11 +87,11 @@ export default function Earnings() {
       <div className="content">
         <div className="stat-row">
           <div className="stat">
-            <span>Paid out</span>
+            <span>Accepted</span>
             <strong>{money(released)}</strong>
           </div>
           <div className="stat">
-            <span>In escrow</span>
+            <span>In progress</span>
             <strong>{money(pending)}</strong>
           </div>
           <div className="stat">
@@ -61,6 +105,73 @@ export default function Earnings() {
             </strong>
           </div>
         </div>
+
+        <section className="analytics-banner" aria-label="Your performance">
+          <div className="chart-grid-3">
+            <ChartCard
+              title="Win rate"
+              hint="Awarded ÷ your bids only"
+              empty={myBids.length === 0}
+              emptyTitle="No bids yet"
+              emptyBody="Place a bid on a locked requirement to start a track record."
+            >
+              <Meter
+                value={winRate}
+                label="won"
+                tone="lock"
+                caption={`${awarded} of ${myBids.length} bids awarded`}
+              />
+            </ChartCard>
+            <ChartCard
+              title="Bid outcomes"
+              hint="Status of every bid you placed"
+              empty={bidOutcomes.length === 0}
+            >
+              <Donut
+                slices={bidOutcomes}
+                centerLabel="bids"
+                centerValue={String(myBids.length)}
+              />
+            </ChartCard>
+            <ChartCard
+              title="Milestone money"
+              hint="Accepted vs in progress vs awaiting confirmation"
+              empty={moneyMix.length === 0}
+              emptyTitle="No contracts yet"
+              emptyBody="Amounts appear after a buyer awards you and confirms payment."
+            >
+              <Donut
+                slices={moneyMix}
+                centerLabel="USD"
+                centerValue={money(released + pending)}
+              />
+            </ChartCard>
+          </div>
+
+          <div className="chart-grid">
+            <ChartCard
+              title="Bidding activity"
+              hint="Bids you placed by day · green marks awards"
+              empty={winTrend.length === 0}
+            >
+              <AreaTrend
+                points={winTrend}
+                primaryLabel="bid"
+                secondaryLabel="won"
+              />
+            </ChartCard>
+            <ChartCard
+              title="Contract values"
+              hint="Agreed build price on contracts you won"
+              empty={contractValues.length === 0}
+            >
+              <HBar
+                rows={contractValues}
+                formatValue={(value) => money(value)}
+              />
+            </ChartCard>
+          </div>
+        </section>
 
         <div className="card">
           <div className="card-head">

@@ -1,6 +1,16 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import ChartCard from "../../components/charts/ChartCard";
+import Donut from "../../components/charts/Donut";
+import HBar from "../../components/charts/HBar";
 import StatCard from "../../components/StatCard";
 import { money } from "../../format";
+import {
+  buyerBidsPerRequirement,
+  buyerBudgetBands,
+  buyerMilestoneMix,
+  buyerStageMix,
+} from "../../lib/roleAnalytics";
 import { useStore } from "../../store";
 
 export default function BuyerHome() {
@@ -11,10 +21,16 @@ export default function BuyerHome() {
   const locked = list.filter((p) => p.stage !== "drafting").length;
   const committed = list.reduce((sum, p) => sum + p.monthlyOps, 0);
 
-  // If bids are waiting on a decision, that is where the number should lead.
   const awaitingChoice = list.find(
     (project) => !project.awardedTo && project.bids.length > 0
   );
+
+  const stageMix = useMemo(() => buyerStageMix(list), [list]);
+  const milestoneMix = useMemo(() => buyerMilestoneMix(list), [list]);
+  const bidsPerReq = useMemo(() => buyerBidsPerRequirement(list), [list]);
+  const budgetBands = useMemo(() => buyerBudgetBands(list), [list]);
+
+  const hasAnalytics = list.length > 0;
 
   return (
     <>
@@ -42,7 +58,11 @@ export default function BuyerHome() {
           <StatCard
             label="Bids received"
             value={totalBids}
-            to={awaitingChoice ? `/app/project/${awaitingChoice.id}` : "/app/contracts"}
+            to={
+              awaitingChoice
+                ? `/app/project/${awaitingChoice.id}`
+                : "/app/contracts"
+            }
             note={awaitingChoice ? "Waiting on your decision" : undefined}
           />
           <StatCard
@@ -51,6 +71,59 @@ export default function BuyerHome() {
             to="/app/payments"
           />
         </div>
+
+        {hasAnalytics && (
+          <section className="analytics-banner" aria-label="Your analytics">
+            <div className="chart-grid">
+              <ChartCard
+                title="Requirement stages"
+                hint="Only your requirements — never anyone else’s"
+                empty={stageMix.length === 0}
+              >
+                <Donut
+                  slices={stageMix}
+                  centerLabel="yours"
+                  centerValue={String(list.length)}
+                />
+              </ChartCard>
+              <ChartCard
+                title="Milestone status"
+                hint="Across contracts you awarded"
+                empty={milestoneMix.length === 0}
+                emptyTitle="No milestones yet"
+                emptyBody="Milestones appear once you hire a developer on a locked contract."
+              >
+                <Donut
+                  slices={milestoneMix}
+                  centerLabel="steps"
+                  centerValue={String(
+                    milestoneMix.reduce((sum, row) => sum + row.value, 0)
+                  )}
+                />
+              </ChartCard>
+            </div>
+
+            <div className="chart-grid">
+              <ChartCard
+                title="Bids by requirement"
+                hint="Who is competing on each locked brief"
+                empty={bidsPerReq.length === 0}
+                emptyTitle="No bids yet"
+                emptyBody="Lock a requirement to open bidding."
+              >
+                <HBar rows={bidsPerReq} />
+              </ChartCard>
+              <ChartCard
+                title="Budget caps"
+                hint="Your stated maximum build budget per locked requirement"
+                empty={budgetBands.length === 0}
+                emptyTitle="Nothing locked yet"
+              >
+                <HBar rows={budgetBands} formatValue={(value) => money(value)} />
+              </ChartCard>
+            </div>
+          </section>
+        )}
 
         <div className="card">
           <div className="card-head">
@@ -78,8 +151,6 @@ export default function BuyerHome() {
             )}
 
             {list.map((project) => (
-              // Until someone is hired the useful screen is the bid list, not
-              // an empty contract.
               <Link
                 to={
                   project.awardedTo

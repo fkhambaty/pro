@@ -58,10 +58,13 @@ type AuthValue = {
   emailVerified: boolean;
   error: string | null;
   notice: string | null;
+  passwordRecovery: boolean;
   signUp: (input: SignUpInput) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   demoSignIn: (role: Exclude<Role, "guest">, name: string) => void;
   clearMessages: () => void;
 };
@@ -82,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   /**
    * Creates the profile rows on first authenticated load. Doing it here rather
@@ -160,13 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
         setSession(nextSession);
+        if (event === "PASSWORD_RECOVERY") {
+          setPasswordRecovery(true);
+        }
         if (nextSession) {
           ensureProfile(nextSession);
         } else {
           setRole("guest");
           setDisplayName("");
+          setPasswordRecovery(false);
         }
       }
     );
@@ -227,6 +235,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNotice(`Verification link sent again to ${email}.`);
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    setError(null);
+    setNotice(null);
+    if (!supabase) return;
+    const redirectTo = `${window.location.origin}/signin`;
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email,
+      { redirectTo }
+    );
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+    setNotice(
+      `If an account exists for ${email}, we sent a link to choose a new password.`
+    );
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    setError(null);
+    setNotice(null);
+    if (!supabase) return;
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+    setPasswordRecovery(false);
+    setNotice("Password updated. You are signed in.");
+  }, []);
+
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
     setNotice(null);
@@ -270,10 +313,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
       error,
       notice,
+      passwordRecovery,
       signUp,
       signIn,
       signOut,
       resendVerification,
+      resetPassword,
+      updatePassword,
       demoSignIn,
       clearMessages,
     }),
@@ -284,10 +330,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       displayName,
       error,
       notice,
+      passwordRecovery,
       signUp,
       signIn,
       signOut,
       resendVerification,
+      resetPassword,
+      updatePassword,
       demoSignIn,
       clearMessages,
     ]

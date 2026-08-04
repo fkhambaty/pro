@@ -79,7 +79,10 @@ type StoreValue = {
   payMembership: () => void;
   submitInterview: () => void;
 
-  fundMilestone: (projectId: string, milestoneId: string) => void;
+  fundMilestone: (
+    projectId: string,
+    milestoneId: string
+  ) => void | Promise<boolean>;
   submitMilestone: (
     projectId: string,
     milestoneId: string,
@@ -486,10 +489,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [live, auth.userId, run]);
 
   const fundMilestone = useCallback(
-    (projectId: string, milestoneId: string) => {
+    async (projectId: string, milestoneId: string) => {
       if (live) {
-        void run(() => api.fundMilestone(milestoneId));
-        return;
+        return run(() => api.fundMilestone(milestoneId));
       }
       patchProject(projectId, (project) => ({
         ...project,
@@ -499,6 +501,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : milestone
         ),
       }));
+      return true;
     },
     [live, run, patchProject]
   );

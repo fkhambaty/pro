@@ -44,12 +44,12 @@ const DEV_STEPS = [
   {
     title: "Verify who you are",
     detail:
-      "Government ID, reviewed by a person. Until it is approved you cannot bid — the database refuses it. This is what makes a buyer on another continent comfortable sending money.",
+      "Government ID, reviewed by a person. Until it is approved you cannot bid — the database refuses it. This is what makes a buyer on another continent comfortable hiring you.",
   },
   {
     title: "Sit the recorded build interview",
     detail:
-      "You build a complete product end to end in a recorded session. AI tooling is allowed; we score the result, not your typing. Security, efficiency under pressure, maintainability and recovery from mistakes.",
+      "Next gate: you build a complete product end to end in a recorded session. AI tooling is allowed; we score the result, not your typing. Today identity approval plus membership is what unlocks bidding; the interview is being switched on as an additional gate.",
   },
   {
     title: "Pay once, bid freely",
@@ -64,7 +64,7 @@ const DEV_STEPS = [
   {
     title: "Get paid on acceptance",
     detail:
-      "You are paid milestone by milestone as the buyer accepts the work, against a schedule fixed in the signed contract. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
+      "You are paid milestone by milestone as the buyer accepts the work, against a schedule fixed in the signed contract. Okavo-held escrow is next; until then the buyer pays you directly against that same schedule. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
   },
 ];
 

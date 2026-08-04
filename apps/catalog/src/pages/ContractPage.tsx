@@ -43,19 +43,35 @@ export default function ContractPage() {
   const reviewAverage =
     (scores.scope + scores.quality + scores.communication + scores.timeliness) / 4;
   const [payError, setPayError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   // Escrow moves money to a developer, which needs payout rails Okavo has not
-  // switched on yet. Until then the button says so rather than pretending.
+  // switched on yet. Until then buyers attest they paid outside Okavo.
   const escrowLive = false;
 
-  function fundEscrow(projectId: string, milestoneId: string) {
-    if (!connected) {
-      fundMilestone(projectId, milestoneId);
-      return;
-    }
-    setPayError(
-      "Escrow is not switched on yet, so this milestone cannot be funded through Okavo. Agree payment directly with your developer for now — the signed scope still governs what has to be delivered."
+  async function confirmPaidOutside(projectId: string, milestoneId: string) {
+    const ok = window.confirm(
+      "Confirm that you have already paid your developer for this milestone outside Okavo.\n\n" +
+        "Okavo did not hold this money. The signed scope still decides what must be delivered. " +
+        "After you confirm, the developer can submit work for this milestone."
     );
+    if (!ok) return;
+    setPayError(null);
+    setConfirmingId(milestoneId);
+    try {
+      if (!connected) {
+        fundMilestone(projectId, milestoneId);
+        return;
+      }
+      const succeeded = await fundMilestone(projectId, milestoneId);
+      if (succeeded === false) {
+        setPayError(
+          "Could not confirm payment. Make sure you are the buyer on this contract and the milestone is still pending."
+        );
+      }
+    } finally {
+      setConfirmingId(null);
+    }
   }
 
   if (!project) {
@@ -221,9 +237,10 @@ export default function ContractPage() {
 
             <div className="card">
               <div className="card-head">
-                <h2>Milestones and escrow</h2>
+                <h2>Milestones</h2>
                 <span className="badge">
-                  {money(releasedTotal)} released · {money(escrowTotal)} held
+                  {money(releasedTotal)} accepted · {money(escrowTotal)} in
+                  progress
                 </span>
               </div>
               <div style={{ padding: "1.25rem" }} className="stack-sm">
@@ -233,6 +250,15 @@ export default function ContractPage() {
                     <span>{payError}</span>
                   </div>
                 )}
+
+                <div className="callout callout-info">
+                  <span>i</span>
+                  <span>
+                    Okavo does not yet hold build payments. Pay your developer
+                    directly against this milestone schedule, then confirm here
+                    so work can be submitted against the signed scope.
+                  </span>
+                </div>
 
                 {project.milestones.length === 0 && (
                   <div className="empty">
@@ -275,11 +301,16 @@ export default function ContractPage() {
                         <button
                           type="button"
                           className="btn btn-sm"
-                          onClick={() => fundEscrow(project.id, milestone.id)}
+                          disabled={confirmingId === milestone.id}
+                          onClick={() =>
+                            void confirmPaidOutside(project.id, milestone.id)
+                          }
                         >
                           {escrowLive
                             ? `Fund escrow ${money(milestone.amount)}`
-                            : `Escrow ${money(milestone.amount)} — not live yet`}
+                            : confirmingId === milestone.id
+                              ? "Confirming…"
+                              : `Confirm paid outside Okavo ${money(milestone.amount)}`}
                         </button>
                       )}
                       {isBuyer && milestone.status === "submitted" && (
@@ -288,7 +319,7 @@ export default function ContractPage() {
                           className="btn btn-sm"
                           onClick={() => acceptMilestone(project.id, milestone.id)}
                         >
-                          Accept and release
+                          Accept against signed scope
                         </button>
                       )}
                       {!isBuyer &&
@@ -303,10 +334,12 @@ export default function ContractPage() {
                           </button>
                         )}
                       {milestone.status === "released" && (
-                        <span className="badge badge-lock">Paid out</span>
+                        <span className="badge badge-lock">Accepted</span>
                       )}
                       {!isBuyer && milestone.status === "pending" && (
-                        <span className="badge badge-draft">Awaiting escrow funding</span>
+                        <span className="badge badge-draft">
+                          Awaiting buyer payment confirmation
+                        </span>
                       )}
                     </div>
 
@@ -588,11 +621,11 @@ export default function ContractPage() {
                   <strong>{money(contractValue)}</strong>
                 </div>
                 <div className="stat">
-                  <span>Held in escrow</span>
+                  <span>Confirmed outside Okavo</span>
                   <strong>{money(escrowTotal)}</strong>
                 </div>
                 <div className="stat">
-                  <span>Released</span>
+                  <span>Accepted</span>
                   <strong>{money(releasedTotal)}</strong>
                 </div>
               </div>
@@ -686,8 +719,8 @@ export default function ContractPage() {
               ) : (
                 <>
                   <p style={{ color: "var(--muted)", marginBottom: "0.85rem" }}>
-                    Escrow is held while a dispute is reviewed against the locked
-                    scope.
+                    Disputes are reviewed against the locked scope. Okavo does
+                    not hold build money while a dispute is open.
                   </p>
                   <button
                     type="button"
