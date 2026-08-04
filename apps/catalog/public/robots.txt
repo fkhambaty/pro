@@ -12,4 +12,7 @@ Allow: /
 Disallow: /app
 Disallow: /api
 
+# Plain-language product summary for answer engines:
+# https://okavo.org/llms.txt
+
 Sitemap: https://okavo.org/sitemap.xml

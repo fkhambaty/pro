@@ -2,10 +2,9 @@
  * Writes a real HTML file for every public route.
  *
  * The app is a single-page app, so without this every URL served the same
- * <title> and no share tags. Search crawlers can run JavaScript, but the
- * crawlers behind link previews — LinkedIn, Slack, WhatsApp, X — cannot.
- * They read the first HTML response and nothing else, which is why a shared
- * Okavo link used to appear as a bare URL.
+ * <title> and no share tags. Search crawlers can run JavaScript, but many
+ * answer-engine fetchers and link-preview bots do not — they read the first
+ * HTML response only. An empty <div id="root"> looks like a blank site.
  *
  * Runs after `vite build`, over the same page definitions the app uses.
  */
@@ -17,8 +16,11 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(here, "..", "dist");
 
-// seo.ts is TypeScript; read the page table out of it rather than compiling.
 const seoSource = readFileSync(join(here, "..", "src", "lib", "seo.ts"), "utf8");
+const trustSource = readFileSync(
+  join(here, "..", "src", "content", "trust.ts"),
+  "utf8"
+);
 
 const SITE_URL = "https://okavo.org";
 const OG_IMAGE = `${SITE_URL}/og.png`;
@@ -30,19 +32,70 @@ function extractPages() {
   );
 
   const pages = [];
-  const entry = /\{\s*path:\s*"([^"]+)",\s*title:\s*"((?:[^"\\]|\\.)*)",\s*description:\s*\n?\s*"((?:[^"\\]|\\.)*)",\s*indexed:\s*(true|false),(?:\s*priority:\s*([\d.]+),)?/g;
+  const entry =
+    /\{\s*path:\s*"([^"]+)",\s*title:\s*"((?:[^"\\]|\\.)*)",\s*description:\s*\n?\s*"((?:[^"\\]|\\.)*)",\s*indexed:\s*(true|false),(?:\s*priority:\s*([\d.]+),)?\s*h1:\s*"((?:[^"\\]|\\.)*)",\s*body:\s*\[([\s\S]*?)\],/g;
 
   let match;
   while ((match = entry.exec(block)) !== null) {
+    const bodyRaw = match[7];
+    const body = [];
+    const para = /"((?:[^"\\]|\\.)*)"/g;
+    let p;
+    while ((p = para.exec(bodyRaw)) !== null) {
+      body.push(p[1].replace(/\\"/g, '"'));
+    }
     pages.push({
       path: match[1],
       title: match[2].replace(/\\"/g, '"'),
       description: match[3].replace(/\\"/g, '"'),
       indexed: match[4] === "true",
       priority: match[5] ? Number(match[5]) : 0.5,
+      h1: match[6].replace(/\\"/g, '"'),
+      body,
     });
   }
   return pages;
+}
+
+function extractFaqs() {
+  const faqs = [];
+  const entry =
+    /\{\s*question:\s*"((?:[^"\\]|\\.)*)",\s*answer:\s*\n?\s*`?((?:[^"`\\]|\\.)*?)`?,?\s*\}/g;
+  // Prefer the FAQS array only.
+  const block = trustSource.slice(
+    trustSource.indexOf("export const FAQS"),
+    trustSource.indexOf("export const FAQS") > -1
+      ? trustSource.length
+      : 0
+  );
+
+  // Template literals and string concat make regex fragile — fall back to
+  // question-only lines, then a second pass for simple string answers.
+  const simple =
+    /question:\s*"((?:[^"\\]|\\.)*)",\s*answer:\s*\n?\s*"((?:[^"\\]|\\.)*)"/g;
+  let match;
+  while ((match = simple.exec(block)) !== null) {
+    faqs.push({
+      question: match[1].replace(/\\"/g, '"'),
+      answer: match[2].replace(/\\"/g, '"'),
+    });
+  }
+
+  // Also capture template-literal answers (cost FAQ uses backticks).
+  const templ =
+    /question:\s*"((?:[^"\\]|\\.)*)",\s*answer:\s*\n?\s*`([\s\S]*?)`,/g;
+  while ((match = templ.exec(block)) !== null) {
+    const question = match[1].replace(/\\"/g, '"');
+    if (faqs.some((f) => f.question === question)) continue;
+    const answer = match[2]
+      .replace(/\$\{[^}]+\}/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (answer.length > 20) faqs.push({ question, answer });
+  }
+
+  void entry;
+  return faqs;
 }
 
 const escapeHtml = (value) =>
@@ -58,6 +111,7 @@ if (pages.length === 0) {
   process.exit(1);
 }
 
+const faqs = extractFaqs();
 const template = readFileSync(join(dist, "index.html"), "utf8");
 
 const organisation = {
@@ -72,9 +126,62 @@ const organisation = {
   foundingDate: "2026",
 };
 
-/** One spelling of every URL, so the canonical and the sitemap always agree. */
+const website = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Okavo",
+  url: `${SITE_URL}/`,
+  description: pages[0].description,
+  publisher: { "@type": "Organization", name: "Okavo", url: SITE_URL },
+};
+
+const software = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Okavo",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: SITE_URL,
+  description: pages[0].description,
+  offers: {
+    "@type": "Offer",
+    price: "1.00",
+    priceCurrency: "USD",
+    description: "Buyer posting fee per requirement; developer membership separate",
+  },
+};
+
 function canonicalUrl(path) {
   return path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`;
+}
+
+const NAV = pages
+  .filter((page) => page.indexed)
+  .map(
+    (page) =>
+      `<li><a href="${escapeHtml(canonicalUrl(page.path))}">${escapeHtml(
+        page.h1
+      )}</a></li>`
+  )
+  .join("");
+
+function shellHtml(page) {
+  const paragraphs = page.body
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join("\n      ");
+  return [
+    `<article id="okavo-seo-shell">`,
+    `  <header>`,
+    `    <p><strong>Okavo</strong> · <a href="${SITE_URL}/">okavo.org</a></p>`,
+    `    <h1>${escapeHtml(page.h1)}</h1>`,
+    `  </header>`,
+    `  ${paragraphs}`,
+    `  <nav aria-label="Okavo site">`,
+    `    <ul>${NAV}</ul>`,
+    `  </nav>`,
+    `  <p>Full product: <a href="${SITE_URL}/">https://okavo.org/</a> · Machine-readable summary: <a href="${SITE_URL}/llms.txt">llms.txt</a></p>`,
+    `</article>`,
+  ].join("\n    ");
 }
 
 function headFor(page) {
@@ -87,8 +194,10 @@ function headFor(page) {
     `<meta name="description" content="${description}" />`,
     `<link rel="canonical" href="${url}" />`,
     `<meta name="robots" content="${page.indexed ? "index,follow" : "noindex,follow"}" />`,
+    `<meta name="googlebot" content="${page.indexed ? "index,follow,max-image-preview:large" : "noindex,follow"}" />`,
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="Okavo" />`,
+    `<meta property="og:locale" content="en_US" />`,
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
     `<meta property="og:url" content="${url}" />`,
@@ -103,7 +212,23 @@ function headFor(page) {
 
   if (page.path === "/") {
     tags.push(
-      `<script type="application/ld+json">${JSON.stringify(organisation)}</script>`
+      `<script type="application/ld+json">${JSON.stringify(organisation)}</script>`,
+      `<script type="application/ld+json">${JSON.stringify(website)}</script>`,
+      `<script type="application/ld+json">${JSON.stringify(software)}</script>`
+    );
+  }
+
+  if (page.path === "/faq" && faqs.length > 0) {
+    tags.push(
+      `<script type="application/ld+json">${JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqs.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      })}</script>`
     );
   }
 
@@ -111,11 +236,14 @@ function headFor(page) {
 }
 
 for (const page of pages) {
-  // Replace the build's single generic title/description with this page's.
   let html = template
     .replace(/<title>[\s\S]*?<\/title>/, "")
     .replace(/<meta\s+name="description"[\s\S]*?\/>/, "")
-    .replace("</head>", `  ${headFor(page)}\n  </head>`);
+    .replace("</head>", `  ${headFor(page)}\n  </head>`)
+    .replace(
+      /<div id="root"><\/div>/,
+      `<div id="root">${shellHtml(page)}</div>`
+    );
 
   const target =
     page.path === "/"
@@ -126,8 +254,6 @@ for (const page of pages) {
   writeFileSync(target, html);
 }
 
-// Google ignores <changefreq> and <priority> outright but does read
-// <lastmod>, so the sitemap carries the field that is actually used.
 const lastmod = new Date().toISOString().slice(0, 10);
 
 const sitemap = [
@@ -151,5 +277,5 @@ writeFileSync(join(dist, "sitemap.xml"), sitemap);
 console.log(
   `prerender: wrote ${pages.length} pages and a sitemap with ${
     pages.filter((p) => p.indexed).length
-  } urls`
+  } urls (${faqs.length} FAQ schema entries)`
 );

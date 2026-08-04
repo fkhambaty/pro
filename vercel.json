@@ -4,7 +4,10 @@
   "outputDirectory": "apps/catalog/dist",
   "installCommand": "npm install",
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|assets/|sitemap\\.xml|robots\\.txt|llms\\.txt|og\\.png|favicon\\.svg|icons\\.svg|.*\\.txt$|google.*\\.html).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
@@ -13,6 +16,19 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(sitemap.xml|robots.txt|llms.txt)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "all"
         }
       ]
     }

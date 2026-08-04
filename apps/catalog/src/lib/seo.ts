@@ -10,6 +10,9 @@ export const SITE_URL = "https://okavo.org";
 export const SITE_NAME = "Okavo";
 export const OG_IMAGE = `${SITE_URL}/og.png`;
 
+/** Bing / Yandex / Seznam IndexNow key — file lives at /{INDEXNOW_KEY}.txt */
+export const INDEXNOW_KEY = "d63dffffc4ddf51606382a427e421457";
+
 export type PageSeo = {
   path: string;
   title: string;
@@ -17,6 +20,10 @@ export type PageSeo = {
   /** Included in sitemap.xml; omit for pages we do not want indexed. */
   indexed: boolean;
   priority?: number;
+  /** Visible H1 for non-JS crawlers (prerender shell). */
+  h1: string;
+  /** Short paragraphs for the prerendered HTML body. */
+  body: string[];
 };
 
 export const PAGES: PageSeo[] = [
@@ -27,6 +34,11 @@ export const PAGES: PageSeo[] = [
       "Describe what you need in plain language. Okavo turns it into a signed agreement, then identity-verified developers bid on that exact scope and you pay milestone by milestone.",
     indexed: true,
     priority: 1,
+    h1: "Where the world comes to have software built",
+    body: [
+      "Okavo is a software marketplace at okavo.org. Buyers describe a website, app, or system in plain language. Okavo turns that into a signed Requirement Lock. Identity-verified developers then bid on that exact scope.",
+      "You settle work milestone by milestone against the locked definition of done. Okavo is not an agency. Posting costs $1 per requirement; developers browse free and pay a one-time $11 membership before their first bid.",
+    ],
   },
   {
     path: "/how-it-works",
@@ -35,6 +47,10 @@ export const PAGES: PageSeo[] = [
       "Six steps: describe the outcome, check the scope, sign the lock, compare bids priced against identical scope, fund one milestone at a time, and own the result.",
     indexed: true,
     priority: 0.9,
+    h1: "How Okavo works",
+    body: [
+      "Describe the outcome in plain language, review the implied screens and scope, freeze the Requirement Lock, compare bids on identical scope, settle milestones as you accept work, and own the delivered code.",
+    ],
   },
   {
     path: "/example",
@@ -43,6 +59,10 @@ export const PAGES: PageSeo[] = [
       "Tom the baker and Arjun the developer: sample screens, Q&A, freeze, funding gate, and delivery — the same layout as the Okavo pitch deck.",
     indexed: true,
     priority: 0.85,
+    h1: "An Okavo walkthrough: Rose Street Bakery",
+    body: [
+      "A concrete story of Tom (buyer) and Arjun (developer): sample screens from a plain-language description, clarifying Q&A, freezing the lock, the funding gate, and delivery against signed scope.",
+    ],
   },
   {
     path: "/guarantee",
@@ -51,6 +71,10 @@ export const PAGES: PageSeo[] = [
       "Nothing is built until you sign what it means. You pay milestone by milestone as you accept the work. Changes are quoted, never assumed. Every developer is identity-verified.",
     indexed: true,
     priority: 0.9,
+    h1: "The Okavo guarantee",
+    body: [
+      "Six promises with enforcement: signed scope before build, milestone payments, quoted change orders, identity-verified developers, comparable bids on one lock, and a warranty after accept.",
+    ],
   },
   {
     path: "/security",
@@ -59,6 +83,10 @@ export const PAGES: PageSeo[] = [
       "How Okavo protects your money, your documents and your data: payments handled by Razorpay, row-level database isolation, private identity storage and regional data rules.",
     indexed: true,
     priority: 0.7,
+    h1: "Security and data handling",
+    body: [
+      "Payments are handled by Razorpay (Okavo never sees card details). Database access uses row-level security. Identity documents sit in private storage. You can require data residency in the locked scope.",
+    ],
   },
   {
     path: "/faq",
@@ -67,6 +95,10 @@ export const PAGES: PageSeo[] = [
       "What it costs, who owns the code, how developers are vetted, what happens if a developer disappears, and how new Okavo really is. Answered plainly.",
     indexed: true,
     priority: 0.8,
+    h1: "Okavo FAQ",
+    body: [
+      "Plain answers on cost, why posting is paid, what happens if you dislike a milestone, developer disappearance, code ownership, vetting, and how new Okavo is (launched 2026).",
+    ],
   },
   {
     path: "/about",
@@ -75,6 +107,10 @@ export const PAGES: PageSeo[] = [
       "Okavo exists because software goes wrong in the gap between what the buyer pictured and what the developer heard. We make the expectation a signed document.",
     indexed: true,
     priority: 0.6,
+    h1: "About Okavo",
+    body: [
+      "Okavo closes the gap between what a buyer meant and what a developer heard by making the expectation a signed Requirement Lock before anyone builds.",
+    ],
   },
   {
     path: "/signin",
@@ -82,6 +118,10 @@ export const PAGES: PageSeo[] = [
     description:
       "Sign in to post a requirement or bid on locked scope. Buyers pay $1 per requirement; developers pay a one-time $11 membership.",
     indexed: false,
+    h1: "Sign in to Okavo",
+    body: [
+      "Sign in to post a requirement or bid on locked scope.",
+    ],
   },
 ];
 
@@ -92,6 +132,8 @@ export function seoFor(pathname: string): PageSeo {
       title: `${SITE_NAME} — Where the world comes to have software built`,
       description: PAGES[0].description,
       indexed: false,
+      h1: SITE_NAME,
+      body: [PAGES[0].description],
     }
   );
 }
