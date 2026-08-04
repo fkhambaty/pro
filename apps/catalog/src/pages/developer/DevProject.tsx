@@ -1,13 +1,15 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import ContractPanel from "../../components/ContractPanel";
 import { money } from "../../format";
+import * as api from "../../lib/api";
 import { MEMBERSHIP_FEE_LABEL } from "../../lib/pricing";
 import { useStore } from "../../store";
 
 export default function DevProject() {
   const { id } = useParams();
-  const { projects, placeBid, developerAccount } = useStore();
+  const [searchParams] = useSearchParams();
+  const { projects, placeBid, developerAccount, email } = useStore();
   const project = projects.find((p) => p.id === id);
 
   const [amount, setAmount] = useState("");
@@ -18,6 +20,32 @@ export default function DevProject() {
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = searchParams.get("invite");
+    if (!token || !email) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await api.acceptProjectInvite(token);
+        if (!cancelled) {
+          setInviteNote("Invite accepted. You can bid on this locked brief.");
+        }
+      } catch (cause) {
+        if (!cancelled) {
+          setInviteNote(
+            cause instanceof Error
+              ? cause.message
+              : "Could not accept this invite."
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, email]);
 
   if (!project) {
     return (
@@ -105,6 +133,14 @@ export default function DevProject() {
           </div>
 
           <aside className="sticky-side">
+            {inviteNote && (
+              <div className="card card-pad" style={{ marginBottom: "1rem" }}>
+                <div className="callout callout-info">
+                  <span>i</span>
+                  <span>{inviteNote}</span>
+                </div>
+              </div>
+            )}
             {needsCountersign && (
               <div className="card card-pad" style={{ marginBottom: "1rem" }}>
                 <div className="callout callout-warn">

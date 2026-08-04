@@ -2,6 +2,12 @@ import { supabase } from "./supabase";
 
 export type CheckoutPurpose = "requirement_posting" | "bidding_membership";
 
+type RazorpaySuccessResponse = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+
 type RazorpayOptions = Record<string, unknown>;
 type RazorpayInstance = { open: () => void };
 
@@ -35,17 +41,13 @@ function loadCheckout(): Promise<boolean> {
 }
 
 /**
- * Waits for the webhook to mark the payment paid.
- *
- * Razorpay's browser callback fires the moment the card is authorised, which
- * is before the webhook has told our database anything. Treating that
- * callback as proof of payment would let a modified browser claim a purchase,
- * so success is read back from our own row instead.
+ * Polls our payments row after confirm/webhook. Confirm is primary; this only
+ * covers a race where confirm returns before the row is visible to the client.
  */
 async function waitForSettlement(paymentId: string): Promise<boolean> {
   if (!supabase) return false;
 
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     const { data } = await supabase
       .from("payments")
       .select("status")
@@ -53,9 +55,43 @@ async function waitForSettlement(paymentId: string): Promise<boolean> {
       .maybeSingle();
 
     if (data?.status === "paid") return true;
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 750));
   }
   return false;
+}
+
+async function confirmPayment(
+  token: string,
+  base: string,
+  body: {
+    payment_id: string;
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const response = await fetch(`${base}/functions/v1/razorpay-confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      error?: string;
+      alreadyPaid?: boolean;
+    };
+    if (!response.ok) {
+      return { ok: false, message: payload.error ?? "Could not confirm payment." };
+    }
+    return { ok: Boolean(payload.ok || payload.alreadyPaid) };
+  } catch {
+    return { ok: false, message: "Could not reach the payment confirmer." };
+  }
 }
 
 export type CheckoutResult =
@@ -67,8 +103,9 @@ export type CheckoutResult =
 /**
  * Collects one of the platform fees through Razorpay Checkout.
  *
- * Resolves only once the payment has actually settled, been dismissed, or
- * failed — so the caller never has to guess.
+ * After the card succeeds, the browser sends Razorpay's signed payload to
+ * razorpay-confirm. Only a verified signature (plus a live Razorpay status
+ * check) marks the fee paid. The webhook is a backup, not the only path.
  */
 export async function collectFee(
   purpose: CheckoutPurpose,
@@ -149,10 +186,35 @@ export async function collectFee(
         email: buyer?.email ?? "",
       },
       theme: { color: "#e8973a" },
-      handler: () => {
-        void waitForSettlement(order.paymentId).then((paid) =>
-          finish(paid ? { status: "paid" } : { status: "pending" })
-        );
+      handler: (response: RazorpaySuccessResponse) => {
+        void (async () => {
+          const confirmed = await confirmPayment(token, base, {
+            payment_id: order.paymentId,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+
+          if (confirmed.ok) {
+            const paid = await waitForSettlement(order.paymentId);
+            finish(paid || confirmed.ok ? { status: "paid" } : { status: "pending" });
+            return;
+          }
+
+          // Webhook may still settle; wait briefly before reporting pending.
+          const paid = await waitForSettlement(order.paymentId);
+          if (paid) {
+            finish({ status: "paid" });
+            return;
+          }
+
+          finish({
+            status: "error",
+            message:
+              confirmed.message ??
+              "Payment was taken but could not be confirmed. Contact support@okavo.org with your order id — do not pay again.",
+          });
+        })();
       },
       modal: {
         ondismiss: () => finish({ status: "cancelled" }),

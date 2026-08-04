@@ -14,14 +14,17 @@ const STAGE_LABEL: Record<string, string> = {
 export default function ContractsList() {
   const { projects, myProjects, role, userId, loading, hydrated } = useStore();
   const isBuyer = role === "buyer";
+  const isAdmin = role === "admin";
 
-  const list = isBuyer
-    ? myProjects
-    : projects.filter((project) =>
-        project.bids.some(
-          (bid) => bid.developerId === userId || bid.developerId === "me"
-        )
-      );
+  const list = isAdmin
+    ? projects.filter((project) => project.stage !== "drafting")
+    : isBuyer
+      ? myProjects
+      : projects.filter((project) =>
+          project.bids.some(
+            (bid) => bid.developerId === userId || bid.developerId === "me"
+          )
+        );
 
   return (
     <>

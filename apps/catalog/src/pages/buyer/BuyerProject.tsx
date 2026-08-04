@@ -74,6 +74,22 @@ export default function BuyerProject() {
     );
   }
 
+  if (project.ownedByMe === false) {
+    return (
+      <>
+        <header className="topbar">
+          <h1>Requirement</h1>
+        </header>
+        <div className="content">
+          <div className="card empty">
+            <strong>This requirement belongs to another buyer</strong>
+            <Link to="/app">Back to overview</Link>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const locked = project.stage !== "drafting";
   const awarded = project.bids.find((bid) => bid.status === "awarded");
 

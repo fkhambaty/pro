@@ -21,7 +21,6 @@ export default function Verification() {
     email,
     userId,
     developerAccount,
-    payMembership,
     submitInterview,
     refresh,
     connected,
@@ -60,7 +59,7 @@ export default function Verification() {
 
   async function startMembershipCheckout() {
     if (!connected) {
-      payMembership();
+      setPayError("Payments are unavailable until the live backend is connected.");
       return;
     }
 
@@ -69,7 +68,7 @@ export default function Verification() {
     const result = await collectFee("bidding_membership", { name, email });
 
     if (result.status === "paid") {
-      // The webhook has already unlocked bidding; re-read it.
+      // razorpay-confirm has marked the fee paid and unlocked bidding.
       await refresh();
       setPaying(false);
       return;

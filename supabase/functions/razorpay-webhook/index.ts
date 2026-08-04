@@ -2,7 +2,10 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { json, requireEnv, serviceClient } from "../_shared/backend.ts";
 
 /**
- * Razorpay's callback, and the only place a fee is ever marked paid.
+ * Razorpay's callback, and a backup place a fee is marked paid.
+ *
+ * Primary settlement is razorpay-confirm (Checkout signature verification).
+ * This webhook covers cases where the browser closed before confirm ran.
  *
  * Without the signature check below, anyone could POST "payment succeeded"
  * and mint themselves free postings, so an unverifiable request is refused
@@ -55,25 +58,41 @@ serve(async (req) => {
 
   if (!verified) return json(400, { error: "Invalid signature" });
 
-  let event: any;
+  let event: Record<string, unknown>;
   try {
-    event = JSON.parse(payload);
+    event = JSON.parse(payload) as Record<string, unknown>;
   } catch {
     return json(400, { error: "Invalid JSON" });
   }
 
   const type = event?.event as string | undefined;
-  if (type !== "payment.captured" && type !== "order.paid") {
+  // payment.authorized can precede capture on some methods; still settle so
+  // the buyer is not stuck waiting while capture completes asynchronously.
+  if (
+    type !== "payment.captured" &&
+    type !== "payment.authorized" &&
+    type !== "order.paid"
+  ) {
     return json(200, { received: true, note: `Ignored ${type}` });
   }
 
-  const payment = event?.payload?.payment?.entity;
-  const order = event?.payload?.order?.entity;
+  const payloadObj = event?.payload as
+    | {
+        payment?: { entity?: Record<string, unknown> };
+        order?: { entity?: Record<string, unknown> };
+      }
+    | undefined;
+  const payment = payloadObj?.payment?.entity;
+  const order = payloadObj?.order?.entity;
 
-  // notes ride on the order and are copied onto the payment by Razorpay.
+  const paymentNotes = (payment?.notes ?? {}) as Record<string, string>;
+  const orderNotes = (order?.notes ?? {}) as Record<string, string>;
+
   const paymentId: string | undefined =
-    payment?.notes?.payment_id ?? order?.notes?.payment_id;
-  const orderId: string | undefined = payment?.order_id ?? order?.id;
+    paymentNotes.payment_id ?? orderNotes.payment_id;
+  const orderId: string | undefined =
+    (payment?.order_id as string | undefined) ?? (order?.id as string | undefined);
+  const razorpayPaymentId = payment?.id ? String(payment.id) : undefined;
 
   if (!paymentId && !orderId) {
     return json(200, { received: true, note: "No payment reference" });
@@ -93,7 +112,6 @@ serve(async (req) => {
     const record = rows?.[0];
     if (!record) return json(200, { received: true, note: "Unknown payment" });
 
-    // Razorpay retries, so a replay must be harmless.
     if (record.status === "paid") {
       return json(200, { received: true, note: "Already settled" });
     }
@@ -101,14 +119,13 @@ serve(async (req) => {
     await db.update(`payments?id=eq.${record.id}&status=neq.paid`, {
       status: "paid",
       paid_at: new Date().toISOString(),
-      provider_reference: payment?.id ? String(payment.id) : orderId,
+      provider_reference: razorpayPaymentId ?? orderId,
     });
 
     return json(200, { received: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook failed";
     console.error("razorpay-webhook failed", message);
-    // A 500 makes Razorpay retry, which is what we want on a transient fault.
     return json(500, { error: message });
   }
 });

@@ -97,8 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { user } = activeSession;
     const meta = user.user_metadata ?? {};
     const metaRole = meta.role;
-    const desiredRole: Exclude<Role, "guest"> =
-      metaRole === "developer" || metaRole === "admin" ? metaRole : "buyer";
+    // Never accept admin from the client. Admin is granted only in the database.
+    const desiredRole: Exclude<Role, "guest" | "admin"> =
+      metaRole === "developer" ? "developer" : "buyer";
     const fullName = (meta.full_name as string) || user.email || "Okavo user";
 
     const { data: existing, error: readError } = await supabase

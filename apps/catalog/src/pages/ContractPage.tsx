@@ -755,7 +755,7 @@ export default function ContractPage() {
                       {project.dispute.resolutionNote}
                     </p>
                   )}
-                  {project.dispute.status !== "resolved" && (
+                  {project.dispute.status !== "resolved" && role === "admin" && (
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm btn-block"
@@ -768,6 +768,12 @@ export default function ContractPage() {
                     >
                       Mark resolved
                     </button>
+                  )}
+                  {project.dispute.status !== "resolved" && role !== "admin" && (
+                    <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                      Okavo reviews open disputes against the locked scope lines
+                      above.
+                    </p>
                   )}
                 </>
               ) : showDispute ? (

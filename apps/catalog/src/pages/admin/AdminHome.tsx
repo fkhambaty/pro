@@ -132,7 +132,7 @@ export default function AdminHome() {
                 <strong>{insights.bids}</strong>
               </div>
               <div className="stat">
-                <span>Milestones in progress</span>
+                <span>Milestone value in delivery</span>
                 <strong>{money(insights.escrowCents / 100)}</strong>
               </div>
             </div>

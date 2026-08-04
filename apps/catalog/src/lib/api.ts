@@ -690,34 +690,20 @@ export async function awardBid(
   if (milestoneError) throw milestoneError;
 }
 
-export async function payMembership(profileId: string, amountCents: number) {
-  const { error } = await db().from("payments").insert({
-    profile_id: profileId,
-    purpose: "bidding_membership",
-    status: "paid",
-    amount_cents: amountCents,
-    provider: "demo",
-    provider_reference: `demo_${Date.now()}`,
-    paid_at: new Date().toISOString(),
-  });
-  if (error) throw error;
+export async function payMembership(_profileId: string, _amountCents: number) {
+  throw new Error(
+    "Demo membership payment is disabled. Use Razorpay checkout on Verification."
+  );
 }
 
 /**
  * Buys the right to post one requirement. The insert trigger on `projects`
  * consumes it, so a fee cannot be reused across requirements.
  */
-export async function payPostingFee(profileId: string, amountCents: number) {
-  const { error } = await db().from("payments").insert({
-    profile_id: profileId,
-    purpose: "requirement_posting",
-    status: "paid",
-    amount_cents: amountCents,
-    provider: "demo",
-    provider_reference: `demo_${Date.now()}`,
-    paid_at: new Date().toISOString(),
-  });
-  if (error) throw error;
+export async function payPostingFee(_profileId: string, _amountCents: number) {
+  throw new Error(
+    "Demo posting payment is disabled. Use Razorpay checkout when publishing."
+  );
 }
 
 export async function countPostingFees(profileId: string) {
@@ -943,6 +929,14 @@ export async function inviteBuilderToProject(projectId: string, email: string) {
   const { data, error } = await db().rpc("invite_builder_to_project", {
     p_project_id: projectId,
     p_email: email,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function acceptProjectInvite(token: string) {
+  const { data, error } = await db().rpc("accept_project_invite", {
+    p_token: token,
   });
   if (error) throw error;
   return data as string;
