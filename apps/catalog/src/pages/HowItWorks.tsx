@@ -16,10 +16,10 @@ const BUYER_STEPS = [
     takes: "A few minutes, and you can edit anything",
   },
   {
-    title: "Sign the lock",
+    title: "Publish for Q&A, then freeze the lock",
     detail:
-      "Signing freezes the scope, the build budget and the monthly running cost. Okavo keeps an unchangeable copy. From this moment nobody can quietly widen or narrow what was agreed, including us.",
-    takes: `${POSTING_FEE_LABEL}, charged once per requirement`,
+      `Pay ${POSTING_FEE_LABEL} to open a short clarification window. Developers can ask line-item questions; bidding stays closed. When the picture is sharp, you freeze the Requirement Lock — an unchangeable copy Okavo keeps.`,
+    takes: `${POSTING_FEE_LABEL} at publish; freeze opens bids`,
   },
   {
     title: "Compare bids priced against identical scope",
@@ -28,15 +28,15 @@ const BUYER_STEPS = [
     takes: "Most requirements attract bids within a week",
   },
   {
-    title: "Hire, then both sides sign the same lock",
+    title: "Hire, fund the first milestone, then countersign",
     detail:
-      "You pick a bid. The developer must countersign the frozen scope before delivery starts — so both parties are bound to the same list before anyone builds.",
-    takes: "Countersign unlocks milestones",
+      "You pick a bid. Fund (or attest) the first milestone before the developer can countersign the same freeze — that is the funding gate. Okavo-held escrow is next; today you pay the developer directly and confirm here.",
+    takes: "Funding unlocks countersign",
   },
   {
-    title: "Pay one milestone at a time",
+    title: "Accept later milestones against the checklist",
     detail:
-      "You release money milestone by milestone, and only after you have checked the work against the signed scope. Okavo-held escrow is being switched on next (Stripe Connect); for now you pay your developer directly against that same schedule and confirm it here.",
+      "After countersign, you release later milestones only after checking work against the signed scope. Okavo-held escrow is being switched on next (Stripe Connect); until then you pay your developer directly against that same schedule.",
     takes: "You are never more than one milestone exposed",
   },
   {
@@ -61,17 +61,17 @@ const DEV_STEPS = [
   {
     title: "Pay once, bid freely",
     detail:
-      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding. Okavo also takes a flat 10% commission on the awarded build. There is no subscription.`,
+      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding. Okavo’s marketplace fee is a flat 10% on the awarded build — collection of that commission is being wired next; membership and posting fees are live today. There is no subscription.`,
   },
   {
     title: "Bid on settled work",
     detail:
-      "Every requirement you see is already signed. The scope will not move under you, the budget is stated, and the buyer has already paid to post it. You are quoting on a real job, not a maybe.",
+      "Every bid-ready requirement is already frozen. The scope will not move under you, the budget is stated, and the buyer has already paid to post it. You are quoting on a real job, not a maybe.",
   },
   {
-    title: "Countersign, then deliver",
+    title: "Countersign after the funding gate, then deliver",
     detail:
-      "When you are hired you countersign the same frozen lock. Then you are paid milestone by milestone as the buyer accepts the work. Okavo-held escrow is next (Stripe Connect); until then the buyer pays you directly against that schedule. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
+      "When you are hired, the buyer funds the first milestone first. Then you countersign the same freeze. You are paid milestone by milestone as the buyer accepts. Okavo-held escrow is next; until then the buyer pays you directly against that schedule. Anything outside the signed scope is a paid change order.",
   },
 ];
 

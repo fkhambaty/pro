@@ -228,7 +228,7 @@ export default function Landing() {
               </li>
               <li>
                 <span className="dot" />
-                Pay milestone by milestone, only on acceptance
+                Pay the first milestone to unlock countersign; later milestones only on acceptance
               </li>
               <li>
                 <span className="dot" />
@@ -253,7 +253,7 @@ export default function Landing() {
             <ul>
               <li>
                 <span className="dot" />
-                Verified with government ID and a recorded build interview
+                Identity-verified with government ID before bidding (recorded build interview is next)
               </li>
               <li>
                 <span className="dot" />

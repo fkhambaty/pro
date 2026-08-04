@@ -15,7 +15,11 @@ export default function DevBoard() {
   const list = useMemo(
     () =>
       projects.filter((project) => {
-        if (lockedOnly && project.stage === "drafting") return false;
+        if (lockedOnly) {
+          if (project.stage !== "clarifying" && project.stage !== "locked") {
+            return false;
+          }
+        }
         if (scales.length > 0 && !scales.includes(project.scale)) return false;
         if (project.budgetMax < minBudget) return false;
         return true;
@@ -46,9 +50,9 @@ export default function DevBoard() {
             <div>
               <strong>Browse free — pay only when you bid</strong>
               <p>
-                Review previews and run buildability checks with no fee. A
-                one-time {MEMBERSHIP_FEE_LABEL} membership plus identity approval
-                is required only when you place your first bid.
+                Review sample screens and the checklist with no fee. A one-time{" "}
+                {MEMBERSHIP_FEE_LABEL} membership plus identity approval unlocks
+                your first bid — not browsing.
               </p>
             </div>
             <div>
@@ -121,9 +125,11 @@ export default function DevBoard() {
                       <span>{project.org}</span>
                       <span>{project.scale}</span>
                       <span>{project.postedAgo}</span>
-                      <span>{project.bids.length} bids</span>
+                      <span>{project.publicBidCount} bids</span>
                       {project.stage === "drafting" ? (
                         <span className="badge badge-draft">Scope not locked</span>
+                      ) : project.stage === "clarifying" ? (
+                        <span className="badge badge-draft">Q&amp;A open</span>
                       ) : (
                         <span className="badge badge-lock">
                           Locked ·{" "}

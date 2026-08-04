@@ -16,7 +16,17 @@ export default function DevBids() {
       <header className="topbar">
         <h1>My bids</h1>
         <div className="topbar-actions">
-          <span className="badge">{rows.length} active</span>
+          <span className="badge">
+            {
+              rows.filter(
+                (row) =>
+                  row.bid.status === "submitted" ||
+                  row.bid.status === "shortlisted" ||
+                  row.bid.status === "awarded"
+              ).length
+            }{" "}
+            active
+          </span>
         </div>
       </header>
       <div className="content">

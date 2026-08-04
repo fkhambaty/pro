@@ -4,6 +4,7 @@ import RequirementPreview from "../../components/RequirementPreview";
 import { CATEGORY_OPTIONS, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
 import { collectFee } from "../../lib/checkout";
+import * as api from "../../lib/api";
 import { POSTING_FEE_LABEL, POSTING_SETTLEMENT_HINT } from "../../lib/pricing";
 import {
   defaultActionFor,
@@ -306,6 +307,23 @@ export default function NewRequirement() {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(currentDraft()));
     } catch {
       // A blocked sessionStorage costs a re-entry, never the payment.
+    }
+
+    try {
+      const credit = await api.hasUnconsumedPostingFee();
+      if (credit) {
+        setSaving(false);
+        await publishNow();
+        return;
+      }
+    } catch (cause) {
+      setSaving(false);
+      setPublishError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not check your posting fee credit."
+      );
+      return;
     }
 
     const result = await collectFee("requirement_posting", { name, email });
@@ -717,8 +735,9 @@ export default function NewRequirement() {
                 build. Build money still moves between you and the developer
                 outside Okavo until Stripe Connect escrow is live. Payment is
                 handled by Razorpay; Okavo never sees your card details. After
-                payment clears you get a draft — you sign the lock on the next
-                screen, and only then can verified developers bid.{" "}
+                payment clears the requirement opens for developer Q&amp;A. You
+                freeze the lock on the next screen — only then can verified
+                developers bid.{" "}
                 {POSTING_SETTLEMENT_HINT}
               </p>
             </>

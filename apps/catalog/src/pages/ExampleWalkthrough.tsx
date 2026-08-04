@@ -235,9 +235,9 @@ function DeveloperStory() {
         <Scene day="Before bidding" title="Browse free — no fee to look">
           <p>
             Arjun opens the board, reads Rose Street’s clarifying pack, flips
-            the sample screens, and runs a buildability check line by line.
-            Membership ({MEMBERSHIP_FEE_LABEL}) and identity only matter when he
-            places a bid — not to review the picture.
+            the sample screens, and checks every checklist line. Membership
+            ({MEMBERSHIP_FEE_LABEL}) and identity only matter when he places a
+            bid — not to review the picture.
           </p>
         </Scene>
 
@@ -311,9 +311,10 @@ function WhyStory() {
           <span>i</span>
           <span>
             Fees in this story: {POSTING_FEE_LABEL} to publish Tom’s brief,{" "}
-            {MEMBERSHIP_FEE_LABEL} once for Arjun to bid, flat 10% Okavo
-            commission on the awarded build. Escrow that holds build money is
-            next; the funding gate is already in the workflow.
+            {MEMBERSHIP_FEE_LABEL} once for Arjun to bid, and a flat 10% Okavo
+            marketplace fee on the awarded build (collection of that commission
+            is next — membership and posting are live). Escrow that holds build
+            money is also next; the funding gate is already in the workflow.
           </span>
         </div>
 

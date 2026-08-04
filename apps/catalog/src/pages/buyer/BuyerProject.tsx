@@ -28,6 +28,7 @@ export default function BuyerProject() {
   const [inviteNote, setInviteNote] = useState<string | null>(null);
   const [clarifications, setClarifications] = useState<api.ClarificationRequest[]>([]);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [answerError, setAnswerError] = useState<string | null>(null);
 
 
   /** Opens (creating if needed) the conversation with one bidder. */
@@ -190,8 +191,19 @@ export default function BuyerProject() {
                                 void (async () => {
                                   const answer = (answerDrafts[row.id] ?? "").trim();
                                   if (!answer) return;
-                                  await api.answerClarification(row.id, answer);
-                                  setClarifications(await api.fetchClarifications(project.id));
+                                  setAnswerError(null);
+                                  try {
+                                    await api.answerClarification(row.id, answer);
+                                    setClarifications(
+                                      await api.fetchClarifications(project.id)
+                                    );
+                                  } catch (cause) {
+                                    setAnswerError(
+                                      cause instanceof Error
+                                        ? cause.message
+                                        : "Could not save that answer."
+                                    );
+                                  }
                                 })();
                               }}
                             >
@@ -208,10 +220,22 @@ export default function BuyerProject() {
 
             <div className="card">
               <div className="card-head">
-                <h2>Bids on this locked contract</h2>
-                <span className="badge">{project.bids.length} received</span>
+                <h2>
+                  {frozen
+                    ? "Bids on this locked contract"
+                    : clarifying
+                      ? "Bidding opens after freeze"
+                      : "Bids"}
+                </h2>
+                <span className="badge">{project.publicBidCount} received</span>
               </div>
               <div style={{ padding: "1.25rem" }} className="stack-sm">
+                {answerError && (
+                  <div className="callout callout-warn" role="alert">
+                    <span>!</span>
+                    <span>{answerError}</span>
+                  </div>
+                )}
                 {!frozen && (
                   <div className="callout callout-warn">
                     <span>!</span>
@@ -223,7 +247,7 @@ export default function BuyerProject() {
                   </div>
                 )}
 
-                {frozen && project.bids.length === 0 && (
+                {frozen && project.publicBidCount === 0 && (
                   <div className="empty">
                     <strong>No bids yet</strong>
                     Locked. Verified developers can now bid.
@@ -375,7 +399,7 @@ export default function BuyerProject() {
               <div className="timeline">
                 <div className="timeline-item">
                   <strong>1</strong>
-                  <p>Sign the requirement lock</p>
+                  <p>Publish for Q&amp;A, then freeze the requirement lock</p>
                 </div>
                 <div className="timeline-item">
                   <strong>2</strong>
@@ -383,11 +407,11 @@ export default function BuyerProject() {
                 </div>
                 <div className="timeline-item">
                   <strong>3</strong>
-                  <p>Hire, then the developer countersigns the same lock</p>
+                  <p>Hire, fund the first milestone, then countersign</p>
                 </div>
                 <div className="timeline-item">
                   <strong>4</strong>
-                  <p>Pay outside Okavo, confirm here, accept against scope</p>
+                  <p>Accept later milestones against the signed checklist</p>
                 </div>
               </div>
             </div>

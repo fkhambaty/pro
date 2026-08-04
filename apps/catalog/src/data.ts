@@ -149,6 +149,7 @@ export const PROJECTS: Project[] = [
     versions: [
       { version: 1, reason: "Requirement locked", createdAt: "12 Jul 2026" },
     ],
+    publicBidCount: 2,
     milestones: [
       {
         id: "m1",
@@ -289,6 +290,7 @@ export const PROJECTS: Project[] = [
     versions: [
       { version: 1, reason: "Requirement locked", createdAt: "14 Jul 2026" },
     ],
+    publicBidCount: 2,
     milestones: [],
     changeOrders: [],
     bids: [
@@ -378,6 +380,7 @@ export const PROJECTS: Project[] = [
     versions: [
       { version: 1, reason: "Requirement locked", createdAt: "09 Jul 2026" },
     ],
+    publicBidCount: 2,
     milestones: [],
     changeOrders: [],
     bids: [
@@ -453,6 +456,7 @@ export const PROJECTS: Project[] = [
       },
     ],
     versions: [],
+    publicBidCount: 2,
     milestones: [],
     changeOrders: [],
     bids: [],

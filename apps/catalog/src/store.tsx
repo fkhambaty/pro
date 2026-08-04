@@ -312,6 +312,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           postedAgo: "Just now",
           warrantyDays: 30,
           bids: [],
+          publicBidCount: 0,
           milestones: [],
           changeOrders: [],
           versions: [],

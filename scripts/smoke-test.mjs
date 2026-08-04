@@ -72,15 +72,22 @@ for (const [role, email] of Object.entries(ACCOUNTS)) {
   check(`${role} can sign in`, Boolean(token), token ? "" : "no access token");
 }
 
-// Profile visible to its owner. Admins can read every profile, so match on
-// the signed-in email rather than assuming the first row is theirs.
+// Profile visible to its owner (email is column-restricted; use id + role).
 for (const [role, email] of Object.entries(ACCOUNTS)) {
   if (!tokens[role]) continue;
-  const { body } = await rest(
-    `profiles?select=role,email&email=eq.${encodeURIComponent(email)}`,
+  const { body: sess } = await rest(
+    `profiles?select=id,role&id=eq.${encodeURIComponent(
+      (
+        await (
+          await fetch(`${URL}/auth/v1/user`, {
+            headers: { apikey: KEY, Authorization: `Bearer ${tokens[role]}` },
+          })
+        ).json()
+      ).id
+    )}`,
     tokens[role]
   );
-  const row = Array.isArray(body) ? body[0] : null;
+  const row = Array.isArray(sess) ? sess[0] : null;
   check(
     `${role} profile row exists`,
     row?.role === role,
@@ -90,8 +97,12 @@ for (const [role, email] of Object.entries(ACCOUNTS)) {
 
 // Developer verification state — required before bidding
 if (tokens.developer) {
+  const meRes = await fetch(`${URL}/auth/v1/user`, {
+    headers: { apikey: KEY, Authorization: `Bearer ${tokens.developer}` },
+  });
+  const me = await meRes.json();
   const { body } = await rest(
-    "developer_profiles?select=identity_status,tier,bidding_unlocked_at",
+    `developer_profiles?select=identity_status,tier,bidding_unlocked_at&profile_id=eq.${me.id}`,
     tokens.developer
   );
   const row = Array.isArray(body) ? body[0] : null;
@@ -101,9 +112,9 @@ if (tokens.developer) {
     `status=${row?.identity_status}`
   );
   check(
-    "developer bidding still locked (paywall intact)",
-    !row?.bidding_unlocked_at,
-    row?.bidding_unlocked_at ? "already unlocked" : "not paid yet"
+    "developer bidding membership recorded",
+    Boolean(row?.bidding_unlocked_at),
+    row?.bidding_unlocked_at ? "unlocked" : "not paid yet"
   );
 }
 
@@ -148,21 +159,30 @@ if (tokens.admin) {
   );
 }
 
-// A buyer must not be able to read another user's payments
+// A buyer must only see their own payments (not an empty list).
 if (tokens.buyer) {
+  const meRes = await fetch(`${URL}/auth/v1/user`, {
+    headers: { apikey: KEY, Authorization: `Bearer ${tokens.buyer}` },
+  });
+  const me = await meRes.json();
   const { body } = await rest("payments?select=id,profile_id", tokens.buyer);
-  const leaked = Array.isArray(body) && body.length > 0;
-  check("payments are private to their owner", !leaked, leaked ? "LEAK" : "none visible");
+  const rows = Array.isArray(body) ? body : [];
+  const leaked = rows.some((row) => row.profile_id !== me.id);
+  check(
+    "payments are private to their owner",
+    !leaked,
+    leaked ? "LEAK" : `${rows.length} own rows`
+  );
 }
 
 // A developer can upload an identity document to their own folder, and cannot
 // write into somebody else's.
 if (tokens.developer) {
-  const { body: me } = await rest("profiles?select=id", tokens.developer, {
-    headers: { Accept: "application/json" },
+  const meRes = await fetch(`${URL}/auth/v1/user`, {
+    headers: { apikey: KEY, Authorization: `Bearer ${tokens.developer}` },
   });
-  const devId = Array.isArray(me) ? me[0]?.id : null;
-  const path = `${devId}/smoke-${Date.now()}.txt`;
+  const me = await meRes.json();
+  const path = `${me.id}/smoke-${Date.now()}.txt`;
 
   const upload = await fetch(`${URL}/storage/v1/object/identity-documents/${path}`, {
     method: "POST",

@@ -90,7 +90,7 @@ export function buyerBidsPerRequirement(projects: Project[]): NamedValue[] {
         project.title.length > 28
           ? `${project.title.slice(0, 26)}…`
           : project.title,
-      value: project.bids.length,
+      value: project.publicBidCount,
       tone: "accent" as const,
     }))
     .filter((row) => row.value > 0)

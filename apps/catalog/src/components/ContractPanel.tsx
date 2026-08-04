@@ -159,7 +159,7 @@ export default function ContractPanel({ project, viewer, onLock }: Props) {
               : "Sign and lock requirement"}
           </button>
         )}
-        {frozen && (
+        {(frozen || clarifying) && (
           <button
             type="button"
             className="btn btn-secondary btn-sm"

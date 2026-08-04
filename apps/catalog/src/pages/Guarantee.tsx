@@ -50,15 +50,17 @@ export default function Guarantee() {
             </p>
             <p>
               What we guarantee is that a disagreement is settled against a
-              document you both signed before any money moved — instead of two
-              people remembering a conversation differently.
+              document you both signed — with a funding gate before countersign
+              and later milestones checked against that same checklist — instead
+              of two people remembering a conversation differently.
             </p>
             <p>
               We also do not yet hold your build payments in escrow. That is
-              being switched on next. Today Okavo collects only its own{" "}
-              {POSTING_FEE_LABEL} posting fee; you pay your developer directly,
-              milestone by milestone, against the schedule in the signed
-              contract.
+              being switched on next. Today Okavo collects its{" "}
+              {POSTING_FEE_LABEL} posting fee (and developer membership); a flat
+              10% marketplace commission on awarded builds is the next fee to
+              wire. You pay your developer directly against the schedule in the
+              signed contract.
             </p>
           </div>
         </div>

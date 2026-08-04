@@ -169,9 +169,12 @@ export default function AppShell() {
                   ? "Administrator"
                   : isBuyer
                     ? "Buyer"
-                    : developerAccount.membershipPaid
+                    : developerAccount.membershipPaid &&
+                        developerAccount.identityStatus === "approved"
                       ? `${developerAccount.tier} · bidding active`
-                      : `${developerAccount.tier} · bidding locked`}
+                      : developerAccount.membershipPaid
+                        ? `${developerAccount.tier} · ID required to bid`
+                        : `${developerAccount.tier} · bidding locked`}
               </span>
             </span>
           </div>

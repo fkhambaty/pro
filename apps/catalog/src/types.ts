@@ -171,6 +171,13 @@ export type Project = {
   developerSignedAt?: string;
   postedAgo: string;
   bids: Bid[];
+  /**
+   * Marketplace-visible bid count. Developers only see their own rows in
+   * `bids` under RLS; use this for board competition stats.
+   */
+  publicBidCount: number;
+  /** Lowest competing bid in major currency units, when known. */
+  lowestBidAmount?: number;
   milestones: Milestone[];
   changeOrders: ChangeOrder[];
   versions: ContractVersion[];

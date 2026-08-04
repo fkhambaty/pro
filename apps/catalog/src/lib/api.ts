@@ -264,6 +264,38 @@ function mapProject(row: any, currentUserId: string | null): Project {
   }));
 
   const awardedBid = bids.find((bid) => bid.status === "awarded");
+  const lockMeta = row._lock as
+    | {
+        lock_reference?: string;
+        locked_at?: string;
+        warranty_days?: number;
+        developer_signed_at?: string | null;
+      }
+    | undefined;
+  const bidStats = row._bidStats as
+    | { bid_count?: number; lowest_bid_cents?: number | null }
+    | undefined;
+
+  const lockId =
+    contract?.lock_reference ?? lockMeta?.lock_reference ?? undefined;
+  const lockedAtRaw = contract?.locked_at ?? lockMeta?.locked_at;
+  const developerSignedRaw =
+    contract?.developer_signed_at ?? lockMeta?.developer_signed_at;
+  const warrantyDays =
+    contract?.warranty_days ?? lockMeta?.warranty_days ?? 30;
+
+  const publicBidCount = Math.max(
+    bidStats?.bid_count ?? 0,
+    bids.length
+  );
+  const lowestFromStats =
+    bidStats?.lowest_bid_cents != null
+      ? toMoney(bidStats.lowest_bid_cents)
+      : undefined;
+  const lowestFromOwn =
+    bids.length > 0
+      ? Math.min(...bids.map((bid) => bid.amount))
+      : undefined;
 
   return {
     id: row.id,
@@ -279,19 +311,21 @@ function mapProject(row: any, currentUserId: string | null): Project {
     skills: [row.category],
     scope,
     stage: projectStage(row.stage),
-    lockedAt: contract?.locked_at ? formatDate(contract.locked_at) : undefined,
-    lockId: contract?.lock_reference ?? undefined,
-    developerSignedAt: contract?.developer_signed_at
-      ? formatDate(contract.developer_signed_at)
+    lockedAt: lockedAtRaw ? formatDate(lockedAtRaw) : undefined,
+    lockId,
+    developerSignedAt: developerSignedRaw
+      ? formatDate(developerSignedRaw)
       : undefined,
     postedAgo: relativeTime(row.published_at ?? row.created_at),
     bids,
+    publicBidCount,
+    lowestBidAmount: lowestFromStats ?? lowestFromOwn,
     milestones,
     changeOrders,
     versions,
     dispute,
     reviews,
-    warrantyDays: contract?.warranty_days ?? 30,
+    warrantyDays,
     ownedByMe: currentUserId ? row.buyer_id === currentUserId : false,
     awardedTo: awardedBid?.developerName,
   };
@@ -308,12 +342,38 @@ async function contractIdFor(projectId: string) {
 }
 
 export async function fetchProjects(currentUserId: string | null) {
-  const { data, error } = await db()
-    .from("projects")
-    .select(PROJECT_SELECT)
-    .order("created_at", { ascending: false });
+  const client = db();
+  const [{ data, error }, locksRes, statsRes] = await Promise.all([
+    client
+      .from("projects")
+      .select(PROJECT_SELECT)
+      .order("created_at", { ascending: false }),
+    client.from("project_locks").select(
+      "project_id, lock_reference, locked_at, warranty_days, developer_signed_at"
+    ),
+    client.from("project_bid_stats").select(
+      "project_id, bid_count, lowest_bid_cents"
+    ),
+  ]);
   if (error) throw error;
-  return (data ?? []).map((row) => mapProject(row, currentUserId));
+
+  const locksByProject = new Map(
+    (locksRes.data ?? []).map((row: any) => [row.project_id as string, row])
+  );
+  const statsByProject = new Map(
+    (statsRes.data ?? []).map((row: any) => [row.project_id as string, row])
+  );
+
+  return (data ?? []).map((row: any) =>
+    mapProject(
+      {
+        ...row,
+        _lock: locksByProject.get(row.id),
+        _bidStats: statsByProject.get(row.id),
+      },
+      currentUserId
+    )
+  );
 }
 
 const nullableNumber = (value: unknown): number | null =>
@@ -513,6 +573,13 @@ export async function fetchNotifications(
   }));
 }
 
+const SCALE_TO_DB: Record<string, string> = {
+  "Local business": "local_business",
+  SMB: "smb",
+  Startup: "startup",
+  Enterprise: "enterprise",
+};
+
 export async function createProject(
   buyerId: string,
   input: {
@@ -523,9 +590,18 @@ export async function createProject(
     budgetMax: number;
     monthlyOps: number;
     timelineWeeks: number;
+    scale?: string;
     scope: ScopeItem[];
   }
 ) {
+  if (input.scale && SCALE_TO_DB[input.scale]) {
+    const { error: scaleError } = await db()
+      .from("buyer_profiles")
+      .update({ scale: SCALE_TO_DB[input.scale] })
+      .eq("profile_id", buyerId);
+    if (scaleError) throw scaleError;
+  }
+
   const { data, error } = await db()
     .from("projects")
     .insert({
@@ -720,6 +796,13 @@ export async function countPostingFees(profileId: string) {
   return count ?? 0;
 }
 
+/** True when a paid posting fee is sitting unused (retry after paid publish). */
+export async function hasUnconsumedPostingFee() {
+  const { data, error } = await db().rpc("has_unconsumed_posting_fee");
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export type IdentitySubmission = {
   documentType: string;
   documentCountry: string;
@@ -812,11 +895,9 @@ export async function submitMilestone(
 }
 
 export async function acceptMilestone(milestoneId: string) {
-  const now = new Date().toISOString();
-  const { error } = await db()
-    .from("milestones")
-    .update({ status: "released", accepted_at: now, released_at: now })
-    .eq("id", milestoneId);
+  const { error } = await db().rpc("accept_milestone", {
+    p_milestone_id: milestoneId,
+  });
   if (error) throw error;
 }
 
@@ -860,7 +941,7 @@ export async function decideChangeOrder(
 ) {
   const { data: order, error: readError } = await db()
     .from("change_orders")
-    .select("title, added_weeks, contract_id")
+    .select("title, added_weeks, amount_cents, contract_id")
     .eq("id", changeOrderId)
     .single();
   if (readError) throw readError;
@@ -913,10 +994,24 @@ export async function decideChangeOrder(
     .from("contracts")
     .update({ current_version: nextVersion })
     .eq("id", order.contract_id);
+
+  const { data: scopeSnapshot, error: snapError } = await db().rpc(
+    "snapshot_scope_for_contract",
+    { p_contract_id: order.contract_id }
+  );
+  if (snapError) throw snapError;
+
   await db().from("contract_versions").insert({
     contract_id: order.contract_id,
     version: nextVersion,
-    snapshot: {},
+    snapshot: {
+      scope: scopeSnapshot ?? [],
+      change_order: {
+        title: order.title,
+        amount_cents: order.amount_cents ?? null,
+        added_weeks: order.added_weeks ?? null,
+      },
+    },
     reason: `Change order accepted: ${order.title}`,
   });
 }

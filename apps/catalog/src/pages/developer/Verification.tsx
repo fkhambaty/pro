@@ -113,7 +113,11 @@ export default function Verification() {
                 <h2>One-time bidding membership</h2>
                 <p>
                   {developerAccount.membershipPaid
-                    ? `Paid on ${developerAccount.membershipPaidAt}. You can bid on any locked requirement.`
+                    ? `Paid on ${developerAccount.membershipPaidAt}. ${
+                        developerAccount.identityStatus === "approved"
+                          ? "Identity is approved — you can bid on locked requirements."
+                          : "Membership is paid. Finish identity approval before you can bid."
+                      }`
                     : "Pay once to unlock bidding. This keeps the board free of throwaway accounts and spam proposals."}
                 </p>
               </div>

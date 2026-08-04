@@ -91,7 +91,11 @@ export default function DevProject() {
   const identityApproved = developerAccount.identityStatus === "approved";
   const canBid =
     frozen && developerAccount.membershipPaid && identityApproved;
-  const readyToSubmit = canBid && accepted && amount.trim() !== "" && !submitted;
+  const myExistingBid = project.bids.find(
+    (bid) => bid.developerId === userId || bid.developerId === "me"
+  );
+  const readyToSubmit =
+    canBid && accepted && amount.trim() !== "" && !submitted && !myExistingBid;
   const myAwarded = project.bids.find((bid) => bid.status === "awarded");
   const needsCountersign =
     Boolean(myAwarded) &&
@@ -316,12 +320,14 @@ export default function DevProject() {
                 </div>
               )}
 
-              {submitted ? (
+              {submitted || myExistingBid ? (
                 <div className="callout callout-ok">
                   <span>✓</span>
                   <span>
-                    Bid submitted for {money(Number(amount) || 0)}. You will be
-                    notified if the buyer shortlists you.
+                    Bid submitted for{" "}
+                    {money(myExistingBid?.amount ?? (Number(amount) || 0))}. You
+                    will be notified if the buyer shortlists you.{" "}
+                    <Link to="/app/bids">View in My bids</Link>
                   </span>
                 </div>
               ) : (
@@ -406,9 +412,11 @@ export default function DevProject() {
                 Competition
               </h3>
               <p style={{ color: "var(--muted)" }}>
-                {project.bids.length} developers have bid on this identical scope.
-                {project.bids.length > 0 &&
-                  ` Lowest ${money(Math.min(...project.bids.map((b) => b.amount)))}.`}
+                {project.publicBidCount} developers have bid on this identical
+                scope.
+                {project.lowestBidAmount != null &&
+                  project.publicBidCount > 0 &&
+                  ` Lowest ${money(project.lowestBidAmount)}.`}
               </p>
             </div>
           </aside>

@@ -33,7 +33,12 @@ export default function ContractsList() {
         <h1>Contracts</h1>
         <div className="topbar-actions">
           <span className="badge">
-            {list.filter((p) => p.stage !== "drafting").length} locked
+            {
+              list.filter(
+                (p) => p.stage !== "drafting" && p.stage !== "clarifying"
+              ).length
+            }{" "}
+            locked
           </span>
         </div>
       </header>

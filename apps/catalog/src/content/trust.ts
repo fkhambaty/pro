@@ -67,7 +67,7 @@ export const FAQS: FaqItem[] = [
   {
     question: "What does Okavo cost?",
     answer:
-      `Buyers pay ${POSTING_FEE_LABEL} to post a requirement. That is it — Okavo does not take a cut of your build budget. You then pay the developer the price you both agreed, milestone by milestone. Developers browse for free and pay a one-time ${MEMBERSHIP_FEE_LABEL} membership before their first bid. Fees are shown in USD; until Stripe USD checkout is live, Razorpay collects the INR equivalent (${POSTING_FEE_INR_LABEL} / ${MEMBERSHIP_FEE_INR_LABEL}).`,
+      `Buyers pay ${POSTING_FEE_LABEL} to post a requirement. Developers browse free and pay a one-time ${MEMBERSHIP_FEE_LABEL} before their first bid. Okavo’s marketplace fee is a flat 10% on the awarded build — automatic collection of that commission is next; posting and membership are live today. You still pay the developer the agreed build price milestone by milestone. Fees are shown in USD; until Stripe USD checkout is live, Razorpay collects the INR equivalent (${POSTING_FEE_INR_LABEL} / ${MEMBERSHIP_FEE_INR_LABEL}).`,
   },
   {
     question: "Why charge anything at all to post?",

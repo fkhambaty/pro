@@ -17,12 +17,17 @@ export default function BuyerHome() {
   const { myProjects, loading, hydrated } = useStore();
   const list = myProjects;
 
-  const totalBids = list.reduce((sum, p) => sum + p.bids.length, 0);
-  const locked = list.filter((p) => p.stage !== "drafting").length;
+  const totalBids = list.reduce((sum, p) => sum + p.publicBidCount, 0);
+  const locked = list.filter(
+    (p) => p.stage !== "drafting" && p.stage !== "clarifying"
+  ).length;
   const committed = list.reduce((sum, p) => sum + p.monthlyOps, 0);
 
   const awaitingChoice = list.find(
-    (project) => !project.awardedTo && project.bids.length > 0
+    (project) =>
+      !project.awardedTo &&
+      project.stage === "locked" &&
+      project.publicBidCount > 0
   );
 
   const stageMix = useMemo(() => buyerStageMix(list), [list]);
@@ -165,12 +170,14 @@ export default function BuyerHome() {
                     <h3>{project.title}</h3>
                     <div className="project-meta">
                       <span>{project.category}</span>
-                      <span>{project.bids.length} bids</span>
+                      <span>{project.publicBidCount} bids</span>
                       {project.stage === "drafting" ? (
                         <span className="badge badge-draft">Not locked</span>
+                      ) : project.stage === "clarifying" ? (
+                        <span className="badge badge-draft">Q&amp;A open</span>
                       ) : (
                         <span className="badge badge-lock">
-                          {project.lockId}
+                          {project.lockId ?? "Locked"}
                         </span>
                       )}
                       {project.awardedTo && (
