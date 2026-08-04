@@ -26,6 +26,9 @@ export default function BuyerProject() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteNote, setInviteNote] = useState<string | null>(null);
+  const [clarifications, setClarifications] = useState<api.ClarificationRequest[]>([]);
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+
 
   /** Opens (creating if needed) the conversation with one bidder. */
   async function message(developerId: string) {
@@ -57,6 +60,22 @@ export default function BuyerProject() {
       cancelled = true;
     };
   }, [connected]);
+
+  useEffect(() => {
+    if (!connected || !id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await api.fetchClarifications(id);
+        if (!cancelled) setClarifications(rows);
+      } catch {
+        // Optional overlay.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, id]);
 
   if (!project) {
     return (
@@ -90,7 +109,9 @@ export default function BuyerProject() {
     );
   }
 
-  const locked = project.stage !== "drafting";
+  const clarifying = project.stage === "clarifying";
+  const frozen =
+    project.stage !== "drafting" && project.stage !== "clarifying";
   const awarded = project.bids.find((bid) => bid.status === "awarded");
 
   return (
@@ -98,7 +119,7 @@ export default function BuyerProject() {
       <header className="topbar">
         <h1>{project.title}</h1>
         <div className="topbar-actions">
-          {locked ? (
+          {frozen ? (
             <>
               <span className="badge badge-lock">{project.lockId}</span>
               <Link
@@ -108,8 +129,10 @@ export default function BuyerProject() {
                 Open contract
               </Link>
             </>
+          ) : clarifying ? (
+            <span className="badge badge-accent">Q&amp;A · ~48h recommended</span>
           ) : (
-            <span className="badge badge-draft">Draft contract</span>
+            <span className="badge badge-draft">Draft</span>
           )}
         </div>
       </header>
@@ -123,30 +146,91 @@ export default function BuyerProject() {
               onLock={() => lockProject(project.id)}
             />
 
+
+            {clarifying && (
+              <div className="card card-pad">
+                <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.6rem" }}>
+                  Clarification inbox
+                </h3>
+                <p style={{ color: "var(--muted)", marginBottom: "0.85rem" }}>
+                  Answer line questions before you freeze. Recommended window ~48 hours.
+                </p>
+                {clarifications.length === 0 ? (
+                  <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
+                    No questions yet. Developers can ask while this is in Q&amp;A.
+                  </p>
+                ) : (
+                  <div className="stack-sm">
+                    {clarifications.map((row) => (
+                      <div key={row.id} className="bid">
+                        <p className="bid-note"><strong>Q:</strong> {row.question}</p>
+                        {row.answer ? (
+                          <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
+                            <strong>A:</strong> {row.answer}
+                          </p>
+                        ) : (
+                          <>
+                            <div className="field">
+                              <label>Your answer</label>
+                              <textarea
+                                rows={2}
+                                value={answerDrafts[row.id] ?? ""}
+                                onChange={(e) =>
+                                  setAnswerDrafts((prev) => ({
+                                    ...prev,
+                                    [row.id]: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              onClick={() => {
+                                void (async () => {
+                                  const answer = (answerDrafts[row.id] ?? "").trim();
+                                  if (!answer) return;
+                                  await api.answerClarification(row.id, answer);
+                                  setClarifications(await api.fetchClarifications(project.id));
+                                })();
+                              }}
+                            >
+                              Post answer
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="card">
               <div className="card-head">
                 <h2>Bids on this locked contract</h2>
                 <span className="badge">{project.bids.length} received</span>
               </div>
               <div style={{ padding: "1.25rem" }} className="stack-sm">
-                {!locked && (
+                {!frozen && (
                   <div className="callout callout-warn">
                     <span>!</span>
                     <span>
-                      Bidding opens the moment you sign. Developers never see an
-                      unlocked requirement.
+                      {clarifying
+                        ? "Q&A is open. Answer developer clarifications, then freeze to open bids (about 48 hours is recommended)."
+                        : "Finish the draft, then open Q&A or freeze when the preview looks right."}
                     </span>
                   </div>
                 )}
 
-                {locked && project.bids.length === 0 && (
+                {frozen && project.bids.length === 0 && (
                   <div className="empty">
                     <strong>No bids yet</strong>
                     Locked. Verified developers can now bid.
                   </div>
                 )}
 
-                {locked &&
+                {frozen &&
                   project.bids.map((bid) => {
                     const record = ratings[bid.developerId];
                     return (
@@ -308,7 +392,7 @@ export default function BuyerProject() {
               </div>
             </div>
 
-            {locked && (
+            {frozen && (
               <div className="card card-pad">
                 <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.6rem" }}>
                   Invite a builder

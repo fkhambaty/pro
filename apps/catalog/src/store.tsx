@@ -308,7 +308,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           timelineWeeks: input.timelineWeeks,
           skills: [input.category],
           scope: input.scope,
-          stage: "drafting",
+          stage: "clarifying",
           postedAgo: "Just now",
           warrantyDays: 30,
           bids: [],

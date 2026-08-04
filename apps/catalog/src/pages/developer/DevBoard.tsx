@@ -44,15 +44,16 @@ export default function DevBoard() {
         {!developerAccount.membershipPaid && (
           <div className="paywall" style={{ marginBottom: "1.25rem" }}>
             <div>
-              <strong>Bidding is locked on your account</strong>
+              <strong>Browse free — pay only when you bid</strong>
               <p>
-                Browsing is free. A one-time {MEMBERSHIP_FEE_LABEL} membership
-                unlocks bidding and keeps the board free of throwaway proposals.
+                Review previews and run buildability checks with no fee. A
+                one-time {MEMBERSHIP_FEE_LABEL} membership plus identity approval
+                is required only when you place your first bid.
               </p>
             </div>
             <div>
               <Link className="btn btn-sm" to="/app/verification">
-                Activate bidding for {MEMBERSHIP_FEE_LABEL}
+                Unlock bidding ({MEMBERSHIP_FEE_LABEL})
               </Link>
             </div>
           </div>
@@ -68,7 +69,7 @@ export default function DevBoard() {
                   checked={lockedOnly}
                   onChange={(event) => setLockedOnly(event.target.checked)}
                 />
-                Locked requirements only
+                Locked &amp; clarifying only
               </label>
             </div>
 

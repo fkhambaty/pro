@@ -5,6 +5,7 @@ import { useStore } from "../store";
 const STAGE_LABEL: Record<string, string> = {
   drafting: "Draft",
   locked: "Locked",
+  clarifying: "Q&A",
   hired: "Hired",
   in_delivery: "In delivery",
   delivered: "Delivered",

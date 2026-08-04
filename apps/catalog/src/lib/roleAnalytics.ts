@@ -3,6 +3,7 @@ import type { NamedValue, TrendPoint } from "./chartMath";
 
 const STAGE_LABEL: Record<string, string> = {
   drafting: "Draft",
+  clarifying: "Q&A",
   locked: "Locked",
   hired: "Hired",
   in_delivery: "In delivery",

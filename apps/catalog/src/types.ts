@@ -13,6 +13,7 @@ export type VerificationStatus =
 
 export type ProjectStage =
   | "drafting"
+  | "clarifying"
   | "locked"
   | "hired"
   | "in_delivery"

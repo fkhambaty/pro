@@ -1,4 +1,5 @@
 import { money } from "../format";
+import { downloadBuildBible } from "../lib/api";
 import type { Project } from "../types";
 
 type Props = {
@@ -8,7 +9,9 @@ type Props = {
 };
 
 export default function ContractPanel({ project, viewer, onLock }: Props) {
-  const locked = project.stage !== "drafting";
+  const frozen =
+    project.stage !== "drafting" && project.stage !== "clarifying";
+  const clarifying = project.stage === "clarifying";
   const included = project.scope.filter((item) => item.included);
   const excluded = project.scope.filter((item) => !item.included);
 
@@ -18,13 +21,17 @@ export default function ContractPanel({ project, viewer, onLock }: Props) {
         <div>
           <h2>Requirement Lock</h2>
           <p>
-            {locked
+            {frozen
               ? `Signed ${project.lockedAt}. This is the only definition of done.`
-              : "Not locked yet. Bidding stays closed until both sides sign."}
+              : clarifying
+                ? "Open for clarification. Bidding stays closed until you freeze."
+                : "Not published yet. Finish the draft, then open Q&A or lock."}
           </p>
         </div>
-        {locked ? (
+        {frozen ? (
           <span className="contract-id">{project.lockId}</span>
+        ) : clarifying ? (
+          <span className="badge badge-accent">Q&amp;A window</span>
         ) : (
           <span className="badge badge-draft">Draft</span>
         )}
@@ -59,6 +66,11 @@ export default function ContractPanel({ project, viewer, onLock }: Props) {
               <div>
                 <strong>{item.label}</strong>
                 <p>{item.detail}</p>
+                {item.acceptanceCriteria && (
+                  <p style={{ marginTop: "0.3rem", color: "var(--accent)" }}>
+                    Accepted when: {item.acceptanceCriteria}
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -85,13 +97,24 @@ export default function ContractPanel({ project, viewer, onLock }: Props) {
       <div className="contract-section">
         <h3>Signatures</h3>
         <div className="signature-row">
-          <div className={`signature${locked ? " signed" : ""}`}>
+          <div className={`signature${frozen ? " signed" : ""}`}>
             <span>Buyer</span>
             <strong>
-              {locked ? `${project.org} — signed ${project.lockedAt}` : "Awaiting signature"}
+              {frozen
+                ? `${project.org} — signed ${project.lockedAt}`
+                : "Awaiting freeze signature"}
             </strong>
           </div>
-          <div className={`signature${project.developerSignedAt || project.stage === "in_delivery" || project.stage === "delivered" || project.stage === "closed" ? " signed" : ""}`}>
+          <div
+            className={`signature${
+              project.developerSignedAt ||
+              project.stage === "in_delivery" ||
+              project.stage === "delivered" ||
+              project.stage === "closed"
+                ? " signed"
+                : ""
+            }`}
+          >
             <span>Developer</span>
             <strong>
               {project.developerSignedAt ||
@@ -100,32 +123,50 @@ export default function ContractPanel({ project, viewer, onLock }: Props) {
               project.stage === "closed"
                 ? `${project.bids.find((b) => b.status === "awarded")?.developerName ?? "Awarded"} — countersigned${project.developerSignedAt ? ` ${project.developerSignedAt}` : ""}`
                 : project.stage === "hired"
-                  ? "Awarded — awaiting countersign"
-                  : "Signs after hire"}
+                  ? "Awarded — funds first milestone, then countersigns"
+                  : "Signs after hire + funding gate"}
             </strong>
           </div>
         </div>
       </div>
 
       <div className="contract-section">
-        <div className={`callout ${locked ? "callout-ok" : "callout-warn"}`}>
-          <span>{locked ? "✓" : "!"}</span>
+        <div
+          className={`callout ${frozen ? "callout-ok" : "callout-warn"}`}
+        >
+          <span>{frozen ? "✓" : "!"}</span>
           <span>
-            {locked
+            {frozen
               ? "Anything not listed above is a change order with its own price and timeline. Delivery is accepted against this list, not against opinion."
-              : viewer === "buyer"
-                ? "Lock this requirement to open bidding. You can still edit scope until you sign."
-                : "The buyer is still finalising scope. You cannot bid until the lock is signed."}
+              : clarifying
+                ? viewer === "buyer"
+                  ? "Recommended: leave Q&A open ~48 hours, answer every line question, then sign to freeze and open bids."
+                  : "Ask line-item clarifications now. You cannot bid until the buyer freezes this pack."
+                : viewer === "buyer"
+                  ? "Publish for Q&A or lock when the preview and checklist look right."
+                  : "The buyer is still drafting. This brief is not on the board yet."}
           </span>
         </div>
-        {!locked && viewer === "buyer" && onLock && (
+        {!frozen && viewer === "buyer" && onLock && (
           <button
             type="button"
             className="btn btn-lg"
             style={{ marginTop: "1rem" }}
             onClick={onLock}
           >
-            Sign and lock requirement
+            {clarifying
+              ? "Freeze requirement & open bidding"
+              : "Sign and lock requirement"}
+          </button>
+        )}
+        {frozen && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ marginTop: "1rem" }}
+            onClick={() => downloadBuildBible(project)}
+          >
+            Export build bible (JSON)
           </button>
         )}
       </div>

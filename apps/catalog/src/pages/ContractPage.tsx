@@ -30,6 +30,9 @@ export default function ContractPage() {
 
   const [changeTitle, setChangeTitle] = useState("");
   const [changeDetail, setChangeDetail] = useState("");
+  const [priceAmount, setPriceAmount] = useState("900");
+  const [priceWeeks, setPriceWeeks] = useState("1");
+  const [pricingOrderId, setPricingOrderId] = useState<string | null>(null);
   const [deliverySummary, setDeliverySummary] = useState("");
   const [deliveryUrl, setDeliveryUrl] = useState("");
   const [activeMilestone, setActiveMilestone] = useState<string | null>(null);
@@ -105,6 +108,16 @@ export default function ContractPage() {
   const awaitingCountersign = Boolean(awarded) && !developerCountersigned;
   const iAmAwardedDeveloper =
     !isBuyer && Boolean(awarded && userId && awarded.developerId === userId);
+  const firstMilestone = project.milestones[0];
+  const firstMilestoneFunded = Boolean(
+    firstMilestone &&
+      ["funded", "in_progress", "submitted", "accepted", "released"].includes(
+        firstMilestone.status
+      )
+  );
+  const fundingGateOpen = Boolean(awarded) && !firstMilestoneFunded;
+  const canCountersign =
+    awaitingCountersign && iAmAwardedDeveloper && firstMilestoneFunded;
   const contractValue = awarded?.amount ?? project.budgetMax;
   const releasedTotal = project.milestones
     .filter((m) => m.status === "released")
@@ -237,16 +250,33 @@ export default function ContractPage() {
                     </strong>
                   </div>
                 </div>
-                {awaitingCountersign && iAmAwardedDeveloper && (
+                {fundingGateOpen && (
                   <div className="callout callout-warn" style={{ marginTop: "1rem" }}>
                     <span>!</span>
                     <span>
-                      Read the locked scope above. Countersigning means you accept
-                      that list as the only definition of done.
+                      Funding gate: the buyer must confirm the first milestone
+                      is funded before the developer can countersign. When Okavo
+                      escrow is live, that deposit will sit in escrow; today the
+                      buyer pays outside Okavo and attests here.
                     </span>
                   </div>
                 )}
-                {awaitingCountersign && iAmAwardedDeveloper && (
+                {awaitingCountersign && iAmAwardedDeveloper && !firstMilestoneFunded && (
+                  <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
+                    Waiting for the buyer to fund “{firstMilestone?.title ?? "the first milestone"}”
+                    before you can countersign.
+                  </p>
+                )}
+                {canCountersign && (
+                  <div className="callout callout-warn" style={{ marginTop: "1rem" }}>
+                    <span>!</span>
+                    <span>
+                      First milestone is funded. Countersigning means you accept
+                      the locked scope as the only definition of done.
+                    </span>
+                  </div>
+                )}
+                {canCountersign && (
                   <button
                     type="button"
                     className="btn btn-lg"
@@ -256,10 +286,15 @@ export default function ContractPage() {
                     Countersign the locked scope
                   </button>
                 )}
-                {awaitingCountersign && isBuyer && (
+                {awaitingCountersign && isBuyer && firstMilestoneFunded && (
                   <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
                     Waiting for {awarded?.developerName ?? "the developer"} to
-                    countersign before delivery and payment confirmation can start.
+                    countersign. Delivery starts after that.
+                  </p>
+                )}
+                {awaitingCountersign && isBuyer && !firstMilestoneFunded && (
+                  <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
+                    Fund the first milestone below to unlock developer countersign.
                   </p>
                 )}
               </div>
@@ -293,20 +328,20 @@ export default function ContractPage() {
                 <div className="callout callout-info">
                   <span>i</span>
                   <span>
-                    Okavo does not yet hold build payments. Pay your developer
-                    directly against this milestone schedule, then confirm here
-                    so work can be submitted against the signed scope.
-                    {!developerCountersigned &&
-                      " Countersign must happen first."}
+                    After hire, fund the first milestone before countersign
+                    (funding gate). Okavo does not yet hold build money in
+                    escrow — pay your developer directly, then confirm here.
+                    When escrow is live, the same gate deposits into Okavo-held
+                    escrow instead.
                   </span>
                 </div>
 
-                {awaitingCountersign && (
+                {fundingGateOpen && (
                   <div className="callout callout-warn">
                     <span>!</span>
                     <span>
-                      Milestones stay locked until the developer countersigns the
-                      requirement.
+                      Countersign stays locked until the first milestone is
+                      confirmed funded.
                     </span>
                   </div>
                 )}
@@ -350,7 +385,7 @@ export default function ContractPage() {
                     <div className="bid-actions">
                       {isBuyer &&
                         milestone.status === "pending" &&
-                        developerCountersigned && (
+                        Boolean(awarded) && (
                         <button
                           type="button"
                           className="btn btn-sm"
@@ -363,14 +398,14 @@ export default function ContractPage() {
                             ? `Fund escrow ${money(milestone.amount)}`
                             : confirmingId === milestone.id
                               ? "Confirming…"
-                              : `Confirm paid outside Okavo ${money(milestone.amount)}`}
+                              : `Confirm funded ${money(milestone.amount)}`}
                         </button>
                       )}
                       {isBuyer &&
                         milestone.status === "pending" &&
-                        !developerCountersigned && (
+                        !awarded && (
                           <span className="badge badge-draft">
-                            Awaiting developer countersign
+                            Hire a developer first
                           </span>
                         )}
                       {isBuyer && milestone.status === "submitted" && (
@@ -399,9 +434,11 @@ export default function ContractPage() {
                       )}
                       {!isBuyer && milestone.status === "pending" && (
                         <span className="badge badge-draft">
-                          {developerCountersigned
-                            ? "Awaiting buyer payment confirmation"
-                            : "Countersign the lock to unlock delivery"}
+                          {firstMilestoneFunded || milestone.id !== firstMilestone?.id
+                            ? developerCountersigned
+                              ? "Awaiting buyer payment confirmation"
+                              : "Awaiting countersign"
+                            : "Buyer funds this before you countersign"}
                         </span>
                       )}
                     </div>
@@ -459,8 +496,9 @@ export default function ContractPage() {
                 <div className="callout callout-info">
                   <span>i</span>
                   <span>
-                    Anything outside the locked scope lives here with its own price
-                    and timeline. The original promise never silently changes.
+                    Change order protocol: (1) propose the delta, (2) developer
+                    prices impact, (3) mutual accept appends a new locked scope
+                    line. The original freeze stays intact.
                   </span>
                 </div>
 
@@ -487,15 +525,60 @@ export default function ContractPage() {
                     <p className="bid-note">{order.description}</p>
                     <div className="bid-actions">
                       {order.status === "proposed" && !isBuyer && (
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          onClick={() =>
-                            priceChangeOrder(project.id, order.id, 900, 1)
-                          }
-                        >
-                          Price at $900, +1 week
-                        </button>
+                        pricingOrderId === order.id ? (
+                          <div className="submit-box" style={{ width: "100%" }}>
+                            <div className="field">
+                              <label>Price (USD)</label>
+                              <input
+                                value={priceAmount}
+                                onChange={(e) => setPriceAmount(e.target.value)}
+                              />
+                            </div>
+                            <div className="field">
+                              <label>Added weeks</label>
+                              <input
+                                value={priceWeeks}
+                                onChange={(e) => setPriceWeeks(e.target.value)}
+                              />
+                            </div>
+                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                              <button
+                                type="button"
+                                className="btn btn-sm"
+                                onClick={() => {
+                                  const amount = Number(priceAmount);
+                                  const weeks = Number(priceWeeks);
+                                  if (!Number.isFinite(amount) || amount < 0) return;
+                                  if (!Number.isFinite(weeks) || weeks < 0) return;
+                                  priceChangeOrder(
+                                    project.id,
+                                    order.id,
+                                    amount,
+                                    weeks
+                                  );
+                                  setPricingOrderId(null);
+                                }}
+                              >
+                                Send price
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setPricingOrderId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            onClick={() => setPricingOrderId(order.id)}
+                          >
+                            Price this change
+                          </button>
+                        )
                       )}
                       {order.status === "priced" && isBuyer && (
                         <>
@@ -845,8 +928,10 @@ export default function ContractPage() {
               ) : (
                 <>
                   <p style={{ color: "var(--muted)", marginBottom: "0.85rem" }}>
-                    Disputes are reviewed against specific locked scope lines.
-                    Okavo does not hold build money while a dispute is open.
+                    Locked acceptance lines are the binding rubric. If a milestone
+                    is rejected, Okavo mediates against those lines (human
+                    arbitration on the checklist — not vibes). Okavo does not hold
+                    build money while a dispute is open.
                   </p>
                   <button
                     type="button"

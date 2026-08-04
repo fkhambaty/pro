@@ -109,6 +109,7 @@ function projectStage(value: string): ProjectStage {
   if (value === "cancelled") return "closed";
   if (
     value === "drafting" ||
+    value === "clarifying" ||
     value === "locked" ||
     value === "hired" ||
     value === "in_delivery" ||
@@ -536,7 +537,9 @@ export async function createProject(
       budget_max_cents: toCents(input.budgetMax),
       monthly_run_cents: toCents(input.monthlyOps),
       timeline_weeks: input.timelineWeeks,
-      stage: "drafting",
+      // Published for pre-lock Q&A — bids stay closed until lockProject.
+      stage: "clarifying",
+      published_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -940,6 +943,114 @@ export async function acceptProjectInvite(token: string) {
   });
   if (error) throw error;
   return data as string;
+}
+
+export type ClarificationRequest = {
+  id: string;
+  projectId: string;
+  developerId: string;
+  scopeItemId: string | null;
+  question: string;
+  answer: string | null;
+  createdAt: string;
+  answeredAt: string | null;
+};
+
+export async function fetchClarifications(
+  projectId: string
+): Promise<ClarificationRequest[]> {
+  const { data, error } = await db()
+    .from("clarification_requests")
+    .select(
+      "id, project_id, developer_id, scope_item_id, question, answer, created_at, answered_at"
+    )
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    projectId: row.project_id,
+    developerId: row.developer_id,
+    scopeItemId: row.scope_item_id,
+    question: row.question,
+    answer: row.answer,
+    createdAt: formatDate(row.created_at),
+    answeredAt: row.answered_at ? formatDate(row.answered_at) : null,
+  }));
+}
+
+export async function askClarification(
+  projectId: string,
+  developerId: string,
+  question: string,
+  scopeItemId?: string | null
+) {
+  const { error } = await db().from("clarification_requests").insert({
+    project_id: projectId,
+    developer_id: developerId,
+    question: question.trim(),
+    scope_item_id: scopeItemId || null,
+  });
+  if (error) throw error;
+}
+
+export async function answerClarification(requestId: string, answer: string) {
+  const { error } = await db().rpc("answer_clarification", {
+    p_request_id: requestId,
+    p_answer: answer,
+  });
+  if (error) throw error;
+}
+
+/** Structured build package for IDE / AI tool ingestion. */
+export function buildBiblePayload(project: Project) {
+  return {
+    format: "okavo.build_bible.v1",
+    exportedAt: new Date().toISOString(),
+    project: {
+      id: project.id,
+      title: project.title,
+      category: project.category,
+      outcome: project.outcome,
+      stage: project.stage,
+      lockId: project.lockId ?? null,
+      lockedAt: project.lockedAt ?? null,
+      budgetMinUsd: project.budgetMin,
+      budgetMaxUsd: project.budgetMax,
+      monthlyOpsUsd: project.monthlyOps,
+      timelineWeeks: project.timelineWeeks,
+      warrantyDays: project.warrantyDays,
+    },
+    scope: project.scope.map((item, index) => ({
+      position: index,
+      id: item.id,
+      label: item.label,
+      detail: item.detail,
+      included: item.included,
+      acceptanceCriteria: item.acceptanceCriteria ?? null,
+    })),
+    milestones: project.milestones.map((m, index) => ({
+      position: index,
+      id: m.id,
+      title: m.title,
+      description: m.description,
+      amountUsd: m.amount,
+      status: m.status,
+    })),
+  };
+}
+
+export function downloadBuildBible(project: Project) {
+  const payload = buildBiblePayload(project);
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `okavo-build-bible-${project.lockId ?? project.id}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function raiseDispute(

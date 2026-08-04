@@ -9,7 +9,8 @@ import { useStore } from "../../store";
 export default function DevProject() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const { projects, placeBid, developerAccount, email } = useStore();
+  const { projects, placeBid, developerAccount, email, userId, connected } =
+    useStore();
   const project = projects.find((p) => p.id === id);
 
   const [amount, setAmount] = useState("");
@@ -21,6 +22,12 @@ export default function DevProject() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [inviteNote, setInviteNote] = useState<string | null>(null);
+  const [clarifications, setClarifications] = useState<
+    api.ClarificationRequest[]
+  >([]);
+  const [question, setQuestion] = useState("");
+  const [questionScopeId, setQuestionScopeId] = useState("");
+  const [asking, setAsking] = useState(false);
 
   useEffect(() => {
     const token = searchParams.get("invite");
@@ -47,6 +54,22 @@ export default function DevProject() {
     };
   }, [searchParams, email]);
 
+  useEffect(() => {
+    if (!connected || !id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await api.fetchClarifications(id);
+        if (!cancelled) setClarifications(rows);
+      } catch {
+        // Board still usable without Q&A overlay.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, id]);
+
   if (!project) {
     return (
       <>
@@ -63,15 +86,39 @@ export default function DevProject() {
     );
   }
 
-  const locked = project.stage !== "drafting";
+  const clarifying = project.stage === "clarifying";
+  const frozen = project.stage === "locked";
   const identityApproved = developerAccount.identityStatus === "approved";
-  const canBid = locked && developerAccount.membershipPaid && identityApproved;
+  const canBid =
+    frozen && developerAccount.membershipPaid && identityApproved;
   const readyToSubmit = canBid && accepted && amount.trim() !== "" && !submitted;
   const myAwarded = project.bids.find((bid) => bid.status === "awarded");
   const needsCountersign =
     Boolean(myAwarded) &&
     !project.developerSignedAt &&
-    (project.stage === "hired" || project.stage === "locked");
+    project.stage === "hired";
+
+  async function submitClarification() {
+    if (!project || !userId || !question.trim()) return;
+    setAsking(true);
+    try {
+      await api.askClarification(
+        project.id,
+        userId,
+        question.trim(),
+        questionScopeId || null
+      );
+      setQuestion("");
+      setQuestionScopeId("");
+      setClarifications(await api.fetchClarifications(project.id));
+    } catch (cause) {
+      setFormError(
+        cause instanceof Error ? cause.message : "Could not send clarification."
+      );
+    } finally {
+      setAsking(false);
+    }
+  }
 
   async function submitBid() {
     if (!project) return;
@@ -118,10 +165,12 @@ export default function DevProject() {
         <h1>{project.title}</h1>
         <div className="topbar-actions">
           <span className="badge">{project.org}</span>
-          {locked ? (
+          {frozen ? (
             <span className="badge badge-lock">{project.lockId}</span>
+          ) : clarifying ? (
+            <span className="badge badge-accent">Q&amp;A window</span>
           ) : (
-            <span className="badge badge-draft">Bidding closed</span>
+            <span className="badge badge-draft">Not on board</span>
           )}
         </div>
       </header>
@@ -146,8 +195,8 @@ export default function DevProject() {
                 <div className="callout callout-warn">
                   <span>!</span>
                   <span>
-                    You were hired. Countersign the locked scope before
-                    milestones unlock.
+                    You were hired. After the buyer funds the first milestone,
+                    countersign the locked scope on the contract page.
                   </span>
                 </div>
                 <Link
@@ -155,8 +204,70 @@ export default function DevProject() {
                   style={{ marginTop: "0.85rem" }}
                   to={`/app/contract/${project.id}`}
                 >
-                  Open contract to countersign
+                  Open contract
                 </Link>
+              </div>
+            )}
+            {clarifying && (
+              <div className="card card-pad" style={{ marginBottom: "1rem" }}>
+                <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.6rem" }}>
+                  Pre-lock clarifications
+                </h3>
+                <p style={{ color: "var(--muted)", marginBottom: "0.75rem" }}>
+                  Ask line-item questions now. Bids open only after the buyer
+                  freezes (recommended ~48h Q&amp;A).
+                </p>
+                <div className="field">
+                  <label htmlFor="q-scope">Scope line (optional)</label>
+                  <select
+                    id="q-scope"
+                    value={questionScopeId}
+                    onChange={(e) => setQuestionScopeId(e.target.value)}
+                  >
+                    <option value="">Whole brief</option>
+                    {project.scope
+                      .filter((s) => s.included)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="q-text">Your question</label>
+                  <textarea
+                    id="q-text"
+                    rows={3}
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="What must be true for this line to be accepted?"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-block"
+                  disabled={asking || !question.trim()}
+                  onClick={() => void submitClarification()}
+                >
+                  {asking ? "Sending…" : "Ask clarification"}
+                </button>
+                {clarifications.length > 0 && (
+                  <div className="stack-sm" style={{ marginTop: "1rem" }}>
+                    {clarifications.map((row) => (
+                      <div key={row.id} className="callout callout-info">
+                        <span>i</span>
+                        <span>
+                          <strong>{row.question}</strong>
+                          <br />
+                          {row.answer
+                            ? `Buyer: ${row.answer}`
+                            : "Awaiting buyer answer"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             <div className="card card-pad">
@@ -164,23 +275,24 @@ export default function DevProject() {
                 Place your bid
               </h3>
 
-              {!locked && (
+              {!frozen && (
                 <div className="callout callout-warn" style={{ marginBottom: "1rem" }}>
                   <span>!</span>
                   <span>
-                    The buyer has not signed the Requirement Lock. Bidding is
-                    disabled until scope is frozen.
+                    {clarifying
+                      ? "This brief is in the Q&A window. Review the preview, ask clarifications, then wait for the freeze before bidding."
+                      : "The buyer has not published this brief yet."}
                   </span>
                 </div>
               )}
 
-              {locked && !identityApproved && (
+              {frozen && !identityApproved && (
                 <div className="paywall" style={{ marginBottom: "1rem" }}>
                   <div>
-                    <strong>Verify your identity first</strong>
+                    <strong>Verify identity to place your first bid</strong>
                     <p>
-                      Buyers only see bids from developers Okavo has checked
-                      against a government ID.
+                      Browsing and buildability checks are free. Identity is
+                      required at bid time.
                     </p>
                   </div>
                   <Link className="btn btn-sm" to="/app/verification">
@@ -189,13 +301,13 @@ export default function DevProject() {
                 </div>
               )}
 
-              {locked && identityApproved && !developerAccount.membershipPaid && (
+              {frozen && identityApproved && !developerAccount.membershipPaid && (
                 <div className="paywall" style={{ marginBottom: "1rem" }}>
                   <div>
                     <strong>Pay {MEMBERSHIP_FEE_LABEL} once to bid</strong>
                     <p>
-                      Your identity is verified. The one-time membership activates
-                      bidding across the whole marketplace.
+                      Required only when you submit your first bid — not to
+                      review this pack.
                     </p>
                   </div>
                   <Link className="btn btn-sm" to="/app/verification">
