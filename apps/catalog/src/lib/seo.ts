@@ -38,9 +38,9 @@ export const PAGES: PageSeo[] = [
   },
   {
     path: "/example",
-    title: "Okavo example — Rose Street Bakery walkthrough",
+    title: "Okavo example — Rose Street Bakery presentation walkthrough",
     description:
-      "Follow Tom the baker and Arjun the developer from plain-language answers to sample screens, freeze, hire, funding gate, and delivery against a locked checklist.",
+      "Tom the baker and Arjun the developer: sample screens, Q&A, freeze, funding gate, and delivery — the same layout as the Okavo pitch deck.",
     indexed: true,
     priority: 0.85,
   },
