@@ -16,7 +16,10 @@ export type AuditAction =
   | "milestone.accept"
   | "identity.submit"
   | "clarification.ask"
-  | "clarification.answer";
+  | "clarification.answer"
+  | "guardrail.block"
+  | "assist.request"
+  | "assist.complete";
 
 /**
  * Fire-and-forget audit write. Never throws to the caller — logging must not

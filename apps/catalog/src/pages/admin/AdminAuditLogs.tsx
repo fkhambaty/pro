@@ -84,9 +84,10 @@ export default function AdminAuditLogs() {
 
       <div className="content">
         <p style={{ color: "var(--muted)", marginTop: 0, maxWidth: "46rem" }}>
-          Security and money actions only — sign-in, fees, publish, lock, bid,
-          hire, fund, accept. Age buckets are exclusive partitions so each event
-          appears in exactly one tab.
+          Security and money actions — sign-in, fees, publish, lock, bid,
+          hire, fund, accept, clarifications, guardrail blocks, and grounded
+          assist. Age buckets are exclusive partitions so each event appears in
+          exactly one tab.
         </p>
 
         <div className="ex-tabs" role="tablist" aria-label="Audit age buckets">

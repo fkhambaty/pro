@@ -1,4 +1,5 @@
 import { logAudit } from "./audit";
+import { checkGuardrails } from "./guardrails";
 import { supabase } from "./supabase";
 import type {
   AppNotification,
@@ -595,6 +596,16 @@ export async function createProject(
     scope: ScopeItem[];
   }
 ) {
+  const guard = checkGuardrails("outcome", input.outcome);
+  if (!guard.ok) {
+    logAudit("guardrail.block", "project", null, {
+      kind: "outcome",
+      code: guard.code,
+      at: "createProject",
+    });
+    throw new Error(guard.message);
+  }
+
   if (input.scale && SCALE_TO_DB[input.scale]) {
     const { error: scaleError } = await db()
       .from("buyer_profiles")
@@ -1110,6 +1121,16 @@ export async function askClarification(
   question: string,
   scopeItemId?: string | null
 ) {
+  const guard = checkGuardrails("clarification", question);
+  if (!guard.ok) {
+    logAudit("guardrail.block", "project", projectId, {
+      kind: "clarification",
+      code: guard.code,
+      at: "ask",
+    });
+    throw new Error(guard.message);
+  }
+
   const { error } = await db().from("clarification_requests").insert({
     project_id: projectId,
     developer_id: developerId,
@@ -1122,6 +1143,16 @@ export async function askClarification(
 }
 
 export async function answerClarification(requestId: string, answer: string) {
+  const guard = checkGuardrails("clarification", answer);
+  if (!guard.ok) {
+    logAudit("guardrail.block", "clarification", requestId, {
+      kind: "clarification",
+      code: guard.code,
+      at: "answer",
+    });
+    throw new Error(guard.message);
+  }
+
   const { error } = await db().rpc("answer_clarification", {
     p_request_id: requestId,
     p_answer: answer,

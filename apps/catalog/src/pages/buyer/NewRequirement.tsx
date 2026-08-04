@@ -5,6 +5,12 @@ import { CATEGORY_OPTIONS, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
 import { collectFee } from "../../lib/checkout";
 import * as api from "../../lib/api";
+import {
+  requestAssist,
+  type AssistResult,
+} from "../../lib/assist";
+import { logAudit } from "../../lib/audit";
+import { checkGuardrails } from "../../lib/guardrails";
 import { POSTING_FEE_LABEL, POSTING_SETTLEMENT_HINT } from "../../lib/pricing";
 import {
   defaultActionFor,
@@ -15,6 +21,7 @@ import {
   suggestedMustHaves,
   type Audience,
 } from "../../lib/requirementBlueprint";
+import { supabase } from "../../lib/supabase";
 import { useStore } from "../../store";
 import type { BuyerScale, ScopeItem } from "../../types";
 
@@ -96,6 +103,9 @@ export default function NewRequirement() {
   const [weeks, setWeeks] = useState("");
   const [excluded, setExcluded] = useState("");
   const [scopeDraft, setScopeDraft] = useState<ScopeItem[]>([]);
+  const [assistBusy, setAssistBusy] = useState(false);
+  const [assist, setAssist] = useState<AssistResult | null>(null);
+  const [assistError, setAssistError] = useState<string | null>(null);
 
   const categoryLabel =
     CATEGORY_OPTIONS.find((c) => c.id === category)?.label ?? "Custom build";
@@ -237,8 +247,9 @@ export default function NewRequirement() {
 
   /** Null when the current step is valid, otherwise the reason it is not. */
   function stepProblem(): string | null {
-    if (step === 2 && outcome.trim().length < 20) {
-      return "Add a clear outcome (about one sentence) before continuing.";
+    if (step === 2) {
+      const guard = checkGuardrails("outcome", outcome);
+      if (!guard.ok) return guard.message;
     }
     if (step === 3 && mustHaves.length === 0) {
       return "Tick at least one must-have so the sketch has something to show.";
@@ -294,6 +305,17 @@ export default function NewRequirement() {
 
   /** Collects the posting fee, then publishes. Checkout stays on this page. */
   async function payAndPublish() {
+    const guard = checkGuardrails("outcome", outcome);
+    if (!guard.ok) {
+      logAudit("guardrail.block", "project", null, {
+        kind: "outcome",
+        code: guard.code,
+        at: "payAndPublish",
+      });
+      setPublishError(guard.message);
+      return;
+    }
+
     if (!connected) {
       setPublishError("Payments are unavailable in demo mode.");
       return;
@@ -345,6 +367,55 @@ export default function NewRequirement() {
     }
 
     await publishNow();
+  }
+
+  async function runAssist() {
+    const guard = checkGuardrails("outcome", outcome);
+    if (!guard.ok) {
+      logAudit("guardrail.block", "assist", null, {
+        kind: "outcome",
+        code: guard.code,
+        at: "assist",
+      });
+      setAssistError(guard.message);
+      return;
+    }
+
+    setAssistBusy(true);
+    setAssistError(null);
+    logAudit("assist.request", "requirement", null, {
+      category: categoryLabel,
+      mustHaveCount: mustHaves.length,
+    });
+
+    try {
+      const { data: session } = (await supabase?.auth.getSession()) ?? {
+        data: { session: null },
+      };
+      const result = await requestAssist(
+        {
+          outcome,
+          categoryLabel,
+          mustHaves,
+          excluded,
+          primaryAction,
+        },
+        { accessToken: session?.session?.access_token }
+      );
+      setAssist(result);
+      logAudit("assist.complete", "requirement", null, {
+        mode: result.mode,
+        count: result.suggestions.length,
+      });
+    } catch (cause) {
+      setAssistError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not build suggestions from your draft."
+      );
+    } finally {
+      setAssistBusy(false);
+    }
   }
 
   /** Creates the requirement once the fee is settled. */
@@ -717,6 +788,58 @@ export default function NewRequirement() {
                     <strong>{weeks} weeks</strong>
                   </div>
                 </div>
+              </div>
+
+              <div
+                className="card card-pad"
+                style={{ marginTop: "0.85rem", background: "var(--bg)" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "0.75rem",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <strong>Grounded assist</strong>
+                    <p className="hint" style={{ margin: "0.25rem 0 0" }}>
+                      Suggest acceptance and exclusion lines from what you
+                      already typed — never invents fees or new features.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={runAssist}
+                    disabled={assistBusy}
+                  >
+                    {assistBusy ? "Working…" : "Suggest lock lines"}
+                  </button>
+                </div>
+                {assistError && (
+                  <p className="hint" style={{ marginTop: "0.65rem" }} role="alert">
+                    {assistError}
+                  </p>
+                )}
+                {assist && (
+                  <div style={{ marginTop: "0.85rem" }}>
+                    <p className="hint" style={{ margin: "0 0 0.55rem" }}>
+                      {assist.summary}
+                      {assist.mode === "llm" ? " (LLM polish on)" : " (rules only)"}
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                      {assist.suggestions.map((item) => (
+                        <li key={item.id} style={{ marginBottom: "0.45rem" }}>
+                          <strong>{item.title}</strong>
+                          <span className="hint"> — {item.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div className="fee-row">
