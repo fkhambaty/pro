@@ -1,3 +1,4 @@
+import { logAudit } from "./audit";
 import { supabase } from "./supabase";
 
 export type CheckoutPurpose = "requirement_posting" | "bidding_membership";
@@ -171,6 +172,16 @@ export async function collectFee(
     const finish = (result: CheckoutResult) => {
       if (settled) return;
       settled = true;
+      if (result.status === "paid") {
+        logAudit(
+          purpose === "requirement_posting"
+            ? "payment.posting_fee"
+            : "payment.membership_fee",
+          "payment",
+          order.paymentId,
+          { purpose }
+        );
+      }
       resolve(result);
     };
 

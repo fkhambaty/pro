@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { logAudit } from "./audit";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import type { BuyerScale, Role } from "../types";
 
@@ -61,7 +62,7 @@ type AuthValue = {
   passwordRecovery: boolean;
   signUp: (input: SignUpInput) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (reason?: "manual" | "idle") => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -214,6 +215,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user_id: data.user?.id,
     });
 
+    if (data.session) {
+      logAudit("auth.sign_up", "session", data.user?.id ?? null, {
+        role: input.role,
+      });
+    }
+
     if (!data.session) {
       setNotice(
         `We sent a verification link to ${input.email}. Confirm the address, then sign in.`
@@ -279,10 +286,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
-    if (signInError) setError(signInError.message);
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+    logAudit("auth.sign_in", "session", null, { email });
   }, []);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (reason: "manual" | "idle" = "manual") => {
+    logAudit(
+      reason === "idle" ? "auth.idle_logout" : "auth.sign_out",
+      "session",
+      null
+    );
     if (supabase) await supabase.auth.signOut();
     setRole("guest");
     setDisplayName("");

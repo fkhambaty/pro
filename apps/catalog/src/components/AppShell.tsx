@@ -29,6 +29,7 @@ const DEV_NAV = [
 const ADMIN_NAV = [
   { to: "/app", label: "Insights", end: true },
   { to: "/app/traffic", label: "Traffic", end: false },
+  { to: "/app/audit", label: "Audit logs", end: false },
   { to: "/app/verifications", label: "Identity review", end: false },
   { to: "/app/contracts", label: "All contracts", end: false },
 ];

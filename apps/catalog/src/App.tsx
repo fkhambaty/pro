@@ -14,6 +14,7 @@ import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import SignIn from "./pages/SignIn";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import AdminHome from "./pages/admin/AdminHome";
 import AdminVerifications from "./pages/admin/AdminVerifications";
 import BuyerHome from "./pages/buyer/BuyerHome";
@@ -28,6 +29,7 @@ import DevProject from "./pages/developer/DevProject";
 import Earnings from "./pages/developer/Earnings";
 import Verification from "./pages/developer/Verification";
 import { trackPageView } from "./lib/analytics";
+import { IdleSessionGuard } from "./lib/idleSession";
 import { applySeo } from "./lib/seo";
 import { useAuth } from "./lib/auth";
 import { useStore } from "./store";
@@ -107,6 +109,7 @@ export default function App() {
     <>
     <ScrollToTop />
     <PageViews />
+    <IdleSessionGuard />
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
@@ -199,6 +202,14 @@ export default function App() {
           element={
             <AdminOnly>
               <AdminAnalytics />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="audit"
+          element={
+            <AdminOnly>
+              <AdminAuditLogs />
             </AdminOnly>
           }
         />

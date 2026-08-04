@@ -81,6 +81,9 @@ export default function AdminHome() {
           <Link className="btn btn-secondary btn-sm" to="/app/traffic">
             Traffic
           </Link>
+          <Link className="btn btn-secondary btn-sm" to="/app/audit">
+            Audit logs
+          </Link>
           <Link className="btn btn-secondary btn-sm" to="/app/verifications">
             Review queue
           </Link>

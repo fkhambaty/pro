@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
@@ -19,10 +19,25 @@ export default function SignIn() {
   const [organization, setOrganization] = useState("");
   const [scale] = useState<BuyerScale>("Local business");
   const [busy, setBusy] = useState(false);
+  const [idleNotice, setIdleNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("okavo.auth.notice");
+      if (stored) {
+        sessionStorage.removeItem("okavo.auth.notice");
+        setIdleNotice(stored);
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, []);
 
   if (auth.role !== "guest" && !auth.passwordRecovery) {
     return <Navigate to="/app" replace />;
   }
+
+  const notice = auth.notice ?? idleNotice;
 
   async function submit() {
     setBusy(true);
@@ -93,10 +108,10 @@ export default function SignIn() {
             </div>
           )}
 
-          {auth.notice && (
+          {notice && (
             <div className="callout callout-ok" style={{ marginBottom: "1rem" }}>
               <span>✓</span>
-              <span>{auth.notice}</span>
+              <span>{notice}</span>
             </div>
           )}
 
@@ -245,10 +260,10 @@ export default function SignIn() {
           </div>
         )}
 
-        {auth.notice && (
+        {notice && (
           <div className="callout callout-ok" style={{ marginBottom: "1rem" }}>
             <span>✓</span>
-            <span>{auth.notice}</span>
+            <span>{notice}</span>
           </div>
         )}
 

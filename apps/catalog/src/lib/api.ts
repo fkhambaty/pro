@@ -1,3 +1,4 @@
+import { logAudit } from "./audit";
 import { supabase } from "./supabase";
 import type {
   AppNotification,
@@ -637,6 +638,11 @@ export async function createProject(
     if (scopeError) throw scopeError;
   }
 
+  logAudit("project.publish", "project", data.id, {
+    title: input.title,
+    category: input.category,
+  });
+
   return data.id as string;
 }
 
@@ -682,6 +688,8 @@ export async function lockProject(
     .update({ stage: "locked", published_at: new Date().toISOString() })
     .eq("id", projectId);
   if (stageError) throw stageError;
+
+  logAudit("project.lock", "project", projectId);
 }
 
 export async function placeBid(
@@ -699,6 +707,11 @@ export async function placeBid(
     accepts_locked_scope: true,
   });
   if (error) throw error;
+
+  logAudit("bid.place", "project", projectId, {
+    amount: input.amount,
+    weeks: input.weeks,
+  });
 }
 
 export async function setBidStatus(bidId: string, status: BidStatus) {
@@ -767,6 +780,12 @@ export async function awardBid(
       },
     ]);
   if (milestoneError) throw milestoneError;
+
+  logAudit("bid.award", "project", projectId, {
+    bidId,
+    amount,
+    developerId: bid.developer_id,
+  });
 }
 
 export async function payMembership(_profileId: string, _amountCents: number) {
@@ -854,6 +873,11 @@ export async function submitIdentity(
     .update({ identity_status: "submitted" })
     .eq("profile_id", profileId);
   if (statusError) throw statusError;
+
+  logAudit("identity.submit", "developer", profileId, {
+    documentType: input.documentType,
+    documentCountry: input.documentCountry,
+  });
 }
 
 export async function submitInterview(profileId: string) {
@@ -871,6 +895,8 @@ export async function fundMilestone(milestoneId: string) {
     p_milestone_id: milestoneId,
   });
   if (error) throw error;
+
+  logAudit("milestone.fund", "milestone", milestoneId);
 }
 
 export async function submitMilestone(
@@ -899,6 +925,8 @@ export async function acceptMilestone(milestoneId: string) {
     p_milestone_id: milestoneId,
   });
   if (error) throw error;
+
+  logAudit("milestone.accept", "milestone", milestoneId);
 }
 
 export async function createChangeOrder(
@@ -1021,6 +1049,8 @@ export async function countersignContract(projectId: string) {
     p_project_id: projectId,
   });
   if (error) throw error;
+
+  logAudit("contract.countersign", "project", projectId);
 }
 
 export async function inviteBuilderToProject(projectId: string, email: string) {
@@ -1087,6 +1117,8 @@ export async function askClarification(
     scope_item_id: scopeItemId || null,
   });
   if (error) throw error;
+
+  logAudit("clarification.ask", "project", projectId);
 }
 
 export async function answerClarification(requestId: string, answer: string) {
@@ -1095,6 +1127,8 @@ export async function answerClarification(requestId: string, answer: string) {
     p_answer: answer,
   });
   if (error) throw error;
+
+  logAudit("clarification.answer", "clarification", requestId);
 }
 
 /** Structured build package for IDE / AI tool ingestion. */
@@ -1455,6 +1489,69 @@ export async function fetchAnalyticsDaily(
     day: row.day,
     views: Number(row.views),
     visitors: Number(row.visitors),
+  }));
+}
+
+export type AuditAgeBucket = "7d" | "14d" | "30d" | "older";
+
+export type AuditEventRow = {
+  id: string;
+  actorId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  actorRole: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  detail: Record<string, unknown>;
+  createdAt: string;
+  ageBucket: AuditAgeBucket;
+};
+
+export async function fetchAuditBucketCounts(): Promise<
+  Record<AuditAgeBucket, number>
+> {
+  const { data, error } = await db().rpc("admin_audit_bucket_counts");
+  if (error) throw error;
+  const counts: Record<AuditAgeBucket, number> = {
+    "7d": 0,
+    "14d": 0,
+    "30d": 0,
+    older: 0,
+  };
+  for (const row of data ?? []) {
+    const bucket = row.bucket as AuditAgeBucket;
+    if (bucket in counts) counts[bucket] = Number(row.event_count ?? 0);
+  }
+  return counts;
+}
+
+export async function fetchAuditEvents(
+  bucket: AuditAgeBucket,
+  limit = 200,
+  offset = 0
+): Promise<AuditEventRow[]> {
+  const { data, error } = await db().rpc("admin_list_audit_events", {
+    p_bucket: bucket,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    actorId: row.actor_id ?? null,
+    actorName: row.actor_name ?? null,
+    actorEmail: row.actor_email ?? null,
+    actorRole: row.actor_role ?? null,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    action: row.action,
+    detail:
+      row.detail && typeof row.detail === "object"
+        ? (row.detail as Record<string, unknown>)
+        : {},
+    createdAt: row.created_at,
+    ageBucket: row.age_bucket as AuditAgeBucket,
   }));
 }
 
