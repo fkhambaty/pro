@@ -136,14 +136,14 @@ const PROJECT_SELECT = `
   ),
   contracts (
     id, lock_reference, status, locked_at, warranty_days, developer_id,
-    agreed_amount_cents, current_version,
+    agreed_amount_cents, current_version, buyer_signed_at, developer_signed_at,
     milestones (
       id, title, description, amount_cents, status, position, due_on,
       deliverables ( summary, preview_url, repository_url, submitted_at, buyer_feedback )
     ),
     change_orders ( id, title, description, status, amount_cents, added_weeks, raised_by, created_at ),
     contract_versions ( version, reason, created_at ),
-    disputes ( id, reason, status, raised_by, created_at, resolution_note ),
+    disputes ( id, reason, status, raised_by, created_at, resolution_note, scope_item_ids ),
     reviews (
       id, rating, matched_expectation, comment, author_id, created_at,
       score_scope, score_quality, score_communication, score_timeliness
@@ -241,6 +241,9 @@ function mapProject(row: any, currentUserId: string | null): Project {
         raisedBy: disputeRow.raised_by === row.buyer_id ? "buyer" : "developer",
         createdAt: formatDate(disputeRow.created_at),
         resolutionNote: disputeRow.resolution_note ?? undefined,
+        scopeItemIds: Array.isArray(disputeRow.scope_item_ids)
+          ? disputeRow.scope_item_ids.map(String)
+          : undefined,
       }
     : undefined;
 
@@ -277,6 +280,9 @@ function mapProject(row: any, currentUserId: string | null): Project {
     stage: projectStage(row.stage),
     lockedAt: contract?.locked_at ? formatDate(contract.locked_at) : undefined,
     lockId: contract?.lock_reference ?? undefined,
+    developerSignedAt: contract?.developer_signed_at
+      ? formatDate(contract.developer_signed_at)
+      : undefined,
     postedAgo: relativeTime(row.published_at ?? row.created_at),
     bids,
     milestones,
@@ -639,19 +645,20 @@ export async function awardBid(
   await db().from("bids").update({ status: "declined" }).eq("project_id", projectId);
   await db().from("bids").update({ status: "awarded" }).eq("id", bidId);
 
+  // Hire awards the bid and creates milestones, but delivery starts only after
+  // the developer countersigns the frozen lock (countersign_contract RPC).
   const { error: contractError } = await db()
     .from("contracts")
     .update({
       developer_id: bid.developer_id,
       agreed_amount_cents: toCents(amount),
       agreed_weeks: bid.delivery_weeks,
-      status: "active",
-      developer_signed_at: new Date().toISOString(),
+      developer_signed_at: null,
     })
     .eq("id", contract.id);
   if (contractError) throw contractError;
 
-  await db().from("projects").update({ stage: "in_delivery" }).eq("id", projectId);
+  await db().from("projects").update({ stage: "hired" }).eq("id", projectId);
 
   const first = Math.round(amount * 0.35);
   const second = Math.round(amount * 0.4);
@@ -925,10 +932,27 @@ export async function decideChangeOrder(
   });
 }
 
+export async function countersignContract(projectId: string) {
+  const { error } = await db().rpc("countersign_contract", {
+    p_project_id: projectId,
+  });
+  if (error) throw error;
+}
+
+export async function inviteBuilderToProject(projectId: string, email: string) {
+  const { data, error } = await db().rpc("invite_builder_to_project", {
+    p_project_id: projectId,
+    p_email: email,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function raiseDispute(
   projectId: string,
   raisedBy: string,
-  reason: string
+  reason: string,
+  scopeItemIds: string[] = []
 ) {
   const contract = await contractIdFor(projectId);
   if (!contract) throw new Error("No contract for this project");
@@ -936,6 +960,7 @@ export async function raiseDispute(
     contract_id: contract.id,
     raised_by: raisedBy,
     reason,
+    scope_item_ids: scopeItemIds.length > 0 ? scopeItemIds : null,
   });
   if (error) throw error;
 
@@ -946,14 +971,10 @@ export async function raiseDispute(
 }
 
 export async function resolveDispute(disputeId: string, note: string) {
-  const { error } = await db()
-    .from("disputes")
-    .update({
-      status: "resolved_buyer",
-      resolution_note: note,
-      resolved_at: new Date().toISOString(),
-    })
-    .eq("id", disputeId);
+  const { error } = await db().rpc("resolve_dispute_against_scope", {
+    p_dispute_id: disputeId,
+    p_note: note,
+  });
   if (error) throw error;
 }
 

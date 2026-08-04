@@ -106,6 +106,8 @@ export type Dispute = {
   raisedBy: "buyer" | "developer";
   createdAt: string;
   resolutionNote?: string;
+  /** Locked scope lines this dispute points at. */
+  scopeItemIds?: string[];
 };
 
 /** The four questions a buyer answers about a finished contract. */
@@ -164,6 +166,8 @@ export type Project = {
   stage: ProjectStage;
   lockedAt?: string;
   lockId?: string;
+  /** ISO or display date when the awarded developer countersigned. */
+  developerSignedAt?: string;
   postedAgo: string;
   bids: Bid[];
   milestones: Milestone[];
@@ -221,6 +225,7 @@ export type NotificationKind =
   | "milestone"
   | "message"
   | "change_order"
+  | "dispute"
   | "payment"
   | "verification";
 

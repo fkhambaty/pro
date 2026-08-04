@@ -10,12 +10,22 @@ import type { DeveloperListing } from "../../types";
 export default function BuyerProject() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, lockProject, setBidStatus, awardBid, connected } = useStore();
+  const {
+    projects,
+    lockProject,
+    setBidStatus,
+    awardBid,
+    inviteBuilder,
+    connected,
+  } = useStore();
   const project = projects.find((p) => p.id === id);
 
   // A price means nothing without a track record next to it.
   const [ratings, setRatings] = useState<Record<string, DeveloperListing>>({});
   const [messaging, setMessaging] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
 
   /** Opens (creating if needed) the conversation with one bidder. */
   async function message(developerId: string) {
@@ -171,14 +181,19 @@ export default function BuyerProject() {
                         {bid.status === "awarded" ? (
                           <>
                             <span className="badge badge-lock">
-                              Hired — contract countersigned
+                              {project.developerSignedAt ||
+                              project.stage === "in_delivery" ||
+                              project.stage === "delivered" ||
+                              project.stage === "closed"
+                                ? "Hired — countersigned"
+                                : "Hired — awaiting countersign"}
                             </span>
                             <button
                               type="button"
                               className="btn btn-sm"
                               onClick={() => navigate(`/app/contract/${project.id}`)}
                             >
-                              Manage delivery
+                              Open contract
                             </button>
                           </>
                         ) : bid.status === "declined" ? (
@@ -268,14 +283,71 @@ export default function BuyerProject() {
                 </div>
                 <div className="timeline-item">
                   <strong>3</strong>
-                  <p>Hire, then pay milestone by milestone</p>
+                  <p>Hire, then the developer countersigns the same lock</p>
                 </div>
                 <div className="timeline-item">
                   <strong>4</strong>
-                  <p>Accept against scope, release payment</p>
+                  <p>Pay outside Okavo, confirm here, accept against scope</p>
                 </div>
               </div>
             </div>
+
+            {locked && (
+              <div className="card card-pad">
+                <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.6rem" }}>
+                  Invite a builder
+                </h3>
+                <p style={{ color: "var(--muted)", marginBottom: "0.85rem" }}>
+                  Email someone the locked brief. They still bid on the same
+                  frozen scope.
+                </p>
+                <div className="field">
+                  <label htmlFor="invite-email">Builder email</label>
+                  <input
+                    id="invite-email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    placeholder="builder@example.com"
+                  />
+                </div>
+                {inviteNote && (
+                  <p
+                    style={{
+                      color: "var(--muted)",
+                      fontSize: "0.8125rem",
+                      marginBottom: "0.6rem",
+                    }}
+                  >
+                    {inviteNote}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm btn-block"
+                  disabled={inviteBusy || !inviteEmail.trim()}
+                  onClick={() => {
+                    void (async () => {
+                      setInviteBusy(true);
+                      setInviteNote(null);
+                      try {
+                        await inviteBuilder(project.id, inviteEmail.trim());
+                        setInviteNote(`Invite sent to ${inviteEmail.trim()}.`);
+                        setInviteEmail("");
+                      } catch {
+                        setInviteNote(
+                          "Could not send invite. Check the email and try again."
+                        );
+                      } finally {
+                        setInviteBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {inviteBusy ? "Sending…" : "Send invite"}
+                </button>
+              </div>
+            )}
           </aside>
         </div>
       </div>

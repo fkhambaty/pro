@@ -75,6 +75,8 @@ type StoreValue = {
   ) => Promise<boolean>;
   setBidStatus: (projectId: string, bidId: string, status: Bid["status"]) => void;
   awardBid: (projectId: string, bidId: string) => void;
+  countersignContract: (projectId: string) => void;
+  inviteBuilder: (projectId: string, email: string) => Promise<void>;
 
   payMembership: () => void;
   submitInterview: () => void;
@@ -110,7 +112,8 @@ type StoreValue = {
   raiseDispute: (
     projectId: string,
     reason: string,
-    raisedBy: "buyer" | "developer"
+    raisedBy: "buyer" | "developer",
+    scopeItemIds?: string[]
   ) => void;
   resolveDispute: (projectId: string, note: string) => void;
 
@@ -422,8 +425,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       patchProject(projectId, (item) => ({
         ...item,
-        stage: "in_delivery",
+        stage: "hired",
         awardedTo: winner.developerName,
+        developerSignedAt: undefined,
         bids: item.bids.map((bid) => ({
           ...bid,
           status:
@@ -441,21 +445,76 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...item.versions,
           {
             version: item.versions.length + 1,
-            reason: `Countersigned by ${winner.developerName}`,
+            reason: `Awarded to ${winner.developerName} — awaiting countersign`,
             createdAt: today(),
           },
         ],
       }));
       notify({
         kind: "contract",
-        title: "Contract awarded",
-        body: "Both parties have signed. Milestones are ready to fund.",
+        title: "Developer hired",
+        body: "Waiting for the developer to countersign the locked scope.",
         link: `/app/contract/${projectId}`,
         read: false,
         createdAt: today(),
       });
     },
     [live, projects, run, patchProject, notify]
+  );
+
+  const countersignContract = useCallback(
+    (projectId: string) => {
+      if (live) {
+        void run(() => api.countersignContract(projectId));
+        return;
+      }
+      const awarded = projects
+        .find((item) => item.id === projectId)
+        ?.bids.find((bid) => bid.status === "awarded");
+      patchProject(projectId, (item) => ({
+        ...item,
+        stage: "in_delivery",
+        developerSignedAt: today(),
+        versions: [
+          ...item.versions,
+          {
+            version: item.versions.length + 1,
+            reason: `Countersigned by ${awarded?.developerName ?? "developer"}`,
+            createdAt: today(),
+          },
+        ],
+      }));
+      notify({
+        kind: "contract",
+        title: "Lock countersigned",
+        body: "Both parties have signed. Milestones are ready.",
+        link: `/app/contract/${projectId}`,
+        read: false,
+        createdAt: today(),
+      });
+    },
+    [live, projects, run, patchProject, notify]
+  );
+
+  const inviteBuilder = useCallback(
+    async (projectId: string, email: string) => {
+      if (live) {
+        const ok = await run(() =>
+          api.inviteBuilderToProject(projectId, email).then(() => undefined)
+        );
+        if (!ok) throw new Error("Invite failed");
+        return;
+      }
+      notify({
+        kind: "contract",
+        title: "Invite sent",
+        body: `Invitation prepared for ${email.trim()}.`,
+        link: `/app/project/${projectId}`,
+        read: false,
+        createdAt: today(),
+      });
+    },
+    [live, run, notify]
   );
 
   const payMembership = useCallback(() => {
@@ -664,9 +723,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const raiseDispute = useCallback(
-    (projectId: string, reason: string, raisedBy: "buyer" | "developer") => {
+    (
+      projectId: string,
+      reason: string,
+      raisedBy: "buyer" | "developer",
+      scopeItemIds: string[] = []
+    ) => {
       if (live && auth.userId) {
-        void run(() => api.raiseDispute(projectId, auth.userId as string, reason));
+        void run(() =>
+          api.raiseDispute(
+            projectId,
+            auth.userId as string,
+            reason,
+            scopeItemIds
+          )
+        );
         return;
       }
       const dispute: Dispute = {
@@ -675,6 +746,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         status: "open",
         raisedBy,
         createdAt: today(),
+        scopeItemIds: scopeItemIds.length > 0 ? scopeItemIds : undefined,
       };
       patchProject(projectId, (project) => ({ ...project, dispute }));
     },
@@ -831,6 +903,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       placeBid,
       setBidStatus,
       awardBid,
+      countersignContract,
+      inviteBuilder,
       payMembership,
       submitInterview,
       fundMilestone,
@@ -868,6 +942,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       placeBid,
       setBidStatus,
       awardBid,
+      countersignContract,
+      inviteBuilder,
       payMembership,
       submitInterview,
       fundMilestone,

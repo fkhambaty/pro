@@ -67,7 +67,27 @@ type CategoryPack = {
   outcomePrompts: string[];
   exclusionHints: string[];
   mustHaveOptions: string[];
+  /** Always-on lock lines for this category (contract-grade base). */
+  lockBaseItems: { label: string; detail: string; acceptance: string }[];
 };
+
+const SHARED_LOCK_BASE: CategoryPack["lockBaseItems"] = [
+  {
+    label: "Deployed and reachable",
+    detail: "A production or staging URL the buyer can open without a VPN.",
+    acceptance: "Buyer can open the URL and complete the primary happy path.",
+  },
+  {
+    label: "Handover package",
+    detail: "Credentials, environments, and a short runbook for day-two ops.",
+    acceptance: "Buyer can start, stop, and recover the service using the runbook alone.",
+  },
+  {
+    label: "Defects against this lock",
+    detail: "Bugs that break an included scope line are fixed within the warranty window.",
+    acceptance: "Reported defects that map to an included line are fixed free within warranty days.",
+  },
+];
 
 const SHARED_MUST = [
   "Works on phones",
@@ -99,6 +119,14 @@ export const CATEGORY_PACKS: Record<string, CategoryPack> = {
       "Marketplace for other sellers",
     ],
     mustHaveOptions: SHARED_MUST,
+    lockBaseItems: [
+      ...SHARED_LOCK_BASE,
+      {
+        label: "Catalogue and checkout",
+        detail: "Shoppers can browse listed products and complete a purchase.",
+        acceptance: "A test order completes and appears in the admin list.",
+      },
+    ],
   },
   booking: {
     defaultAction: "Book a slot",
@@ -121,6 +149,14 @@ export const CATEGORY_PACKS: Record<string, CategoryPack> = {
       "Walk-in queue management",
     ],
     mustHaveOptions: SHARED_MUST,
+    lockBaseItems: [
+      ...SHARED_LOCK_BASE,
+      {
+        label: "Bookable calendar",
+        detail: "Customers or staff can reserve an available slot without double-booking.",
+        acceptance: "A slot books once; a second attempt on the same slot is refused.",
+      },
+    ],
   },
   internal: {
     defaultAction: "Add record",
@@ -139,6 +175,14 @@ export const CATEGORY_PACKS: Record<string, CategoryPack> = {
       "Accounting / payroll",
     ],
     mustHaveOptions: SHARED_MUST,
+    lockBaseItems: [
+      ...SHARED_LOCK_BASE,
+      {
+        label: "Shared live records",
+        detail: "The team works from one live list instead of emailed spreadsheets.",
+        acceptance: "Two users see the same record update without a file exchange.",
+      },
+    ],
   },
   portal: {
     defaultAction: "Open account",
@@ -161,6 +205,14 @@ export const CATEGORY_PACKS: Record<string, CategoryPack> = {
       "Live chat agent",
     ],
     mustHaveOptions: SHARED_MUST,
+    lockBaseItems: [
+      ...SHARED_LOCK_BASE,
+      {
+        label: "Signed-in self-serve",
+        detail: "Customers log in and complete the portal jobs without emailing staff.",
+        acceptance: "A signed-in user finishes the primary portal task end to end.",
+      },
+    ],
   },
   ai: {
     defaultAction: "Ask",
@@ -179,6 +231,14 @@ export const CATEGORY_PACKS: Record<string, CategoryPack> = {
       "Voice / phone bot",
     ],
     mustHaveOptions: SHARED_MUST,
+    lockBaseItems: [
+      ...SHARED_LOCK_BASE,
+      {
+        label: "Grounded answers",
+        detail: "The assistant answers from the buyer’s allowed sources and cites them.",
+        acceptance: "A sample question returns an answer with a visible source citation.",
+      },
+    ],
   },
   other: {
     defaultAction: "Get started",
@@ -193,6 +253,14 @@ export const CATEGORY_PACKS: Record<string, CategoryPack> = {
     ],
     exclusionHints: ["Native mobile app", "Hardware / IoT", "Third-party marketplace"],
     mustHaveOptions: SHARED_MUST,
+    lockBaseItems: [
+      ...SHARED_LOCK_BASE,
+      {
+        label: "Primary job complete",
+        detail: "A user can finish the main job described in the outcome without calling the buyer.",
+        acceptance: "A reviewer walks the happy path and confirms the stated outcome is true.",
+      },
+    ],
   },
 };
 
@@ -509,6 +577,13 @@ export function buildRequirementBlueprint(
 
 export function mustHavesForCategory(categoryId: string): string[] {
   return CATEGORY_PACKS[categoryId]?.mustHaveOptions ?? SHARED_MUST;
+}
+
+export function lockBaseItemsFor(categoryId: string) {
+  return (
+    CATEGORY_PACKS[categoryId]?.lockBaseItems ??
+    CATEGORY_PACKS.other.lockBaseItems
+  );
 }
 
 export function suggestedMustHaves(categoryId: string): string[] {

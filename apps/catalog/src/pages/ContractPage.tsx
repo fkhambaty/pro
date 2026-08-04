@@ -11,6 +11,7 @@ export default function ContractPage() {
     projects,
     role,
     name,
+    userId,
     connected,
     fundMilestone,
     submitMilestone,
@@ -21,6 +22,7 @@ export default function ContractPage() {
     raiseDispute,
     resolveDispute,
     leaveReview,
+    countersignContract,
   } = useStore();
 
   const project = projects.find((p) => p.id === id);
@@ -32,6 +34,7 @@ export default function ContractPage() {
   const [deliveryUrl, setDeliveryUrl] = useState("");
   const [activeMilestone, setActiveMilestone] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState("");
+  const [disputeScopeIds, setDisputeScopeIds] = useState<string[]>([]);
   const [showDispute, setShowDispute] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
   const [scores, setScores] = useState<ReviewScores>({
@@ -93,6 +96,15 @@ export default function ContractPage() {
   const included = project.scope.filter((item) => item.included);
   const excluded = project.scope.filter((item) => !item.included);
   const awarded = project.bids.find((bid) => bid.status === "awarded");
+  const developerCountersigned = Boolean(
+    project.developerSignedAt ||
+      project.stage === "in_delivery" ||
+      project.stage === "delivered" ||
+      project.stage === "closed"
+  );
+  const awaitingCountersign = Boolean(awarded) && !developerCountersigned;
+  const iAmAwardedDeveloper =
+    !isBuyer && Boolean(awarded && userId && awarded.developerId === userId);
   const contractValue = awarded?.amount ?? project.budgetMax;
   const releasedTotal = project.milestones
     .filter((m) => m.status === "released")
@@ -214,15 +226,42 @@ export default function ContractPage() {
                       {project.org} — signed {project.lockedAt}
                     </strong>
                   </div>
-                  <div className={`signature${awarded ? " signed" : ""}`}>
+                  <div className={`signature${developerCountersigned ? " signed" : ""}`}>
                     <span>Developer</span>
                     <strong>
-                      {awarded
-                        ? `${awarded.developerName} — countersigned`
-                        : "Signs on award"}
+                      {developerCountersigned
+                        ? `${awarded?.developerName ?? "Developer"} — countersigned${project.developerSignedAt ? ` ${project.developerSignedAt}` : ""}`
+                        : awarded
+                          ? "Awarded — awaiting countersign"
+                          : "Signs after hire"}
                     </strong>
                   </div>
                 </div>
+                {awaitingCountersign && iAmAwardedDeveloper && (
+                  <div className="callout callout-warn" style={{ marginTop: "1rem" }}>
+                    <span>!</span>
+                    <span>
+                      Read the locked scope above. Countersigning means you accept
+                      that list as the only definition of done.
+                    </span>
+                  </div>
+                )}
+                {awaitingCountersign && iAmAwardedDeveloper && (
+                  <button
+                    type="button"
+                    className="btn btn-lg"
+                    style={{ marginTop: "0.85rem" }}
+                    onClick={() => countersignContract(project.id)}
+                  >
+                    Countersign the locked scope
+                  </button>
+                )}
+                {awaitingCountersign && isBuyer && (
+                  <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
+                    Waiting for {awarded?.developerName ?? "the developer"} to
+                    countersign before delivery and payment confirmation can start.
+                  </p>
+                )}
               </div>
 
               <div className="contract-section">
@@ -257,8 +296,20 @@ export default function ContractPage() {
                     Okavo does not yet hold build payments. Pay your developer
                     directly against this milestone schedule, then confirm here
                     so work can be submitted against the signed scope.
+                    {!developerCountersigned &&
+                      " Countersign must happen first."}
                   </span>
                 </div>
+
+                {awaitingCountersign && (
+                  <div className="callout callout-warn">
+                    <span>!</span>
+                    <span>
+                      Milestones stay locked until the developer countersigns the
+                      requirement.
+                    </span>
+                  </div>
+                )}
 
                 {project.milestones.length === 0 && (
                   <div className="empty">
@@ -297,7 +348,9 @@ export default function ContractPage() {
                     )}
 
                     <div className="bid-actions">
-                      {isBuyer && milestone.status === "pending" && (
+                      {isBuyer &&
+                        milestone.status === "pending" &&
+                        developerCountersigned && (
                         <button
                           type="button"
                           className="btn btn-sm"
@@ -313,6 +366,13 @@ export default function ContractPage() {
                               : `Confirm paid outside Okavo ${money(milestone.amount)}`}
                         </button>
                       )}
+                      {isBuyer &&
+                        milestone.status === "pending" &&
+                        !developerCountersigned && (
+                          <span className="badge badge-draft">
+                            Awaiting developer countersign
+                          </span>
+                        )}
                       {isBuyer && milestone.status === "submitted" && (
                         <button
                           type="button"
@@ -323,6 +383,7 @@ export default function ContractPage() {
                         </button>
                       )}
                       {!isBuyer &&
+                        developerCountersigned &&
                         (milestone.status === "funded" ||
                           milestone.status === "in_progress") && (
                           <button
@@ -338,7 +399,9 @@ export default function ContractPage() {
                       )}
                       {!isBuyer && milestone.status === "pending" && (
                         <span className="badge badge-draft">
-                          Awaiting buyer payment confirmation
+                          {developerCountersigned
+                            ? "Awaiting buyer payment confirmation"
+                            : "Countersign the lock to unlock delivery"}
                         </span>
                       )}
                     </div>
@@ -667,6 +730,26 @@ export default function ContractPage() {
                   <p style={{ color: "var(--body)", margin: "0.6rem 0" }}>
                     {project.dispute.reason}
                   </p>
+                  {project.dispute.scopeItemIds &&
+                    project.dispute.scopeItemIds.length > 0 && (
+                      <ul
+                        style={{
+                          margin: "0 0 0.75rem",
+                          paddingLeft: "1.1rem",
+                          color: "var(--muted)",
+                          fontSize: "0.8125rem",
+                        }}
+                      >
+                        {project.dispute.scopeItemIds.map((scopeId) => {
+                          const item = project.scope.find((s) => s.id === scopeId);
+                          return (
+                            <li key={scopeId}>
+                              {item?.label ?? "Scope line"}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   {project.dispute.resolutionNote && (
                     <p style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
                       {project.dispute.resolutionNote}
@@ -690,27 +773,64 @@ export default function ContractPage() {
               ) : showDispute ? (
                 <>
                   <div className="field">
+                    <label>Which locked lines are in dispute?</label>
+                    <div className="stack-sm" style={{ marginTop: "0.4rem" }}>
+                      {included.map((item) => {
+                        const checked = disputeScopeIds.includes(item.id);
+                        return (
+                          <label
+                            key={item.id}
+                            style={{
+                              display: "flex",
+                              gap: "0.5rem",
+                              alignItems: "flex-start",
+                              fontSize: "0.8125rem",
+                              color: "var(--body)",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setDisputeScopeIds((prev) =>
+                                  checked
+                                    ? prev.filter((id) => id !== item.id)
+                                    : [...prev, item.id]
+                                )
+                              }
+                            />
+                            <span>{item.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="field">
                     <label htmlFor="dispute">What went wrong?</label>
                     <textarea
                       id="dispute"
                       rows={3}
                       value={disputeReason}
                       onChange={(event) => setDisputeReason(event.target.value)}
-                      placeholder="Point to the scope item that was not met."
+                      placeholder="Explain how the locked lines were not met."
                     />
                   </div>
                   <button
                     type="button"
                     className="btn btn-sm btn-block"
-                    disabled={!disputeReason.trim()}
+                    disabled={
+                      !disputeReason.trim() || disputeScopeIds.length === 0
+                    }
                     onClick={() => {
                       raiseDispute(
                         project.id,
                         disputeReason,
-                        isBuyer ? "buyer" : "developer"
+                        isBuyer ? "buyer" : "developer",
+                        disputeScopeIds
                       );
                       setShowDispute(false);
                       setDisputeReason("");
+                      setDisputeScopeIds([]);
                     }}
                   >
                     Open dispute
@@ -719,8 +839,8 @@ export default function ContractPage() {
               ) : (
                 <>
                   <p style={{ color: "var(--muted)", marginBottom: "0.85rem" }}>
-                    Disputes are reviewed against the locked scope. Okavo does
-                    not hold build money while a dispute is open.
+                    Disputes are reviewed against specific locked scope lines.
+                    Okavo does not hold build money while a dispute is open.
                   </p>
                   <button
                     type="button"

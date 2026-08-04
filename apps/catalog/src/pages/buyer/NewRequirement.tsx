@@ -8,6 +8,7 @@ import { POSTING_FEE_LABEL, POSTING_SETTLEMENT_HINT } from "../../lib/pricing";
 import {
   defaultActionFor,
   exclusionHintsFor,
+  lockBaseItemsFor,
   mustHavesForCategory,
   outcomePromptsFor,
   suggestedMustHaves,
@@ -169,13 +170,24 @@ export default function NewRequirement() {
   }
 
   function generateScope() {
-    const items: ScopeItem[] = mustHaves.map((item, index) => ({
-      id: `sc${index}`,
-      label: item,
-      detail: "Captured from your answers — will be written into the lock.",
+    const base = lockBaseItemsFor(category).map((item, index) => ({
+      id: `sc-base-${index}`,
+      label: item.label,
+      detail: item.detail,
       included: true,
-      acceptanceCriteria: `Accepted when ${item.toLowerCase()} works end to end as described.`,
+      acceptanceCriteria: item.acceptance,
     }));
+
+    const items: ScopeItem[] = [
+      ...base,
+      ...mustHaves.map((item, index) => ({
+        id: `sc${index}`,
+        label: item,
+        detail: "Captured from your answers — written into the lock.",
+        included: true,
+        acceptanceCriteria: `Accepted when ${item.toLowerCase()} works end to end as described.`,
+      })),
+    ];
 
     if (primaryAction.trim()) {
       items.unshift({
@@ -701,10 +713,13 @@ export default function NewRequirement() {
               </div>
 
               <p className="hint" style={{ marginTop: "0.75rem" }}>
-                Payment is handled by Razorpay. Okavo never sees your card
-                details. After payment clears you get a draft — you sign the
-                lock on the next screen, and only then can verified developers
-                bid. {POSTING_SETTLEMENT_HINT}
+                This fee is Okavo’s posting charge only — not escrow for the
+                build. Build money still moves between you and the developer
+                outside Okavo until Stripe Connect escrow is live. Payment is
+                handled by Razorpay; Okavo never sees your card details. After
+                payment clears you get a draft — you sign the lock on the next
+                screen, and only then can verified developers bid.{" "}
+                {POSTING_SETTLEMENT_HINT}
               </p>
             </>
           )}

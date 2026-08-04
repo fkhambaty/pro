@@ -91,12 +91,17 @@ export default function ContractPanel({ project, viewer, onLock }: Props) {
               {locked ? `${project.org} — signed ${project.lockedAt}` : "Awaiting signature"}
             </strong>
           </div>
-          <div className={`signature${project.stage === "hired" ? " signed" : ""}`}>
+          <div className={`signature${project.developerSignedAt || project.stage === "in_delivery" || project.stage === "delivered" || project.stage === "closed" ? " signed" : ""}`}>
             <span>Developer</span>
             <strong>
-              {project.stage === "hired"
-                ? `${project.bids.find((b) => b.status === "awarded")?.developerName ?? "Awarded"} — countersigned`
-                : "Signs on award"}
+              {project.developerSignedAt ||
+              project.stage === "in_delivery" ||
+              project.stage === "delivered" ||
+              project.stage === "closed"
+                ? `${project.bids.find((b) => b.status === "awarded")?.developerName ?? "Awarded"} — countersigned${project.developerSignedAt ? ` ${project.developerSignedAt}` : ""}`
+                : project.stage === "hired"
+                  ? "Awarded — awaiting countersign"
+                  : "Signs after hire"}
             </strong>
           </div>
         </div>

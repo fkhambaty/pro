@@ -39,6 +39,11 @@ export default function DevProject() {
   const identityApproved = developerAccount.identityStatus === "approved";
   const canBid = locked && developerAccount.membershipPaid && identityApproved;
   const readyToSubmit = canBid && accepted && amount.trim() !== "" && !submitted;
+  const myAwarded = project.bids.find((bid) => bid.status === "awarded");
+  const needsCountersign =
+    Boolean(myAwarded) &&
+    !project.developerSignedAt &&
+    (project.stage === "hired" || project.stage === "locked");
 
   async function submitBid() {
     if (!project) return;
@@ -100,6 +105,24 @@ export default function DevProject() {
           </div>
 
           <aside className="sticky-side">
+            {needsCountersign && (
+              <div className="card card-pad" style={{ marginBottom: "1rem" }}>
+                <div className="callout callout-warn">
+                  <span>!</span>
+                  <span>
+                    You were hired. Countersign the locked scope before
+                    milestones unlock.
+                  </span>
+                </div>
+                <Link
+                  className="btn btn-sm btn-block"
+                  style={{ marginTop: "0.85rem" }}
+                  to={`/app/contract/${project.id}`}
+                >
+                  Open contract to countersign
+                </Link>
+              </div>
+            )}
             <div className="card card-pad">
               <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.85rem" }}>
                 Place your bid

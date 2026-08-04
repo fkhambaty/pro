@@ -28,9 +28,15 @@ const BUYER_STEPS = [
     takes: "Most requirements attract bids within a week",
   },
   {
+    title: "Hire, then both sides sign the same lock",
+    detail:
+      "You pick a bid. The developer must countersign the frozen scope before delivery starts — so both parties are bound to the same list before anyone builds.",
+    takes: "Countersign unlocks milestones",
+  },
+  {
     title: "Pay one milestone at a time",
     detail:
-      "You release money milestone by milestone, and only after you have checked the work against the signed scope. Okavo-held escrow is being switched on next; for now you pay your developer directly against that same schedule.",
+      "You release money milestone by milestone, and only after you have checked the work against the signed scope. Okavo-held escrow is being switched on next (Stripe Connect); for now you pay your developer directly against that same schedule and confirm it here.",
     takes: "You are never more than one milestone exposed",
   },
   {
@@ -63,9 +69,9 @@ const DEV_STEPS = [
       "Every requirement you see is already signed. The scope will not move under you, the budget is stated, and the buyer has already paid to post it. You are quoting on a real job, not a maybe.",
   },
   {
-    title: "Get paid on acceptance",
+    title: "Countersign, then deliver",
     detail:
-      "You are paid milestone by milestone as the buyer accepts the work, against a schedule fixed in the signed contract. Okavo-held escrow is next; until then the buyer pays you directly against that same schedule. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
+      "When you are hired you countersign the same frozen lock. Then you are paid milestone by milestone as the buyer accepts the work. Okavo-held escrow is next (Stripe Connect); until then the buyer pays you directly against that schedule. Anything outside the signed scope is a paid change order, never unpaid scope creep.",
   },
 ];
 
@@ -88,7 +94,7 @@ export default function HowItWorks() {
         <div className="wrap">
           <div className="section-head">
             <h2>If you need something built</h2>
-            <p>Six steps, in order. You can stop at any point before you sign.</p>
+            <p>Seven steps, in order. You can stop at any point before you sign.</p>
           </div>
 
           <ol className="journey">
