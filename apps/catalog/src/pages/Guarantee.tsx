@@ -9,11 +9,12 @@ export default function Guarantee() {
       <section className="page-hero">
         <div className="wrap">
           <span className="eyebrow">The Okavo guarantee</span>
-          <h1>Six promises, and how each one is enforced</h1>
+          <h1>What Okavo does — and what we do not guarantee</h1>
           <p>
-            Anyone can promise good work. These are the specific things Okavo
-            will not let go wrong, and the mechanism that stops them — not a
-            policy you would have to argue about later.
+            Okavo does not hold your build money and does not guarantee that a
+            developer will deliver. The hired developer is responsible for the
+            work; you pay them after you accept each milestone against the signed
+            scope. These are the marketplace rules we do enforce.
           </p>
         </div>
       </section>

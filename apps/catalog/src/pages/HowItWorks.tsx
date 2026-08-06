@@ -28,15 +28,15 @@ const BUYER_STEPS = [
     takes: "Most requirements attract bids within a week",
   },
   {
-    title: "Hire, fund the first milestone, then countersign",
+    title: "Hire (pay Okavo’s 10% fee), then accept → pay → attest milestones",
     detail:
-      "You pick a bid. Fund (or attest) the first milestone before the developer can countersign the same freeze — that is the funding gate. Okavo-held escrow is next; today you pay the developer directly and confirm here.",
-    takes: "Funding unlocks countersign",
+      "You pick a bid and pay Okavo’s flat 10% hire success fee via Razorpay before the hire completes — that keeps deals on-platform. Then you accept work against the lock, pay the developer that milestone yourself, and confirm payment here. Okavo does not hold build funds.",
+    takes: "10% hire fee unlocks award; then accept-then-pay",
   },
   {
     title: "Accept later milestones against the checklist",
     detail:
-      "After countersign, you release later milestones only after checking work against the signed scope. Okavo-held escrow is being switched on next (Stripe Connect); until then you pay your developer directly against that same schedule.",
+      "Later milestones follow the same pattern: accept delivered work against the signed scope, pay the developer, confirm in Okavo. You are never meant to prepay the whole build through Okavo’s process.",
     takes: "You are never more than one milestone exposed",
   },
   {
@@ -54,14 +54,14 @@ const DEV_STEPS = [
       "Government ID, reviewed by a person. Until it is approved you cannot bid — the database refuses it. This is what makes a buyer on another continent comfortable hiring you.",
   },
   {
-    title: "Sit the recorded build interview",
+    title: "Pass the timed build exam",
     detail:
-      "Next gate: you build a complete product end to end in a recorded session. AI tooling is allowed; we score the result, not your typing. Today identity approval plus membership is what unlocks bidding; the interview is being switched on as an additional gate.",
+      "After ID approval you get a random brief from Okavo’s bank and five hours to ship a public GitHub repo plus a live URL. Auto-scoring assists admins; if an admin does not decide within 48 hours the exam auto-approves (you are told that on Verification).",
   },
   {
     title: "Pay once, bid freely",
     detail:
-      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding. Okavo’s marketplace fee is a flat 10% on the awarded build — collection of that commission is being wired next; membership and posting fees are live today. There is no subscription.`,
+      `A one-time ${MEMBERSHIP_FEE_LABEL} membership unlocks bidding after identity and the build exam are approved. When a buyer hires you, they also pay Okavo’s flat 10% hire success fee. There is no subscription.`,
   },
   {
     title: "Bid on settled work",
@@ -69,9 +69,9 @@ const DEV_STEPS = [
       "Every bid-ready requirement is already frozen. The scope will not move under you, the budget is stated, and the buyer has already paid to post it. You are quoting on a real job, not a maybe.",
   },
   {
-    title: "Countersign after the funding gate, then deliver",
+    title: "Countersign, then deliver milestone by milestone",
     detail:
-      "When you are hired, the buyer funds the first milestone first. Then you countersign the same freeze. You are paid milestone by milestone as the buyer accepts. Okavo-held escrow is next; until then the buyer pays you directly against that schedule. Anything outside the signed scope is a paid change order.",
+      "When you are hired, you countersign the same freeze. The buyer pays you after accepting each milestone against the lock — Okavo does not hold that money. Anything outside the signed scope is a paid change order.",
   },
 ];
 

@@ -859,7 +859,8 @@ export default function NewRequirement() {
               <p className="hint" style={{ marginTop: "0.75rem" }}>
                 This fee is Okavo’s posting charge only — not escrow for the
                 build. Build money still moves between you and the developer
-                outside Okavo until Stripe Connect escrow is live. Payment is
+                outside Okavo. When you hire, Okavo also collects a flat 10%
+                hire success fee. Payment is
                 handled by Razorpay; Okavo never sees your card details. After
                 payment clears the requirement opens for developer Q&amp;A. You
                 freeze the lock on the next screen — only then can verified

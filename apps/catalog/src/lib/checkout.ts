@@ -1,7 +1,10 @@
 import { logAudit } from "./audit";
 import { getSupabase } from "./supabase";
 
-export type CheckoutPurpose = "requirement_posting" | "bidding_membership";
+export type CheckoutPurpose =
+  | "requirement_posting"
+  | "bidding_membership"
+  | "platform_fee";
 
 type RazorpaySuccessResponse = {
   razorpay_payment_id: string;
@@ -111,7 +114,8 @@ export type CheckoutResult =
  */
 export async function collectFee(
   purpose: CheckoutPurpose,
-  buyer?: { name?: string; email?: string | null }
+  buyer?: { name?: string; email?: string | null },
+  options?: { bidId?: string }
 ): Promise<CheckoutResult> {
   const base = import.meta.env.VITE_SUPABASE_URL;
   const supabase = getSupabase();
@@ -142,7 +146,10 @@ export async function collectFee(
         Authorization: `Bearer ${token}`,
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
       },
-      body: JSON.stringify({ purpose }),
+      body: JSON.stringify({
+        purpose,
+        bid_id: options?.bidId,
+      }),
     });
 
     const body = await response.json();
@@ -178,10 +185,12 @@ export async function collectFee(
         logAudit(
           purpose === "requirement_posting"
             ? "payment.posting_fee"
-            : "payment.membership_fee",
+            : purpose === "bidding_membership"
+              ? "payment.membership_fee"
+              : "payment.hire_success_fee",
           "payment",
           order.paymentId,
-          { purpose }
+          { purpose, bidId: options?.bidId }
         );
       }
       resolve(result);

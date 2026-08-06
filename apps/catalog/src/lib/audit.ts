@@ -7,6 +7,7 @@ export type AuditAction =
   | "auth.sign_up"
   | "payment.posting_fee"
   | "payment.membership_fee"
+  | "payment.hire_success_fee"
   | "project.publish"
   | "project.lock"
   | "bid.place"

@@ -8,9 +8,7 @@ import {
 /**
  * Marketing claims live here so there is exactly one place to check them
  * against what the product actually does. Every promise below must match
- * live behaviour. Where a feature is not switched on yet (Okavo-held escrow,
- * recorded build interview as a bid gate), say so explicitly — never as
- * present-tense product.
+ * live behaviour. Do not claim Okavo-held escrow or money/delivery guarantees.
  */
 
 export type Promise_ = {
@@ -22,6 +20,12 @@ export type Promise_ = {
 
 export const GUARANTEES: Promise_[] = [
   {
+    title: "Okavo does not guarantee your money or delivery",
+    body: "Okavo is a marketplace intermediary. We do not hold build funds, insure payments, or promise that a developer will finish the work. The hired developer is responsible for delivery; you are responsible for paying them milestone by milestone after you accept work against the signed scope.",
+    enforcedBy:
+      "Terms of Use + hire success fee. Off-platform deals to avoid the fee sit outside Okavo’s process and protections.",
+  },
+  {
     title: "Nothing is built until you sign what it means",
     body: "Your answers become a written scope: what is included, what is excluded, and how each item will be judged complete. Developers only see it once you have signed it.",
     enforcedBy:
@@ -29,9 +33,9 @@ export const GUARANTEES: Promise_[] = [
   },
   {
     title: "You pay milestone by milestone, never all up front",
-    body: "The contract splits the work into milestones with their own amounts and dates. You settle each one only after checking it against the scope you signed, so you are never more than one milestone exposed.",
+    body: "The contract splits the work into milestones with their own amounts and dates. You accept submitted work against the lock, then pay that milestone outside Okavo, then confirm payment here. Okavo does not hold the money.",
     enforcedBy:
-      "Milestones and their amounts are fixed on the signed contract. Okavo-held escrow is being switched on next; until then you pay your developer directly against the same milestone schedule.",
+      "Accept-then-pay milestone statuses. First milestone is capped near 20% so you never prepay the whole build through Okavo’s process.",
   },
   {
     title: "Changes are quoted, never assumed",
@@ -40,10 +44,10 @@ export const GUARANTEES: Promise_[] = [
       "Extra work is raised as a change order, priced, and applied only after you accept it.",
   },
   {
-    title: "Every developer is identity-verified before they can bid",
-    body: "Government ID, checked by a person, before a single bid is possible. You are not hiring an anonymous username.",
+    title: "Every developer passes identity and a timed build exam before bidding",
+    body: "Government ID checked by a person, then a five-hour build exam with a random brief, public repo, and live URL. Membership unlocks bidding only after both are approved.",
     enforcedBy:
-      "The database refuses a bid from anyone whose identity has not been approved.",
+      "The database refuses a bid unless identity_status and interview_status are approved and membership is paid.",
   },
   {
     title: "One price, agreed up front",
@@ -67,7 +71,7 @@ export const FAQS: FaqItem[] = [
   {
     question: "Do I pay the developer the full amount up front?",
     answer:
-      "No. Okavo’s process is accept work for a milestone against the signed scope, then pay that milestone only, then confirm payment in Okavo. The first milestone is capped near 20% of the build. Okavo does not hold build money while escrow is off — never treat Okavo as a bank or insurer for off-platform payments.",
+      "No. Okavo’s process is accept work for a milestone against the signed scope, then pay that milestone only, then confirm payment in Okavo. The first milestone is capped near 20% of the build. Okavo does not hold build money — never treat Okavo as a bank or insurer for off-platform payments.",
   },
   {
     question: "What if the developer ghosts me or cheats?",
@@ -77,7 +81,7 @@ export const FAQS: FaqItem[] = [
   {
     question: "What does Okavo cost?",
     answer:
-      `Buyers pay ${POSTING_FEE_LABEL} to post a requirement. Developers browse free and pay a one-time ${MEMBERSHIP_FEE_LABEL} before their first bid. Okavo’s marketplace fee is a flat 10% on the awarded build — automatic collection of that commission is next; posting and membership are live today. You still pay the developer the agreed build price milestone by milestone. Fees are shown in USD; until Stripe USD checkout is live, Razorpay collects the INR equivalent (${POSTING_FEE_INR_LABEL} / ${MEMBERSHIP_FEE_INR_LABEL}).`,
+      `Buyers pay ${POSTING_FEE_LABEL} to post a requirement. Hiring on Okavo also requires Okavo’s flat 10% hire success fee (collected via Razorpay when you award a bid) so deals stay on-platform. Developers browse free, pass identity + a timed build exam, then pay a one-time ${MEMBERSHIP_FEE_LABEL} before bidding. You still pay the developer the agreed build price yourself, milestone by milestone after accepting work. Fees are shown in USD; Razorpay collects the INR equivalent (${POSTING_FEE_INR_LABEL} / ${MEMBERSHIP_FEE_INR_LABEL} and 10% mapped the same way).`,
   },
   {
     question: "Why charge anything at all to post?",
@@ -107,17 +111,17 @@ export const FAQS: FaqItem[] = [
   {
     question: "How are developers vetted?",
     answer:
-      "Today, one hard gate before a bid is possible: government ID checked by a person. The database refuses a bid from anyone whose identity has not been approved. A recorded build interview (ship a product end to end, scored on security, efficiency, maintainability and recovery) is the next gate we are switching on; until then buyers see identity status and the developer's record against closed contracts.",
+      "Today, two hard gates before a bid is possible: government ID checked by a person, then a timed build exam (random brief from Okavo’s bank, about five hours, public GitHub + live URL). Auto-scoring assists admins; if an admin does not decide within 48 hours the exam auto-approves — developers are told that on the verification page. Then the one-time membership unlocks bidding.",
   },
   {
     question: "Is Okavo an agency?",
     answer:
-      "No. Okavo does not employ the developers and does not mark up their work. We set the rules of the transaction — the signed scope, milestone schedule, and change orders — and stay out of the pricing. Okavo-held escrow for build payments is being switched on next; until then you pay your developer directly against that same schedule.",
+      "No. Okavo does not employ the developers and does not guarantee their work or your money. We set the rules of the marketplace transaction — signed scope, exam gate, hire fee, milestone accept-then-pay — and stay out of holding build funds. The hired developer is responsible for delivery.",
   },
   {
     question: "How new is Okavo?",
     answer:
-      "New. We launched in 2026 and we are deliberately small: a hand-verified group of developers rather than an open flood of applicants. If you want a marketplace with a decade of logos on the homepage, we are not that yet. What we can promise today is signed scope and verified identity — which protect you whether we are ten developers or ten thousand. Okavo-held escrow is next.",
+      "New. We launched in 2026 and we are deliberately small: a hand-verified group of developers rather than an open flood of applicants. If you want a marketplace with a decade of logos on the homepage, we are not that yet. What we can promise today is signed scope, identity + build-exam gates, and clear rules that Okavo does not guarantee money or delivery.",
   },
   {
     question: "Where are the developers based?",

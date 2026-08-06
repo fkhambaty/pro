@@ -43,12 +43,12 @@ export default function Terms() {
 
           <h2>3. Payments (Razorpay fees vs build money)</h2>
           <p>
-            Okavo collects platform fees (such as posting and membership) through
-            Razorpay. Build money for milestones is paid directly between buyer
-            and developer unless Okavo later offers a holding product and says
-            so explicitly on the site. Until then, Okavo does not hold, refund,
-            or insure build funds. Confirm payment in Okavo only after you have
-            accepted delivered work against the signed scope.
+            Okavo collects platform fees (posting, membership, and the hire
+            success fee when a bid is awarded) through Razorpay. Build money for
+            milestones is paid directly between buyer and developer. Okavo does
+            not hold, refund, or insure build funds. Confirm payment in Okavo
+            only after you have accepted delivered work against the signed
+            scope.
           </p>
 
           <h2>4. Milestone rule — no full prepayment culture</h2>
@@ -59,9 +59,12 @@ export default function Terms() {
             at your own risk.
           </p>
 
-          <h2>5. Identity, conduct, and blocking</h2>
+          <h2>5. Identity, build exam, conduct, and blocking</h2>
           <p>
-            Developers must pass identity checks before bidding. Buyers may
+            Developers must pass identity checks and Okavo’s timed build exam
+            before bidding. After exam submission, if Okavo does not approve or
+            reject within forty-eight hours, the exam may auto-approve — that
+            rule is shown to developers on the verification page. Buyers may
             request that Okavo block a developer for ghosting, fraud, or other
             serious misconduct after a hire. Okavo may approve or reject that
             request and may suspend accounts. Okavo is not obliged to mediate

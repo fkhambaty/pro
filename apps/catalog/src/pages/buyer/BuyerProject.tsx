@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import ContractPanel from "../../components/ContractPanel";
 import { initials, money } from "../../format";
 import * as api from "../../lib/api";
+import { collectFee } from "../../lib/checkout";
+import { hireFeeUsdLabel } from "../../lib/exam";
 import { formatRating } from "../../lib/reviewCriteria";
 import { useStore } from "../../store";
 import type { DeveloperListing } from "../../types";
@@ -17,6 +19,8 @@ export default function BuyerProject() {
     awardBid,
     inviteBuilder,
     connected,
+    name,
+    email,
   } = useStore();
   const project = projects.find((p) => p.id === id);
 
@@ -26,6 +30,8 @@ export default function BuyerProject() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteNote, setInviteNote] = useState<string | null>(null);
+  const [hireBusy, setHireBusy] = useState<string | null>(null);
+  const [hireError, setHireError] = useState<string | null>(null);
   const [clarifications, setClarifications] = useState<api.ClarificationRequest[]>([]);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [answerError, setAnswerError] = useState<string | null>(null);
@@ -230,6 +236,12 @@ export default function BuyerProject() {
                 <span className="badge">{project.publicBidCount} received</span>
               </div>
               <div style={{ padding: "1.25rem" }} className="stack-sm">
+                {hireError && (
+                  <div className="callout callout-warn" role="alert">
+                    <span>!</span>
+                    <span>{hireError}</span>
+                  </div>
+                )}
                 {answerError && (
                   <div className="callout callout-warn" role="alert">
                     <span>!</span>
@@ -327,10 +339,50 @@ export default function BuyerProject() {
                             <button
                               type="button"
                               className="btn btn-sm"
-                              disabled={Boolean(awarded)}
-                              onClick={() => awardBid(project.id, bid.id)}
+                              disabled={Boolean(awarded) || hireBusy === bid.id}
+                              onClick={() => {
+                                void (async () => {
+                                  setHireError(null);
+                                  if (!connected) {
+                                    awardBid(project.id, bid.id);
+                                    return;
+                                  }
+                                  setHireBusy(bid.id);
+                                  try {
+                                    const paid = await api.hireSuccessFeePaid(bid.id);
+                                    if (!paid) {
+                                      const result = await collectFee(
+                                        "platform_fee",
+                                        { name, email },
+                                        { bidId: bid.id }
+                                      );
+                                      if (result.status !== "paid") {
+                                        setHireError(
+                                          result.status === "cancelled"
+                                            ? "Hire fee payment cancelled."
+                                            : result.status === "pending"
+                                              ? "Payment still confirming — try Hire again shortly."
+                                              : result.message
+                                        );
+                                        return;
+                                      }
+                                    }
+                                    awardBid(project.id, bid.id);
+                                  } catch (cause) {
+                                    setHireError(
+                                      cause instanceof Error
+                                        ? cause.message
+                                        : "Could not complete hire."
+                                    );
+                                  } finally {
+                                    setHireBusy(null);
+                                  }
+                                })();
+                              }}
                             >
-                              Hire at {money(bid.amount)}
+                              {hireBusy === bid.id
+                                ? "Opening fee…"
+                                : `Hire · pay 10% fee (${hireFeeUsdLabel(Math.round(bid.amount * 100))})`}
                             </button>
                             <button
                               type="button"

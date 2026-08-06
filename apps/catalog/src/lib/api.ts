@@ -719,6 +719,16 @@ export async function awardBid(
   bidId: string,
   amount: number
 ) {
+  const { data: feeOk, error: feeError } = await db().rpc("hire_success_fee_paid", {
+    p_bid_id: bidId,
+  });
+  if (feeError) throw feeError;
+  if (!feeOk) {
+    throw new Error(
+      "Pay Okavo’s 10% hire success fee before awarding. This keeps deals on-platform."
+    );
+  }
+
   const contract = await contractIdFor(projectId);
   if (!contract) throw new Error("Lock the requirement before awarding");
 
@@ -1587,6 +1597,14 @@ export async function markNotificationsRead(userId: string) {
     .eq("profile_id", userId)
     .is("read_at", null);
   if (error) throw error;
+}
+
+export async function hireSuccessFeePaid(bidId: string) {
+  const { data, error } = await db().rpc("hire_success_fee_paid", {
+    p_bid_id: bidId,
+  });
+  if (error) throw error;
+  return Boolean(data);
 }
 
 export async function acceptPlatformTerms(version: string) {

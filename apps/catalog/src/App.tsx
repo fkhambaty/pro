@@ -25,6 +25,7 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminAuditLogs = lazy(() => import("./pages/admin/AdminAuditLogs"));
+const AdminExams = lazy(() => import("./pages/admin/AdminExams"));
 const AdminBlocks = lazy(() => import("./pages/admin/AdminBlocks"));
 const AdminHome = lazy(() => import("./pages/admin/AdminHome"));
 const AdminVerifications = lazy(() => import("./pages/admin/AdminVerifications"));
@@ -235,6 +236,14 @@ export default function App() {
               element={
                 <AdminOnly>
                   <AdminAuditLogs />
+                </AdminOnly>
+              }
+            />
+            <Route
+              path="exams"
+              element={
+                <AdminOnly>
+                  <AdminExams />
                 </AdminOnly>
               }
             />

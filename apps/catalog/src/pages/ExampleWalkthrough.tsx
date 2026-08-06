@@ -85,9 +85,9 @@ export default function ExampleWalkthrough() {
           {tab === "pitch" && <PitchPanel />}
 
           <p className="ex-footer-note">
-            Q&amp;A → freeze → fund gate → countersign · fees: {POSTING_FEE_LABEL}{" "}
-            post, {MEMBERSHIP_FEE_LABEL} bid, flat 10% marketplace fee (collection
-            next) · Use tabs or ← → while presenting.
+            Q&amp;A → freeze → hire fee → countersign · fees: {POSTING_FEE_LABEL}{" "}
+            post, {MEMBERSHIP_FEE_LABEL} bid, flat 10% hire success fee · Use tabs
+            or ← → while presenting.
           </p>
         </div>
       </section>
@@ -351,9 +351,10 @@ function BuyerPanel() {
             title="Funding gate, then countersign, then build"
           >
             <p>
-              Tom funds the first milestone (today: pays Arjun outside Okavo and
-              confirms; when escrow is live, that deposit sits in Okavo escrow).
-              Only then can Arjun countersign. Delivery is judged against the
+              Tom pays Okavo’s 10% hire success fee, awards Arjun, then accepts
+              work and pays Arjun milestone by milestone outside Okavo (confirming
+              each payment here). Okavo does not hold build funds. Delivery is
+              judged against the
               checklist Tom already approved in the preview.
             </p>
             <div className="ex-meta">
@@ -412,9 +413,9 @@ function BuyerPanel() {
             <strong>Fees (buyer)</strong>
             <p>
               {POSTING_FEE_LABEL} posting fee to publish. Build payments follow
-              the milestone schedule. Okavo’s marketplace fee is a flat{" "}
-              <strong>10%</strong> on the awarded build — automatic collection
-              of that commission is next; posting is live today.
+              the milestone schedule. Okavo’s hire success fee is a flat{" "}
+              <strong>10%</strong> on the awarded build — collected via Razorpay
+              when the buyer awards a bid; posting is live today.
             </p>
           </div>
         </div>
@@ -528,8 +529,8 @@ function DeveloperPanel() {
                 <tr>
                   <td>Okavo commission</td>
                   <td>
-                    Flat <strong>10%</strong> on the awarded build (collection
-                    next)
+                    Flat <strong>10%</strong> hire success fee at award
+                    (Razorpay)
                   </td>
                 </tr>
                 <tr>
@@ -607,8 +608,8 @@ function PitchPanel() {
           <h4>Clear commercial model</h4>
           <p>
             {POSTING_FEE_LABEL} to post. {MEMBERSHIP_FEE_LABEL} once to bid.
-            Flat <strong>10%</strong> marketplace fee on the awarded build
-            (collection next). Funding gate before countersign.
+            Flat <strong>10%</strong> hire success fee when a bid is awarded.
+            Accept-then-pay milestones; Okavo does not hold build funds.
           </p>
         </div>
         <div className="ex-pitch-card">

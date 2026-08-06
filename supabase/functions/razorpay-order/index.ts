@@ -14,19 +14,26 @@ import {
  * The order is recorded as a pending payment; only the webhook marks it paid.
  */
 
-type Purpose = "requirement_posting" | "bidding_membership";
+type Purpose = "requirement_posting" | "bidding_membership" | "platform_fee";
 
-const CATALOG: Record<Purpose, { amount: number; label: string }> = {
-  // Amounts are in paise (INR). Site displays USD equivalents; Indian Razorpay
-  // merchant accounts charge INR until Stripe Connect USD is live.
+const FIXED: Record<
+  "requirement_posting" | "bidding_membership",
+  { amount: number; label: string }
+> = {
   requirement_posting: { amount: 9900, label: "Okavo requirement posting fee ($1)" },
   bidding_membership: { amount: 89900, label: "Okavo bidding membership ($11)" },
 };
 
 const CURRENCY = "INR";
+/** $1 display ≈ ₹99 charge — same fixed mapping as posting/membership. */
+const INR_PAISE_PER_USD = 9900;
 
 function isPurpose(value: unknown): value is Purpose {
-  return value === "requirement_posting" || value === "bidding_membership";
+  return (
+    value === "requirement_posting" ||
+    value === "bidding_membership" ||
+    value === "platform_fee"
+  );
 }
 
 async function resolveUser(req: Request) {
@@ -59,7 +66,7 @@ serve(async (req) => {
     });
   }
 
-  let payload: { purpose?: unknown };
+  let payload: { purpose?: unknown; bid_id?: unknown };
   try {
     payload = await req.json();
   } catch {
@@ -70,10 +77,56 @@ serve(async (req) => {
     return json(400, { error: "Unknown payment purpose" });
   }
   const purpose = payload.purpose;
-  const { amount, label } = CATALOG[purpose];
   const db = serviceClient();
 
   try {
+    let amount: number;
+    let label: string;
+    let bidId: string | null = null;
+    let projectId: string | null = null;
+
+    if (purpose === "platform_fee") {
+      bidId = typeof payload.bid_id === "string" ? payload.bid_id : null;
+      if (!bidId) {
+        return json(400, { error: "bid_id is required for the hire success fee" });
+      }
+      const bids = (await db.select(
+        `bids?id=eq.${bidId}&select=id,amount_cents,project_id,status`
+      )) as Array<{
+        id: string;
+        amount_cents: number;
+        project_id: string;
+        status: string;
+      }>;
+      const bid = bids[0];
+      if (!bid) return json(404, { error: "Bid not found" });
+      const projects = (await db.select(
+        `projects?id=eq.${bid.project_id}&select=buyer_id`
+      )) as Array<{ buyer_id: string }>;
+      if (projects[0]?.buyer_id !== user.id) {
+        return json(403, { error: "Only the buyer can pay the hire fee" });
+      }
+      if (bid.status === "awarded") {
+        return json(409, { error: "This bid is already awarded" });
+      }
+      const already = (await db.select(
+        `payments?bid_id=eq.${bidId}&purpose=eq.platform_fee&status=eq.paid&select=id`
+      )) as unknown[];
+      if (already?.length) {
+        return json(409, { error: "Hire fee already paid for this bid" });
+      }
+      // 10% of bid (USD cents → INR paise via fixed $1=₹99 map), minimum ₹99.
+      amount = Math.max(
+        9900,
+        Math.round((bid.amount_cents / 100) * 0.1 * INR_PAISE_PER_USD)
+      );
+      const usdLabel = Math.max(1, Math.round(bid.amount_cents / 100 / 10));
+      label = `Okavo hire success fee (10% ≈ $${usdLabel})`;
+      projectId = bid.project_id;
+    } else {
+      ({ amount, label } = FIXED[purpose]);
+    }
+
     if (purpose === "bidding_membership") {
       const paid = (await db.select(
         `payments?profile_id=eq.${user.id}&purpose=eq.bidding_membership&status=eq.paid&select=id`
@@ -83,14 +136,20 @@ serve(async (req) => {
       }
     }
 
-    const created = (await db.insert("payments", {
+    const insertRow: Record<string, unknown> = {
       profile_id: user.id,
       purpose,
       status: "pending",
       amount_cents: amount,
       currency: CURRENCY,
       provider: "razorpay",
-    })) as Array<{ id: string }>;
+    };
+    if (bidId) insertRow.bid_id = bidId;
+    if (projectId) insertRow.project_id = projectId;
+
+    const created = (await db.insert("payments", insertRow)) as Array<{
+      id: string;
+    }>;
 
     const paymentId = created?.[0]?.id;
     if (!paymentId) throw new Error("Could not open a payment record");

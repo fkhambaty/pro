@@ -230,9 +230,9 @@ export default function Earnings() {
           </h3>
           <p style={{ color: "var(--muted)" }}>
             You are paid milestone by milestone against the schedule in the
-            signed contract, as the buyer accepts each one. Okavo-held escrow is
-            being switched on next; until then payment is settled directly with
-            the buyer against that same schedule, and the locked scope is what
+            signed contract, as the buyer accepts each one. Okavo does not hold
+            build funds — payment is settled directly with the buyer against
+            that same schedule, and the locked scope is what
             decides whether a milestone is complete.
           </p>
         </div>

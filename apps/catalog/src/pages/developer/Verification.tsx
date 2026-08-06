@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import IdentityUpload from "./IdentityUpload";
 import * as api from "../../lib/api";
 import { collectFee } from "../../lib/checkout";
+import * as examApi from "../../lib/exam";
+import { EXAM_WINDOW_HOURS, type BuildExam } from "../../lib/exam";
 import { MEMBERSHIP_FEE_LABEL, MEMBERSHIP_SETTLEMENT_HINT } from "../../lib/pricing";
 import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
+import { getSupabase } from "../../lib/supabase";
 import { useStore } from "../../store";
 import type { DeveloperListing } from "../../types";
 
@@ -21,13 +24,31 @@ export default function Verification() {
     email,
     userId,
     developerAccount,
-    submitInterview,
     refresh,
     connected,
   } = useStore();
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [listing, setListing] = useState<DeveloperListing | null>(null);
+  const [exam, setExam] = useState<BuildExam | null>(null);
+  const [examBusy, setExamBusy] = useState(false);
+  const [examError, setExamError] = useState<string | null>(null);
+  const [githubUrl, setGithubUrl] = useState("");
+  const [liveUrl, setLiveUrl] = useState("");
+  const [examReply, setExamReply] = useState("");
+
+  const loadExam = useCallback(async () => {
+    if (!connected) return;
+    try {
+      setExam(await examApi.fetchMyBuildExam());
+    } catch {
+      // Page still works without exam fetch.
+    }
+  }, [connected]);
+
+  useEffect(() => {
+    void loadExam();
+  }, [loadExam, developerAccount.interviewStatus]);
 
   useEffect(() => {
     if (!connected || !userId) return;
@@ -47,11 +68,7 @@ export default function Verification() {
 
   const identityStatus = developerAccount.identityStatus;
   const identityApproved = identityStatus === "approved";
-
-  const overall = Math.round(
-    developerAccount.interviewScores.reduce((sum, s) => sum + s.score, 0) /
-      developerAccount.interviewScores.length
-  );
+  const examApproved = developerAccount.interviewStatus === "approved";
 
   useEffect(() => {
     if (developerAccount.membershipPaid) setPaying(false);
@@ -114,11 +131,11 @@ export default function Verification() {
                 <p>
                   {developerAccount.membershipPaid
                     ? `Paid on ${developerAccount.membershipPaidAt}. ${
-                        developerAccount.identityStatus === "approved"
-                          ? "Identity is approved — you can bid on locked requirements."
-                          : "Membership is paid. Finish identity approval before you can bid."
+                        identityApproved && examApproved
+                          ? "Identity and build exam are approved — you can bid."
+                          : "Membership is paid. Finish identity + build exam before you can bid."
                       }`
-                    : "Pay once to unlock bidding. This keeps the board free of throwaway accounts and spam proposals."}
+                    : "Pay once to unlock bidding after identity and the build exam are approved."}
                 </p>
               </div>
               <div className="membership-price">
@@ -133,8 +150,8 @@ export default function Verification() {
                   <li>Unlimited bids on locked requirements</li>
                   <li>Same frozen scope every bidder sees</li>
                   <li>
-                    Buyer pays you milestone by milestone against the signed
-                    schedule (Okavo-held escrow is next)
+                    Buyer pays you milestone by milestone after accepting work
+                    (Okavo does not hold build funds)
                   </li>
                   <li>Non-refundable, charged once per account</li>
                 </ul>
@@ -166,13 +183,17 @@ export default function Verification() {
             {developerAccount.membershipPaid && (
               <div className="membership-foot">
                 <div
-                  className={identityApproved ? "callout callout-ok" : "callout callout-warn"}
+                  className={
+                    identityApproved && examApproved
+                      ? "callout callout-ok"
+                      : "callout callout-warn"
+                  }
                 >
-                  <span>{identityApproved ? "✓" : "!"}</span>
+                  <span>{identityApproved && examApproved ? "✓" : "!"}</span>
                   <span>
-                    {identityApproved
-                      ? "Membership active. You can bid on any locked requirement."
-                      : "Membership paid. Bidding opens once your government ID is approved."}
+                    {identityApproved && examApproved
+                      ? "Membership active. You can bid on locked requirements."
+                      : "Membership paid. Bidding opens after government ID and the build exam are both approved."}
                   </span>
                 </div>
               </div>
@@ -229,58 +250,227 @@ export default function Verification() {
 
           <div className="card">
             <div className="card-head">
-              <h2>Recorded build interview</h2>
+              <h2>Build exam (required to bid)</h2>
               {developerAccount.interviewStatus === "approved" ? (
-                <span className="badge badge-accent">Score {overall}</span>
+                <span className="badge badge-lock">Approved</span>
               ) : (
-                <span className="badge badge-draft">Awaiting submission</span>
+                <span className="badge badge-draft">
+                  {exam?.status?.replace(/_/g, " ") ?? "Not started"}
+                </span>
               )}
             </div>
             <div style={{ padding: "1.25rem" }}>
-              <p style={{ color: "var(--body)", marginBottom: "1.25rem" }}>
-                {name || "You"} built a complete product end to end in a recorded
-                four-hour session. AI tooling was permitted. The assessment scores
-                the result, not the typing.
-              </p>
-
-              <div className="stack-sm">
-                {developerAccount.interviewScores.map((criterion) => (
-                  <div key={criterion.label}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.8125rem",
-                      }}
-                    >
-                      <span>{criterion.label}</span>
-                      <strong>{criterion.score}</strong>
-                    </div>
-                    <div className="score-bar">
-                      <i style={{ width: `${criterion.score}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {developerAccount.interviewStatus !== "approved" && (
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ marginTop: "1.25rem" }}
-                  onClick={submitInterview}
-                >
-                  Submit recording for assessment
-                </button>
-              )}
-
-              <div className="callout callout-info" style={{ marginTop: "1.25rem" }}>
-                <span>i</span>
+              <div className="callout callout-warn" style={{ marginBottom: "1rem" }}>
+                <span>!</span>
                 <span>
-                  Buyers never see raw scores. They see your tier and your delivery
-                  record against locked contracts.
+                  Anyone can register. Bidding needs (1) approved government ID,
+                  (2) this timed build exam, (3) membership. You get a random brief
+                  from Okavo’s bank, <strong>5 hours</strong> to ship a public
+                  GitHub repo + live URL (Vercel or similar). Okavo auto-scores
+                  the links; an admin may ask questions.{" "}
+                  <strong>
+                    If an admin does not decide within 48 hours of your
+                    submission, the exam is auto-approved
+                  </strong>{" "}
+                  — you will see that clearly on this page.
                 </span>
               </div>
+
+              {examError && (
+                <div className="callout callout-warn" role="alert">
+                  <span>!</span>
+                  <span>{examError}</span>
+                </div>
+              )}
+
+              {developerAccount.interviewStatus === "approved" && (
+                <div className="callout callout-ok">
+                  <span>✓</span>
+                  <span>
+                    Build exam approved
+                    {exam?.autoApprovedAt
+                      ? " (auto-approved after the 48-hour admin window)."
+                      : "."}{" "}
+                    You can bid once membership is paid and identity is approved.
+                  </span>
+                </div>
+              )}
+
+              {!exam && developerAccount.interviewStatus !== "approved" && (
+                <>
+                  <p style={{ color: "var(--body)" }}>
+                    Start only when you can focus for up to five hours. Leaving
+                    the page does not pause the clock.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={examBusy || !identityApproved}
+                    onClick={() => {
+                      void (async () => {
+                        setExamBusy(true);
+                        setExamError(null);
+                        try {
+                          await examApi.startBuildExam();
+                          await loadExam();
+                          await refresh();
+                        } catch (cause) {
+                          setExamError(
+                            cause instanceof Error
+                              ? cause.message
+                              : "Could not start exam"
+                          );
+                        } finally {
+                          setExamBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {examBusy
+                      ? "Starting…"
+                      : identityApproved
+                        ? "Start 5-hour build exam"
+                        : "Approve ID first"}
+                  </button>
+                </>
+              )}
+
+              {exam && exam.status === "in_progress" && exam.brief && (
+                <>
+                  <p className="hint">
+                    Due by {new Date(exam.dueAt).toLocaleString()} (
+                    {EXAM_WINDOW_HOURS}h window).
+                  </p>
+                  <h3 style={{ marginTop: "0.75rem" }}>{exam.brief.title}</h3>
+                  <p>{exam.brief.summary}</p>
+                  <p>
+                    <strong>Acceptance:</strong> {exam.brief.acceptance}
+                  </p>
+                  <p className="hint">Stack hint: {exam.brief.stackHint}</p>
+                  <div className="field">
+                    <label htmlFor="gh">GitHub / GitLab URL</label>
+                    <input
+                      id="gh"
+                      value={githubUrl}
+                      onChange={(e) => setGithubUrl(e.target.value)}
+                      placeholder="https://github.com/you/exam-app"
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="live">Live URL</label>
+                    <input
+                      id="live"
+                      value={liveUrl}
+                      onChange={(e) => setLiveUrl(e.target.value)}
+                      placeholder="https://your-app.vercel.app"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={examBusy}
+                    onClick={() => {
+                      void (async () => {
+                        setExamBusy(true);
+                        setExamError(null);
+                        try {
+                          await examApi.submitBuildExam(
+                            exam.id,
+                            githubUrl.trim(),
+                            liveUrl.trim()
+                          );
+                          const { data: session } =
+                            (await getSupabase()?.auth.getSession()) ?? {
+                              data: { session: null },
+                            };
+                          if (session?.session?.access_token) {
+                            await examApi.requestExamAnalysis(
+                              exam.id,
+                              session.session.access_token
+                            );
+                          }
+                          await loadExam();
+                          await refresh();
+                        } catch (cause) {
+                          setExamError(
+                            cause instanceof Error
+                              ? cause.message
+                              : "Submit failed"
+                          );
+                        } finally {
+                          setExamBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {examBusy ? "Submitting…" : "Submit exam"}
+                  </button>
+                </>
+              )}
+
+              {exam &&
+                (exam.status === "submitted" ||
+                  exam.status === "admin_questions") && (
+                  <>
+                    <p>
+                      Submitted. Admin review window ends{" "}
+                      {exam.reviewDeadlineAt
+                        ? new Date(exam.reviewDeadlineAt).toLocaleString()
+                        : "within 48 hours"}
+                      . If nobody acts by then, you are <strong>auto-approved</strong>.
+                    </p>
+                    {exam.autoScoreOverall !== null && (
+                      <p className="hint">
+                        Auto-score assist: {exam.autoScoreOverall}/100 (advisory
+                        for admins, not the final decision).
+                      </p>
+                    )}
+                    {exam.status === "admin_questions" && exam.adminQuestion && (
+                      <>
+                        <p>
+                          <strong>Admin question:</strong> {exam.adminQuestion}
+                        </p>
+                        <div className="field">
+                          <label htmlFor="reply">Your reply</label>
+                          <textarea
+                            id="reply"
+                            rows={3}
+                            value={examReply}
+                            onChange={(e) => setExamReply(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={examBusy}
+                          onClick={() => {
+                            void (async () => {
+                              setExamBusy(true);
+                              try {
+                                await examApi.replyBuildExam(
+                                  exam.id,
+                                  examReply.trim()
+                                );
+                                setExamReply("");
+                                await loadExam();
+                              } catch (cause) {
+                                setExamError(
+                                  cause instanceof Error
+                                    ? cause.message
+                                    : "Reply failed"
+                                );
+                              } finally {
+                                setExamBusy(false);
+                              }
+                            })();
+                          }}
+                        >
+                          Send reply
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
             </div>
           </div>
 
