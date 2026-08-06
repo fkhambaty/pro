@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import Logo from "../components/Logo";
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "../brand";
+import { acceptPlatformTerms } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { MEMBERSHIP_FEE_LABEL } from "../lib/pricing";
+import { TERMS_VERSION } from "../lib/terms";
 import type { BuyerScale, Role } from "../types";
 
 type Mode = "signin" | "signup";
@@ -34,7 +36,9 @@ export default function SignIn() {
     }
   }, []);
 
-  if (auth.role !== "guest" && !auth.passwordRecovery) {
+  // Stay on this screen while submit finishes (incl. recording terms), so
+  // TermsGate on /app does not race a half-written acceptance.
+  if (auth.role !== "guest" && !auth.passwordRecovery && !busy) {
     return <Navigate to="/app" replace />;
   }
 
@@ -59,11 +63,9 @@ export default function SignIn() {
     if (mode === "signin") {
       await auth.signIn(email.trim(), password);
       try {
-        const { acceptPlatformTerms } = await import("../lib/api");
-        const { TERMS_VERSION } = await import("../lib/terms");
         await acceptPlatformTerms(TERMS_VERSION);
       } catch {
-        // Profile may not exist yet on first paint; TermsGate in /app retries.
+        // Profile may not exist yet; TermsGate in /app will require acceptance.
       }
     } else {
       await auth.signUp({
@@ -75,8 +77,6 @@ export default function SignIn() {
         scale,
       });
       try {
-        const { acceptPlatformTerms } = await import("../lib/api");
-        const { TERMS_VERSION } = await import("../lib/terms");
         await acceptPlatformTerms(TERMS_VERSION);
       } catch {
         // Same as above.

@@ -4,36 +4,59 @@ import * as api from "../lib/api";
 import { TERMS_VERSION } from "../lib/terms";
 import { useAuth } from "../lib/auth";
 
+type GateStatus = "checking" | "needed" | "ok";
+
 /**
  * Ensures signed-in users have accepted the current Terms before using /app.
  * Covers accounts created before acceptance was required.
+ *
+ * Important: never flash the Terms card while the acceptance check is in flight —
+ * that caused a millisecond popup after login when the user had already agreed.
  */
 export function TermsGate({ children }: { children: ReactElement }) {
   const { connected, userId } = useAuth();
-  const [ok, setOk] = useState(!connected);
+  const [status, setStatus] = useState<GateStatus>(() =>
+    connected && userId ? "checking" : "ok"
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!connected || !userId) {
-      setOk(true);
+      setStatus("ok");
       return;
     }
+
     let cancelled = false;
+    setStatus("checking");
+
     void api
       .hasAcceptedTerms(TERMS_VERSION)
       .then((accepted) => {
-        if (!cancelled) setOk(accepted);
+        if (!cancelled) setStatus(accepted ? "ok" : "needed");
       })
       .catch(() => {
-        if (!cancelled) setOk(false);
+        // Fail closed only after the check attempt — still no flash of the card
+        // until we know acceptance is required.
+        if (!cancelled) setStatus("needed");
       });
+
     return () => {
       cancelled = true;
     };
   }, [connected, userId]);
 
-  if (!connected || ok) return children;
+  if (!connected || status === "ok") return children;
+
+  if (status === "checking") {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <p style={{ margin: 0, color: "var(--muted)" }}>Opening your workspace…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-screen">
@@ -71,10 +94,12 @@ export function TermsGate({ children }: { children: ReactElement }) {
               setError(null);
               try {
                 await api.acceptPlatformTerms(TERMS_VERSION);
-                setOk(true);
+                setStatus("ok");
               } catch (cause) {
                 setError(
-                  cause instanceof Error ? cause.message : "Could not record acceptance."
+                  cause instanceof Error
+                    ? cause.message
+                    : "Could not record acceptance."
                 );
               } finally {
                 setBusy(false);
