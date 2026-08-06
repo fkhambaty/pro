@@ -1,38 +1,52 @@
-import { useEffect, type ReactElement } from "react";
+import { lazy, Suspense, useEffect, type ReactElement, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppShell from "./components/AppShell";
-import About from "./pages/About";
-import ContractPage from "./pages/ContractPage";
-import ContractsList from "./pages/ContractsList";
-import ExampleWalkthrough from "./pages/ExampleWalkthrough";
-import Faq from "./pages/Faq";
-import Guarantee from "./pages/Guarantee";
-import HowItWorks from "./pages/HowItWorks";
-import Landing from "./pages/Landing";
-import Security from "./pages/Security";
-import Messages from "./pages/Messages";
-import Notifications from "./pages/Notifications";
-import SignIn from "./pages/SignIn";
-import AdminAnalytics from "./pages/admin/AdminAnalytics";
-import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
-import AdminHome from "./pages/admin/AdminHome";
-import AdminVerifications from "./pages/admin/AdminVerifications";
-import BuyerHome from "./pages/buyer/BuyerHome";
-import BuyerProject from "./pages/buyer/BuyerProject";
-import DeveloperProfile from "./pages/buyer/DeveloperProfile";
-import Developers from "./pages/buyer/Developers";
-import NewRequirement from "./pages/buyer/NewRequirement";
-import Payments from "./pages/buyer/Payments";
-import DevBids from "./pages/developer/DevBids";
-import DevBoard from "./pages/developer/DevBoard";
-import DevProject from "./pages/developer/DevProject";
-import Earnings from "./pages/developer/Earnings";
-import Verification from "./pages/developer/Verification";
 import { trackPageView } from "./lib/analytics";
 import { IdleSessionGuard } from "./lib/idleSession";
 import { applySeo } from "./lib/seo";
 import { useAuth } from "./lib/auth";
 import { useStore } from "./store";
+
+/** Marketing + workspace pages load on demand — keeps first paint off the 700KB monolith. */
+const About = lazy(() => import("./pages/About"));
+const ContractPage = lazy(() => import("./pages/ContractPage"));
+const ContractsList = lazy(() => import("./pages/ContractsList"));
+const ExampleWalkthrough = lazy(() => import("./pages/ExampleWalkthrough"));
+const Faq = lazy(() => import("./pages/Faq"));
+const Guarantee = lazy(() => import("./pages/Guarantee"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
+const Landing = lazy(() => import("./pages/Landing"));
+const Security = lazy(() => import("./pages/Security"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const SignIn = lazy(() => import("./pages/SignIn"));
+const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminAuditLogs = lazy(() => import("./pages/admin/AdminAuditLogs"));
+const AdminHome = lazy(() => import("./pages/admin/AdminHome"));
+const AdminVerifications = lazy(() => import("./pages/admin/AdminVerifications"));
+const BuyerHome = lazy(() => import("./pages/buyer/BuyerHome"));
+const BuyerProject = lazy(() => import("./pages/buyer/BuyerProject"));
+const DeveloperProfile = lazy(() => import("./pages/buyer/DeveloperProfile"));
+const Developers = lazy(() => import("./pages/buyer/Developers"));
+const NewRequirement = lazy(() => import("./pages/buyer/NewRequirement"));
+const Payments = lazy(() => import("./pages/buyer/Payments"));
+const DevBids = lazy(() => import("./pages/developer/DevBids"));
+const DevBoard = lazy(() => import("./pages/developer/DevBoard"));
+const DevProject = lazy(() => import("./pages/developer/DevProject"));
+const Earnings = lazy(() => import("./pages/developer/Earnings"));
+const Verification = lazy(() => import("./pages/developer/Verification"));
+
+function RouteFallback() {
+  return (
+    <div className="auth-screen" role="status" aria-live="polite">
+      <p style={{ color: "var(--muted)" }}>Loading…</p>
+    </div>
+  );
+}
+
+function Lazy({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { role, ready } = useAuth();
@@ -107,115 +121,117 @@ function PageViews() {
 export default function App() {
   return (
     <>
-    <ScrollToTop />
-    <PageViews />
-    <IdleSessionGuard />
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/how-it-works" element={<HowItWorks />} />
-      <Route path="/example" element={<ExampleWalkthrough />} />
-      <Route path="/guarantee" element={<Guarantee />} />
-      <Route path="/security" element={<Security />} />
-      <Route path="/faq" element={<Faq />} />
-      <Route path="/about" element={<About />} />
-      <Route path="/signin" element={<SignIn />} />
-      <Route
-        path="/app"
-        element={
-          <RequireAuth>
-            <AppShell />
-          </RequireAuth>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="project/:id" element={<ProjectRoute />} />
-        <Route path="contract/:id" element={<ContractPage />} />
-        <Route path="contracts" element={<ContractsList />} />
-        <Route path="messages" element={<Messages />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route
-          path="new"
-          element={
-            <BuyerOnly>
-              <NewRequirement />
-            </BuyerOnly>
-          }
-        />
-        <Route
-          path="payments"
-          element={
-            <BuyerOnly>
-              <Payments />
-            </BuyerOnly>
-          }
-        />
-        <Route
-          path="developers"
-          element={
-            <BuyerOnly>
-              <Developers />
-            </BuyerOnly>
-          }
-        />
-        <Route
-          path="developers/:id"
-          element={
-            <BuyerOnly>
-              <DeveloperProfile />
-            </BuyerOnly>
-          }
-        />
-        <Route
-          path="bids"
-          element={
-            <DeveloperOnly>
-              <DevBids />
-            </DeveloperOnly>
-          }
-        />
-        <Route
-          path="earnings"
-          element={
-            <DeveloperOnly>
-              <Earnings />
-            </DeveloperOnly>
-          }
-        />
-        <Route
-          path="verification"
-          element={
-            <DeveloperOnly>
-              <Verification />
-            </DeveloperOnly>
-          }
-        />
-        <Route
-          path="verifications"
-          element={
-            <AdminOnly>
-              <AdminVerifications />
-            </AdminOnly>
-          }
-        />
-        <Route
-          path="traffic"
-          element={
-            <AdminOnly>
-              <AdminAnalytics />
-            </AdminOnly>
-          }
-        />
-        <Route
-          path="audit"
-          element={
-            <AdminOnly>
-              <AdminAuditLogs />
-            </AdminOnly>
-          }
-        />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      <ScrollToTop />
+      <PageViews />
+      <IdleSessionGuard />
+      <Lazy>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/example" element={<ExampleWalkthrough />} />
+          <Route path="/guarantee" element={<Guarantee />} />
+          <Route path="/security" element={<Security />} />
+          <Route path="/faq" element={<Faq />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route
+            path="/app"
+            element={
+              <RequireAuth>
+                <AppShell />
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="project/:id" element={<ProjectRoute />} />
+            <Route path="contract/:id" element={<ContractPage />} />
+            <Route path="contracts" element={<ContractsList />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route
+              path="new"
+              element={
+                <BuyerOnly>
+                  <NewRequirement />
+                </BuyerOnly>
+              }
+            />
+            <Route
+              path="payments"
+              element={
+                <BuyerOnly>
+                  <Payments />
+                </BuyerOnly>
+              }
+            />
+            <Route
+              path="developers"
+              element={
+                <BuyerOnly>
+                  <Developers />
+                </BuyerOnly>
+              }
+            />
+            <Route
+              path="developers/:id"
+              element={
+                <BuyerOnly>
+                  <DeveloperProfile />
+                </BuyerOnly>
+              }
+            />
+            <Route
+              path="bids"
+              element={
+                <DeveloperOnly>
+                  <DevBids />
+                </DeveloperOnly>
+              }
+            />
+            <Route
+              path="earnings"
+              element={
+                <DeveloperOnly>
+                  <Earnings />
+                </DeveloperOnly>
+              }
+            />
+            <Route
+              path="verification"
+              element={
+                <DeveloperOnly>
+                  <Verification />
+                </DeveloperOnly>
+              }
+            />
+            <Route
+              path="verifications"
+              element={
+                <AdminOnly>
+                  <AdminVerifications />
+                </AdminOnly>
+              }
+            />
+            <Route
+              path="traffic"
+              element={
+                <AdminOnly>
+                  <AdminAnalytics />
+                </AdminOnly>
+              }
+            />
+            <Route
+              path="audit"
+              element={
+                <AdminOnly>
+                  <AdminAuditLogs />
+                </AdminOnly>
+              }
+            />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Lazy>
     </>
   );
 }
