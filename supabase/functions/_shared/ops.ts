@@ -1,10 +1,11 @@
 import { serviceClient } from "./backend.ts";
 
-export type OpsSeverity = "info" | "warning" | "error" | "critical";
+export type OpsSeverity = "info" | "warning" | "critical";
 
 export type OpsEvent = {
-  source: string;
-  eventType: string;
+  category: string;
+  code: string;
+  summary: string;
   severity?: OpsSeverity;
   entityType?: string;
   entityId?: string | null;
@@ -35,9 +36,10 @@ function sanitize(
 export async function recordOpsEvent(event: OpsEvent): Promise<void> {
   try {
     await serviceClient().insert("ops_events", {
-      source: event.source.slice(0, 80),
-      event_type: event.eventType.slice(0, 100),
-      severity: event.severity ?? "error",
+      severity: event.severity ?? "warning",
+      category: event.category.slice(0, 80),
+      code: event.code.slice(0, 100),
+      summary: event.summary.slice(0, 300),
       entity_type: event.entityType?.slice(0, 80) ?? null,
       entity_id: event.entityId ?? null,
       detail: sanitize(event.detail),
@@ -47,9 +49,9 @@ export async function recordOpsEvent(event: OpsEvent): Promise<void> {
       JSON.stringify({
         level: "error",
         source: "ops-recorder",
-        event_type: "ops_event_write_failed",
-        original_source: event.source,
-        original_event_type: event.eventType,
+        code: "ops_event_write_failed",
+        original_category: event.category,
+        original_code: event.code,
         message: error instanceof Error ? error.message.slice(0, 200) : "unknown",
       })
     );

@@ -32,6 +32,7 @@ const ADMIN_NAV = [
   { to: "/app/audit", label: "Audit logs", end: false },
   { to: "/app/exams", label: "Build exams", end: false },
   { to: "/app/blocks", label: "Block requests", end: false },
+  { to: "/app/operations", label: "Operations health", end: false },
   { to: "/app/verifications", label: "Identity review", end: false },
   { to: "/app/contracts", label: "All contracts", end: false },
 ];

@@ -166,8 +166,9 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       await recordOpsEvent({
-        source: "requirement-assist",
-        eventType: "llm_request_failed",
+        category: "requirement-assist",
+        code: "llm_request_failed",
+        summary: "LLM polish request failed; served heuristic fallback",
         severity: "warning",
         entityType: "profile",
         entityId: user.id,
@@ -199,8 +200,9 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     await recordOpsEvent({
-      source: "requirement-assist",
-      eventType: "assist_exception",
+      category: "requirement-assist",
+      code: "assist_exception",
+      summary: "Requirement-assist raised an exception; served base result",
       severity: "warning",
       entityType: "profile",
       entityId: user.id,

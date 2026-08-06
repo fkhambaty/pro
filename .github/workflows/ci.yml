@@ -31,18 +31,18 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: npm run build
         env:
-          # Prerender needs a URL; staging placeholder is fine for static build.
-          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL || 'https://example.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY || 'public-anon-placeholder' }}
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+        run: |
+          export VITE_SUPABASE_URL="${STAGING_SUPABASE_URL:-https://example.supabase.co}"
+          export VITE_SUPABASE_ANON_KEY="${STAGING_SUPABASE_ANON_KEY:-public-anon-placeholder}"
+          npm run build
 
   security-staging:
     name: RLS matrix + smoke (staging)
     runs-on: ubuntu-latest
     needs: build
-    # Only when staging secrets are configured — skips cleanly on forks / until set up.
-    if: ${{ secrets.STAGING_SUPABASE_URL != '' && secrets.STAGING_SUPABASE_ANON_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +54,22 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Detect staging secrets
+        id: staging
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$STAGING_SUPABASE_URL" ] && [ -n "$STAGING_SUPABASE_ANON_KEY" ] && [ -n "$STAGING_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Staging secrets not set — skipping RLS/smoke."
+          fi
+
       - name: RLS matrix
+        if: steps.staging.outputs.configured == 'true'
         run: npm run rls
         env:
           OKAVO_ENV: staging
@@ -65,6 +80,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Smoke
+        if: steps.staging.outputs.configured == 'true'
         run: npm run smoke
         env:
           OKAVO_ENV: staging

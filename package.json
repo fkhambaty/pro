@@ -9,7 +9,7 @@
     "build": "npm run build -w apps/catalog",
     "preview": "npm run preview -w apps/catalog",
     "lint": "npm run lint -w apps/catalog",
-    "typecheck": "npm run typecheck -w apps/catalog --if-present || npm exec -w apps/catalog -- tsc -b --force",
+    "typecheck": "npm exec -w apps/catalog -- tsc -b --force",
     "okavo": "node scripts/okavo.mjs",
     "smoke": "node scripts/smoke-test.mjs",
     "rls": "node scripts/rls-matrix.mjs",

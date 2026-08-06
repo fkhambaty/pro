@@ -135,14 +135,17 @@ const multiBid = (
   `)
 )[0];
 
-const foreignPayment = (
-  await sql(`
-    select id, profile_id
-      from payments
-     where profile_id is distinct from '${ids.buyerA}'
-     limit 1
-  `)
-)[0];
+const foreignPayment = ids.buyerB
+  ? (
+      await sql(`
+        select id, profile_id
+          from payments
+         where profile_id = '${ids.buyerB}'
+           and purpose = 'requirement_posting'
+         limit 1
+      `)
+    )[0]
+  : null;
 
 const foreignThread = (
   await sql(`

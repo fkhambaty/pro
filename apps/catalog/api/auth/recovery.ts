@@ -31,16 +31,18 @@ export default async function handler(request: Request): Promise<Response> {
   const verifier = randomVerifier();
   const challenge = await challengeFor(verifier);
   const redirectTo = `${redirectOrigin(request)}/api/auth/callback`;
-  const response = await fetch(`${supabaseUrl()}/auth/v1/recover`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      email,
-      redirect_to: redirectTo,
-      code_challenge: challenge,
-      code_challenge_method: "s256",
-    }),
-  });
+  const response = await fetch(
+    `${supabaseUrl()}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        email,
+        code_challenge: challenge,
+        code_challenge_method: "s256",
+      }),
+    }
+  );
   const body = await readSupabaseResponse(response);
   if (!response.ok) return upstreamError(response, body);
 

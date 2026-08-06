@@ -15,14 +15,6 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 /** Live production Supabase project. Destructive scripts must refuse this. */
 export const PRODUCTION_PROJECT_REF = "fzgnzaflvbimbiseqnrz";
 
-const ENV_FILES = [
-  ".okavo-agent",
-  ".okavo-agent.staging",
-  ".env",
-  ".env.local",
-  "apps/catalog/.env.local",
-];
-
 function parseEnvFile(path) {
   if (!existsSync(path)) return {};
   return Object.fromEntries(
@@ -39,11 +31,19 @@ function parseEnvFile(path) {
   );
 }
 
-/** File-backed env, lowest precedence first so later files win. */
+/**
+ * File-backed env, lowest precedence first so later files win.
+ * `.okavo-agent.staging` is only merged when OKAVO_ENV=staging so a staging
+ * credential file cannot hijack the production read-only console.
+ */
 export function loadFileEnv() {
   const merged = {};
-  for (const name of ENV_FILES) {
+  for (const name of [".env", ".env.local", "apps/catalog/.env.local", ".okavo-agent"]) {
     Object.assign(merged, parseEnvFile(join(ROOT, name)));
+  }
+  const envName = (process.env.OKAVO_ENV ?? merged.OKAVO_ENV ?? "").toLowerCase();
+  if (envName === "staging") {
+    Object.assign(merged, parseEnvFile(join(ROOT, ".okavo-agent.staging")));
   }
   // Legacy seed credential file: KEY=value or bare token.
   const tokenPath = join(ROOT, ".supabase-token");

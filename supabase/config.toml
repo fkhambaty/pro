@@ -101,5 +101,12 @@ enabled = true
 policy = "oneshot"
 inspector_port = 8083
 
+# The retention sweep guards itself with IDENTITY_SWEEP_SECRET (x-okavo-notify),
+# so it does not need a caller JWT. This lets a scheduled job invoke it without
+# ever handling the service-role key. Keep JWT verification ON for every other
+# function that acts on behalf of a signed-in user.
+[functions.identity-retention-sweep]
+verify_jwt = false
+
 [analytics]
 enabled = false
