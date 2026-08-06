@@ -30,6 +30,16 @@ async function rpc(name: string, body: Record<string, unknown>) {
   if (!response.ok) throw new Error(`${name} failed`);
 }
 
+async function softDeleteAuthUser(profileId: string) {
+  const response = await fetch(
+    `${requireEnv("SUPABASE_URL")}/auth/v1/admin/users/${encodeURIComponent(profileId)}?should_soft_delete=true`,
+    { method: "DELETE", headers: serviceHeaders() }
+  );
+  if (!response.ok && response.status !== 404) {
+    throw new Error("Auth account deletion failed");
+  }
+}
+
 type Verification = {
   id: string;
   developer_id: string;
@@ -95,7 +105,8 @@ serve(async (req) => {
             await removeObject(verification.selfie_storage_path);
           }
         }
-        await rpc("complete_identity_erasure", { p_request_id: request.id });
+        await softDeleteAuthUser(request.profile_id);
+        await rpc("complete_account_erasure", { p_request_id: request.id });
         purged += records.length;
       } catch {
         failed += 1;
