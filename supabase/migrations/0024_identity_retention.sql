@@ -80,7 +80,7 @@ $$;
 revoke all on function redact_identity_paths(uuid) from public;
 grant execute on function redact_identity_paths(uuid) to service_role;
 
-create or replace function complete_identity_erasure(p_request_id uuid)
+create or replace function complete_account_erasure(p_request_id uuid)
 returns void
 language plpgsql
 security definer
@@ -104,14 +104,35 @@ begin
          end
    where developer_id = erasure.profile_id;
 
+  update buyer_profiles
+     set organization_name = 'Deleted account',
+         website = null,
+         billing_email = null,
+         vat_number = null
+   where profile_id = erasure.profile_id;
+
+  update developer_profiles
+     set headline = '',
+         bio = null,
+         hourly_rate_usd = null
+   where profile_id = erasure.profile_id;
+
+  update profiles
+     set full_name = 'Deleted user',
+         email = 'erased+' || erasure.profile_id::text || '@invalid.okavo',
+         avatar_url = null,
+         country_code = null,
+         timezone = null
+   where id = erasure.profile_id;
+
   update account_erasure_requests
      set status = 'completed', processed_at = now()
    where id = erasure.id;
 end;
 $$;
 
-revoke all on function complete_identity_erasure(uuid) from public;
-grant execute on function complete_identity_erasure(uuid) to service_role;
+revoke all on function complete_account_erasure(uuid) from public;
+grant execute on function complete_account_erasure(uuid) to service_role;
 
 comment on table account_erasure_requests is
   'Requests are reviewed before deleting the auth account because legal transaction records may require minimisation rather than blanket deletion.';
