@@ -32,8 +32,8 @@ const CATALOG: Record<
   },
   milestone_funding: {
     amountCents: 0, // Replaced by the milestone amount below.
-    name: "Okavo milestone escrow",
-    description: "Held in escrow until you accept the work.",
+    name: "Unsupported build payment",
+    description: "Build payments are made directly between contract parties.",
   },
 };
 
@@ -62,6 +62,9 @@ serve(async (req) => {
   if (req.method !== "POST") {
     return json(405, { error: "Method not allowed" });
   }
+  if (Deno.env.get("PAYMENTS_PROVIDER") !== "stripe") {
+    return json(503, { error: "Stripe payments are disabled" });
+  }
 
   let user: { id: string; email?: string };
   try {
@@ -83,45 +86,15 @@ serve(async (req) => {
     return json(400, { error: "Unknown payment purpose" });
   }
   const purpose = payload.purpose;
+  if (purpose === "milestone_funding") {
+    return json(400, {
+      error: "Okavo does not hold build payments. Pay the developer directly after acceptance.",
+    });
+  }
   const db = serviceClient();
 
   try {
-    let amountCents = CATALOG[purpose].amountCents;
-    let milestoneId: string | null = null;
-    let contractId: string | null = null;
-
-    if (purpose === "milestone_funding") {
-      if (typeof payload.milestoneId !== "string") {
-        return json(400, { error: "milestoneId is required" });
-      }
-      milestoneId = payload.milestoneId;
-
-      // The escrow amount comes from the locked contract, not the client.
-      const rows = (await db.select(
-        `milestones?id=eq.${milestoneId}&select=id,amount_cents,status,contract_id,contracts(buyer_id)`
-      )) as Array<{
-        amount_cents: number;
-        status: string;
-        contract_id: string;
-        contracts: { buyer_id: string } | { buyer_id: string }[] | null;
-      }>;
-
-      const milestone = rows?.[0];
-      if (!milestone) return json(404, { error: "Milestone not found" });
-
-      const contract = Array.isArray(milestone.contracts)
-        ? milestone.contracts[0]
-        : milestone.contracts;
-      if (!contract || contract.buyer_id !== user.id) {
-        return json(403, { error: "Only the buyer can fund this milestone" });
-      }
-      if (milestone.status !== "pending") {
-        return json(409, { error: "This milestone is already funded" });
-      }
-
-      amountCents = milestone.amount_cents;
-      contractId = milestone.contract_id;
-    }
+    const amountCents = CATALOG[purpose].amountCents;
 
     if (purpose === "bidding_membership") {
       const paid = (await db.select(
@@ -142,8 +115,8 @@ serve(async (req) => {
       status: "pending",
       amount_cents: amountCents,
       provider: "stripe",
-      milestone_id: milestoneId,
-      contract_id: contractId,
+      milestone_id: null,
+      contract_id: null,
     })) as Array<{ id: string }>;
 
     const paymentId = created?.[0]?.id;
@@ -175,13 +148,13 @@ serve(async (req) => {
     });
 
     await db.update(`payments?id=eq.${paymentId}`, {
+      provider_order_id: String(session.id),
       provider_reference: String(session.id),
     });
 
     return json(200, { url: session.url, paymentId });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Checkout failed";
-    console.error("stripe-checkout failed", message);
-    return json(500, { error: message });
+    console.error("stripe-checkout failed");
+    return json(500, { error: "Could not open checkout" });
   }
 });

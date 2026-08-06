@@ -4,7 +4,9 @@ export type GuardKind =
   | "outcome"
   | "clarification"
   | "message"
-  | "change_order";
+  | "change_order"
+  | "exam_question"
+  | "exam_reply";
 
 export type GuardResult =
   | { ok: true }
@@ -29,6 +31,8 @@ const MIN_LEN: Record<GuardKind, number> = {
   clarification: 8,
   message: 1,
   change_order: 8,
+  exam_question: 8,
+  exam_reply: 8,
 };
 
 const MAX_LEN: Record<GuardKind, number> = {
@@ -36,6 +40,8 @@ const MAX_LEN: Record<GuardKind, number> = {
   clarification: 2000,
   message: 8000,
   change_order: 4000,
+  exam_question: 2000,
+  exam_reply: 2000,
 };
 
 export function checkGuardrails(kind: GuardKind, text: string): GuardResult {
@@ -56,7 +62,11 @@ export function checkGuardrails(kind: GuardKind, text: string): GuardResult {
       message:
         kind === "outcome"
           ? "Add a clearer outcome (about one sentence) before continuing."
-          : "That text is too short to be useful. Add a bit more detail.",
+          : kind === "exam_question"
+            ? "Add a complete exam question (at least 8 characters)."
+            : kind === "exam_reply"
+              ? "Add a complete exam reply (at least 8 characters)."
+              : "That text is too short to be useful. Add a bit more detail.",
     };
   }
 
@@ -73,8 +83,9 @@ export function checkGuardrails(kind: GuardKind, text: string): GuardResult {
       return {
         ok: false,
         code: "injection",
-        message:
-          "That looks like an attempt to override Okavo’s rules. Describe the product outcome in plain language instead.",
+        message: kind.startsWith("exam_")
+          ? "Remove instruction-override or system-prompt language and write only about the exam."
+          : "That looks like an attempt to override Okavo’s rules. Describe the product outcome in plain language instead.",
       };
     }
   }

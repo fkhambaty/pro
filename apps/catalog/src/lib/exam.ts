@@ -6,6 +6,22 @@ import { getSupabase } from "./supabase";
 
 export const EXAM_WINDOW_HOURS = 5;
 export const EXAM_ADMIN_SLA_HOURS = 48;
+export const EXAM_AUTO_APPROVE_MIN_SCORE = 70;
+export const EXAM_DAILY_START_CAP = 10;
+
+export type BuildExamStatus =
+  | "in_progress"
+  | "submitted"
+  | "admin_questions"
+  | "approved"
+  | "rejected"
+  | "expired";
+
+export type ExamControls = {
+  startsPaused: boolean;
+  autoApprovePaused: boolean;
+  updatedAt: string;
+};
 
 export type ExamBrief = {
   id: string;
@@ -18,7 +34,7 @@ export type ExamBrief = {
 
 export type BuildExam = {
   id: string;
-  status: string;
+  status: BuildExamStatus;
   briefId: string;
   startedAt: string;
   dueAt: string;
@@ -32,6 +48,11 @@ export type BuildExam = {
   reviewerNotes: string | null;
   reviewDeadlineAt: string | null;
   autoApprovedAt: string | null;
+  autoApprovalHold: boolean;
+  autoApprovalHoldReason: string | null;
+  normalizedRepoUrl: string | null;
+  duplicateRepo: boolean;
+  duplicateOfExamId: string | null;
   brief?: ExamBrief | null;
 };
 
@@ -43,6 +64,20 @@ function db() {
 
 export async function processExamAutoApprovals() {
   await db().rpc("process_build_exam_auto_approvals");
+}
+
+export async function fetchExamControls(): Promise<ExamControls> {
+  const { data, error } = await db()
+    .from("exam_controls")
+    .select("starts_paused, auto_approve_paused, updated_at")
+    .eq("singleton", true)
+    .single();
+  if (error) throw error;
+  return {
+    startsPaused: Boolean(data.starts_paused),
+    autoApprovePaused: Boolean(data.auto_approve_paused),
+    updatedAt: data.updated_at as string,
+  };
 }
 
 export async function startBuildExam() {
@@ -77,7 +112,7 @@ export async function fetchMyBuildExam(): Promise<BuildExam | null> {
   const { data, error } = await db()
     .from("build_exams")
     .select(
-      "id, status, brief_id, started_at, due_at, submitted_at, github_url, live_url, auto_score_overall, auto_score_detail, admin_question, developer_reply, reviewer_notes, review_deadline_at, auto_approved_at"
+      "id, status, brief_id, started_at, due_at, submitted_at, github_url, live_url, auto_score_overall, auto_score_detail, admin_question, developer_reply, reviewer_notes, review_deadline_at, auto_approved_at, auto_approval_hold, auto_approval_hold_reason, normalized_repo_url, duplicate_repo, duplicate_of_exam_id"
     )
     .order("created_at", { ascending: false })
     .limit(1)
@@ -99,7 +134,7 @@ export async function listOpenBuildExams(): Promise<BuildExam[]> {
   const { data, error } = await db()
     .from("build_exams")
     .select(
-      "id, status, brief_id, started_at, due_at, submitted_at, github_url, live_url, auto_score_overall, auto_score_detail, admin_question, developer_reply, reviewer_notes, review_deadline_at, auto_approved_at, developer_id"
+      "id, status, brief_id, started_at, due_at, submitted_at, github_url, live_url, auto_score_overall, auto_score_detail, admin_question, developer_reply, reviewer_notes, review_deadline_at, auto_approved_at, auto_approval_hold, auto_approval_hold_reason, normalized_repo_url, duplicate_repo, duplicate_of_exam_id, developer_id"
     )
     .in("status", ["submitted", "admin_questions"])
     .order("review_deadline_at", { ascending: true })
@@ -138,6 +173,30 @@ export async function adminDecideExam(
   if (error) throw error;
 }
 
+export async function adminSetExamPauses(
+  startsPaused: boolean,
+  autoApprovePaused: boolean
+) {
+  const { error } = await db().rpc("admin_set_exam_pauses", {
+    p_starts_paused: startsPaused,
+    p_auto_approve_paused: autoApprovePaused,
+  });
+  if (error) throw error;
+}
+
+export async function adminSetExamHold(
+  examId: string,
+  hold: boolean,
+  reason?: string
+) {
+  const { error } = await db().rpc("admin_set_exam_hold", {
+    p_exam_id: examId,
+    p_hold: hold,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
+}
+
 export async function requestExamAnalysis(examId: string, accessToken: string) {
   const base = import.meta.env.VITE_SUPABASE_URL;
   const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -161,7 +220,7 @@ function mapExam(
 ): BuildExam {
   return {
     id: row.id as string,
-    status: row.status as string,
+    status: row.status as BuildExamStatus,
     briefId: row.brief_id as string,
     startedAt: row.started_at as string,
     dueAt: row.due_at as string,
@@ -179,6 +238,11 @@ function mapExam(
     reviewerNotes: (row.reviewer_notes as string) ?? null,
     reviewDeadlineAt: (row.review_deadline_at as string) ?? null,
     autoApprovedAt: (row.auto_approved_at as string) ?? null,
+    autoApprovalHold: row.auto_approval_hold === true,
+    autoApprovalHoldReason: (row.auto_approval_hold_reason as string) ?? null,
+    normalizedRepoUrl: (row.normalized_repo_url as string) ?? null,
+    duplicateRepo: row.duplicate_repo === true,
+    duplicateOfExamId: (row.duplicate_of_exam_id as string) ?? null,
     brief: brief
       ? {
           id: brief.id as string,

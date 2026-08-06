@@ -9,11 +9,15 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { logAudit } from "./audit";
+import { getSupabase, isSupabaseConfigured } from "./supabase";
 import {
-  getSupabase,
-  hasLikelySupabaseSession,
-  isSupabaseConfigured,
-} from "./supabase";
+  onMemorySessionChange,
+  receptionistSignIn,
+  receptionistSignOut,
+  receptionistSignUp,
+  refreshMemorySession,
+  requestPasswordRecovery,
+} from "./sessionClient";
 import type { BuyerScale, Role } from "../types";
 
 type SignUpInput = {
@@ -159,93 +163,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const path = window.location.pathname;
-    const shouldBoot =
-      isSupabaseConfigured &&
-      (path.startsWith("/app") ||
-        path.startsWith("/signin") ||
-        hasLikelySupabaseSession());
-
-    if (!shouldBoot) {
+    if (!isSupabaseConfigured) {
       setReady(true);
       return;
     }
 
-    const supabase = getSupabase();
-    if (!supabase) {
-      setReady(true);
-      return;
-    }
+    const recovery =
+      new URLSearchParams(window.location.search).get("recovery") === "1";
+    if (recovery) setPasswordRecovery(true);
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) {
-        ensureProfile(data.session).finally(() => setReady(true));
+    const unsubscribe = onMemorySessionChange((nextSession) => {
+      setSession(nextSession);
+      if (nextSession) {
+        void ensureProfile(nextSession);
       } else {
-        setReady(true);
+        setRole("guest");
+        setDisplayName("");
+        if (!recovery) setPasswordRecovery(false);
       }
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, nextSession) => {
-        setSession(nextSession);
-        if (event === "PASSWORD_RECOVERY") {
-          setPasswordRecovery(true);
-        }
-        if (nextSession) {
-          ensureProfile(nextSession);
-        } else {
-          setRole("guest");
-          setDisplayName("");
-          setPasswordRecovery(false);
-        }
-      }
-    );
+    refreshMemorySession().finally(() => setReady(true));
 
-    return () => listener.subscription.unsubscribe();
+    return unsubscribe;
   }, [ensureProfile]);
 
   const signUp = useCallback(async (input: SignUpInput) => {
     setError(null);
     setNotice(null);
-    const supabase = getSupabase();
-    if (!supabase) return;
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: input.email,
-      password: input.password,
-      options: {
+    try {
+      const data = await receptionistSignUp({
+        email: input.email,
+        password: input.password,
         data: {
           role: input.role,
           full_name: input.fullName,
           organization_name: input.organizationName ?? input.fullName,
           scale: input.scale ? SCALE_TO_DB[input.scale] : "local_business",
         },
-      },
-    });
-
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
-    }
-
-    void notifySupportOfSignup({
-      email: input.email,
-      role: input.role,
-      full_name: input.fullName,
-      organization_name: input.organizationName ?? input.fullName,
-      user_id: data.user?.id,
-    });
-
-    if (data.session) {
-      logAudit("auth.sign_up", "session", data.user?.id ?? null, {
-        role: input.role,
       });
-    }
 
-    if (!data.session) {
-      setNotice(
-        `We sent a verification link to ${input.email}. Confirm the address, then sign in.`
+      void notifySupportOfSignup({
+        email: input.email,
+        role: input.role,
+        full_name: input.fullName,
+        organization_name: input.organizationName ?? input.fullName,
+        user_id: data.user?.id,
+      });
+
+      if (data.session) {
+        logAudit("auth.sign_up", "session", data.user?.id ?? null, {
+          role: input.role,
+        });
+      } else {
+        setNotice(
+          `We sent a verification link to ${input.email}. Confirm the address, then sign in.`
+        );
+      }
+    } catch (signUpError) {
+      setError(
+        signUpError instanceof Error ? signUpError.message : "Sign up failed."
       );
     }
   }, []);
@@ -269,20 +246,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = useCallback(async (email: string) => {
     setError(null);
     setNotice(null);
-    const supabase = getSupabase();
-    if (!supabase) return;
-    const redirectTo = `${window.location.origin}/signin`;
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      email,
-      { redirectTo }
-    );
-    if (resetError) {
-      setError(resetError.message);
-      return;
+    try {
+      await requestPasswordRecovery(email);
+      setNotice(
+        `If an account exists for ${email}, we sent a link to choose a new password.`
+      );
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Password reset failed."
+      );
     }
-    setNotice(
-      `If an account exists for ${email}, we sent a link to choose a new password.`
-    );
   }, []);
 
   const updatePassword = useCallback(async (password: string) => {
@@ -306,17 +281,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
     setNotice(null);
-    const supabase = getSupabase();
-    if (!supabase) return;
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (signInError) {
-      setError(signInError.message);
-      return;
+    try {
+      await receptionistSignIn(email, password);
+      logAudit("auth.sign_in", "session", null, { email });
+    } catch (signInError) {
+      setError(
+        signInError instanceof Error ? signInError.message : "Sign in failed."
+      );
     }
-    logAudit("auth.sign_in", "session", null, { email });
   }, []);
 
   const signOut = useCallback(async (reason: "manual" | "idle" = "manual") => {
@@ -325,8 +297,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       "session",
       null
     );
-    const supabase = getSupabase();
-    if (supabase) await supabase.auth.signOut();
+    await receptionistSignOut();
+    setSession(null);
     setRole("guest");
     setDisplayName("");
   }, []);
