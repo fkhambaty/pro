@@ -34,6 +34,33 @@ export function requireEnv(name: string): string {
   return value;
 }
 
+export type AuthenticatedUser = {
+  id: string;
+  email?: string;
+};
+
+/** Validates a caller JWT with Supabase Auth. Never trusts header presence. */
+export async function authenticatedUser(
+  req: Request
+): Promise<AuthenticatedUser | null> {
+  const authorization = req.headers.get("Authorization") ?? "";
+  if (!authorization.toLowerCase().startsWith("bearer ")) return null;
+
+  const response = await fetch(`${requireEnv("SUPABASE_URL")}/auth/v1/user`, {
+    headers: {
+      Authorization: authorization,
+      apikey: requireEnv("SUPABASE_ANON_KEY"),
+    },
+  });
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as {
+    id?: string;
+    email?: string;
+  };
+  return payload.id ? { id: payload.id, email: payload.email } : null;
+}
+
 /**
  * Calls the Stripe REST API directly. Avoids pulling the Node SDK into Deno
  * for the two endpoints this app needs.
@@ -96,6 +123,8 @@ export function serviceClient() {
       call("POST", table, row, "return=representation"),
     update: (path: string, patch: unknown) =>
       call("PATCH", path, patch, "return=representation"),
+    rpc: (name: string, args: unknown) =>
+      call("POST", `rpc/${name}`, args),
   };
 }
 

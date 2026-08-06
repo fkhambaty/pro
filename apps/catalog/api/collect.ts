@@ -24,11 +24,27 @@ type Beacon = {
   profileId?: string | null;
 };
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+function responseHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin");
+  const configured = (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const allowed = new Set([
+    "https://okavo.org",
+    "https://www.okavo.org",
+    "http://127.0.0.1:5180",
+    "http://localhost:5180",
+    ...configured,
+  ]);
+  return {
+    ...(origin && allowed.has(origin)
+      ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" }
+      : {}),
+    "Access-Control-Allow-Headers": "content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 /** Search engines and AI assistants we want to see broken out by name. */
 const SEARCH_HOSTS = [
@@ -149,28 +165,29 @@ function decodeHeader(value: string | null): string | null {
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const headers = responseHeaders(req);
+  if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: CORS });
+    return new Response("Method not allowed", { status: 405, headers });
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
     // Never fail the page over analytics.
-    return new Response(null, { status: 204, headers: CORS });
+    return new Response(null, { status: 204, headers });
   }
 
   let beacon: Beacon;
   try {
     beacon = (await req.json()) as Beacon;
   } catch {
-    return new Response(null, { status: 204, headers: CORS });
+    return new Response(null, { status: 204, headers });
   }
 
   const ua = req.headers.get("user-agent") ?? "";
   const { device, os, browser } = readUserAgent(ua);
-  if (device === "Bot") return new Response(null, { status: 204, headers: CORS });
+  if (device === "Bot") return new Response(null, { status: 204, headers });
 
   const ip =
     req.headers.get("x-real-ip") ??
@@ -182,6 +199,36 @@ export default async function handler(req: Request): Promise<Response> {
     ua,
     process.env.ANALYTICS_SALT ?? "okavo"
   );
+
+  try {
+    const limitHash = await dailyVisitorId(
+      ip,
+      ua,
+      `${process.env.ANALYTICS_SALT ?? "okavo"}:rate`
+    );
+    const limitResponse = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/consume_edge_rate_limit`,
+      {
+        method: "POST",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          p_bucket_hash: limitHash,
+          p_limit: 120,
+          p_window_seconds: 60,
+        }),
+      }
+    );
+    if (limitResponse.ok && (await limitResponse.json()) !== true) {
+      return new Response(null, { status: 204, headers });
+    }
+  } catch {
+    // Analytics is best-effort; rate-limit infrastructure must not affect UI.
+    return new Response(null, { status: 204, headers });
+  }
 
   let referrerHost: string | null = null;
   if (beacon.referrer) {
@@ -240,5 +287,5 @@ export default async function handler(req: Request): Promise<Response> {
     // Swallow: a dropped analytics beacon must never surface to a visitor.
   }
 
-  return new Response(null, { status: 204, headers: CORS });
+  return new Response(null, { status: 204, headers });
 }

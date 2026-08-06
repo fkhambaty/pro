@@ -136,6 +136,40 @@ serve(async (req) => {
       }
     }
 
+    const pendingFilter = [
+      `profile_id=eq.${user.id}`,
+      `purpose=eq.${purpose}`,
+      "status=eq.pending",
+      `created_at=gte.${encodeURIComponent(new Date(Date.now() - 15 * 60_000).toISOString())}`,
+      bidId ? `bid_id=eq.${bidId}` : "bid_id=is.null",
+      "select=id,provider_order_id,amount_cents,currency",
+      "order=created_at.desc",
+      "limit=1",
+    ].join("&");
+    const pending = (await db.select(`payments?${pendingFilter}`)) as Array<{
+      id: string;
+      provider_order_id: string | null;
+      amount_cents: number;
+      currency: string;
+    }>;
+    const reusable = pending[0];
+    if (reusable?.provider_order_id) {
+      return json(200, {
+        orderId: reusable.provider_order_id,
+        amount: reusable.amount_cents,
+        currency: reusable.currency,
+        label,
+        paymentId: reusable.id,
+        keyId: requireEnv("RAZORPAY_KEY_ID"),
+        reused: true,
+      });
+    }
+    if (reusable) {
+      return json(409, {
+        error: "A payment order is already being opened. Please retry shortly.",
+      });
+    }
+
     const insertRow: Record<string, unknown> = {
       profile_id: user.id,
       purpose,
@@ -180,6 +214,7 @@ serve(async (req) => {
     }
 
     await db.update(`payments?id=eq.${paymentId}`, {
+      provider_order_id: String(order.id),
       provider_reference: String(order.id),
     });
 
@@ -192,8 +227,7 @@ serve(async (req) => {
       keyId: requireEnv("RAZORPAY_KEY_ID"),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Checkout failed";
-    console.error("razorpay-order failed", message);
-    return json(500, { error: message });
+    console.error("razorpay-order failed");
+    return json(500, { error: "Could not open checkout" });
   }
 });

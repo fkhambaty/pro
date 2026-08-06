@@ -1,5 +1,11 @@
-import { corsHeaders, json } from "../_shared/backend.ts";
+import {
+  authenticatedUser,
+  corsHeaders,
+  json,
+} from "../_shared/backend.ts";
 import { checkGuardrails } from "../_shared/guardrails.ts";
+import { recordOpsEvent } from "../_shared/ops.ts";
+import { consumeRateLimit } from "../_shared/rateLimit.ts";
 
 /**
  * Optional grounded assist.
@@ -84,6 +90,22 @@ Deno.serve(async (req) => {
     return json(405, { error: "POST only" });
   }
 
+  const user = await authenticatedUser(req);
+  if (!user) return json(401, { error: "Sign in required" });
+
+  const withinLimit = await consumeRateLimit({
+    scope: "requirement-assist",
+    actor: user.id,
+    limit: 20,
+    windowSeconds: 3600,
+  });
+  if (!withinLimit) {
+    return json(429, {
+      error: "Too many assist requests. Try again in an hour.",
+      retry_after_seconds: 3600,
+    });
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -143,6 +165,14 @@ Deno.serve(async (req) => {
     });
 
     if (!response.ok) {
+      await recordOpsEvent({
+        source: "requirement-assist",
+        eventType: "llm_request_failed",
+        severity: "warning",
+        entityType: "profile",
+        entityId: user.id,
+        detail: { status: response.status },
+      });
       return json(200, { ...base, mode: "heuristic", llmError: true });
     }
 
@@ -167,7 +197,17 @@ Deno.serve(async (req) => {
         "LLM polish of your own draft only — no new product inventing.",
       suggestions: parsed.suggestions.slice(0, 8),
     });
-  } catch {
+  } catch (error) {
+    await recordOpsEvent({
+      source: "requirement-assist",
+      eventType: "assist_exception",
+      severity: "warning",
+      entityType: "profile",
+      entityId: user.id,
+      detail: {
+        message: error instanceof Error ? error.message : "unknown",
+      },
+    });
     return json(200, base);
   }
 });

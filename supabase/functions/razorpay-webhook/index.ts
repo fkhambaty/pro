@@ -1,20 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { json, requireEnv, serviceClient } from "../_shared/backend.ts";
 
-/**
- * Razorpay's callback, and a backup place a fee is marked paid.
- *
- * Primary settlement is razorpay-confirm (Checkout signature verification).
- * This webhook covers cases where the browser closed before confirm ran.
- *
- * Without the signature check below, anyone could POST "payment succeeded"
- * and mint themselves free postings, so an unverifiable request is refused
- * before anything is read from it.
- */
-
-async function verifySignature(payload: string, header: string | null, secret: string) {
-  if (!header) return false;
-
+async function hmacHex(secret: string, value: string) {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -22,110 +9,161 @@ async function verifySignature(payload: string, header: string | null, secret: s
     false,
     ["sign"]
   );
-  const signed = await crypto.subtle.sign(
+  const bytes = await crypto.subtle.sign(
     "HMAC",
     key,
-    new TextEncoder().encode(payload)
+    new TextEncoder().encode(value)
   );
-  const digest = Array.from(new Uint8Array(signed))
-    .map((b) => b.toString(16).padStart(2, "0"))
+  return Array.from(new Uint8Array(bytes))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
 
-  if (digest.length !== header.length) return false;
+function safeEqual(left: string, right: string) {
+  if (left.length !== right.length) return false;
   let mismatch = 0;
-  for (let i = 0; i < digest.length; i += 1) {
-    mismatch |= digest.charCodeAt(i) ^ header.charCodeAt(i);
+  for (let index = 0; index < left.length; index += 1) {
+    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
   }
   return mismatch === 0;
+}
+
+async function rpc(name: string, body: Record<string, unknown>) {
+  const key = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const response = await fetch(
+    `${requireEnv("SUPABASE_URL")}/rest/v1/rpc/${name}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!response.ok) throw new Error(`${name} failed`);
+  return response.json() as Promise<string>;
 }
 
 serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  const payload = await req.text();
-
-  let verified = false;
+  const raw = await req.text();
+  let signatureValid = false;
   try {
-    verified = await verifySignature(
-      payload,
-      req.headers.get("x-razorpay-signature"),
-      requireEnv("RAZORPAY_WEBHOOK_SECRET")
+    const expected = await hmacHex(requireEnv("RAZORPAY_WEBHOOK_SECRET"), raw);
+    signatureValid = safeEqual(
+      expected,
+      req.headers.get("x-razorpay-signature") ?? ""
     );
-  } catch (error) {
-    console.error("razorpay-webhook not configured", error);
+  } catch {
+    console.error("razorpay-webhook configuration failure");
     return json(500, { error: "Webhook is not configured" });
   }
-
-  if (!verified) return json(400, { error: "Invalid signature" });
+  if (!signatureValid) return json(400, { error: "Invalid signature" });
 
   let event: Record<string, unknown>;
   try {
-    event = JSON.parse(payload) as Record<string, unknown>;
+    event = JSON.parse(raw) as Record<string, unknown>;
   } catch {
     return json(400, { error: "Invalid JSON" });
   }
 
-  const type = event?.event as string | undefined;
-  // payment.authorized can precede capture on some methods; still settle so
-  // the buyer is not stuck waiting while capture completes asynchronously.
-  if (
-    type !== "payment.captured" &&
-    type !== "payment.authorized" &&
-    type !== "order.paid"
-  ) {
-    return json(200, { received: true, note: `Ignored ${type}` });
-  }
-
-  const payloadObj = event?.payload as
+  const type = String(event.event ?? "unknown");
+  const payload = event.payload as
     | {
         payment?: { entity?: Record<string, unknown> };
         order?: { entity?: Record<string, unknown> };
       }
     | undefined;
-  const payment = payloadObj?.payment?.entity;
-  const order = payloadObj?.order?.entity;
-
-  const paymentNotes = (payment?.notes ?? {}) as Record<string, string>;
-  const orderNotes = (order?.notes ?? {}) as Record<string, string>;
-
-  const paymentId: string | undefined =
-    paymentNotes.payment_id ?? orderNotes.payment_id;
-  const orderId: string | undefined =
-    (payment?.order_id as string | undefined) ?? (order?.id as string | undefined);
-  const razorpayPaymentId = payment?.id ? String(payment.id) : undefined;
-
-  if (!paymentId && !orderId) {
-    return json(200, { received: true, note: "No payment reference" });
-  }
+  const payment = payload?.payment?.entity;
+  const order = payload?.order?.entity;
+  const providerPaymentId = payment?.id ? String(payment.id) : null;
+  const orderId = payment?.order_id
+    ? String(payment.order_id)
+    : order?.id
+      ? String(order.id)
+      : null;
+  const eventId =
+    typeof event.id === "string"
+      ? event.id
+      : `${type}:${providerPaymentId ?? orderId ?? await hmacHex("event", raw)}`;
 
   const db = serviceClient();
-  const filter = paymentId
-    ? `id=eq.${paymentId}`
-    : `provider_reference=eq.${orderId}`;
-
   try {
-    const rows = (await db.select(`payments?${filter}&select=id,status`)) as Array<{
-      id: string;
-      status: string;
-    }>;
-
-    const record = rows?.[0];
-    if (!record) return json(200, { received: true, note: "Unknown payment" });
-
-    if (record.status === "paid") {
-      return json(200, { received: true, note: "Already settled" });
+    const seen = (await db.select(
+      `payment_provider_events?provider=eq.razorpay&provider_event_id=eq.${encodeURIComponent(eventId)}&select=id,status`
+    )) as Array<{ id: string; status: string }>;
+    if (seen.length > 0) {
+      return json(200, { received: true, duplicate: true });
     }
 
-    await db.update(`payments?id=eq.${record.id}&status=neq.paid`, {
-      status: "paid",
-      paid_at: new Date().toISOString(),
-      provider_reference: razorpayPaymentId ?? orderId,
-    });
+    const ledger = (await db.insert("payment_provider_events", {
+      provider: "razorpay",
+      provider_event_id: eventId,
+      event_type: type,
+      provider_order_id: orderId,
+      provider_payment_id: providerPaymentId,
+      status: "received",
+    })) as Array<{ id: string }>;
+    const ledgerId = ledger[0]?.id;
 
+    if (type !== "payment.captured") {
+      if (ledgerId) {
+        await db.update(`payment_provider_events?id=eq.${ledgerId}`, {
+          status: "ignored",
+          processed_at: new Date().toISOString(),
+        });
+      }
+      return json(200, { received: true });
+    }
+    if (!orderId || !providerPaymentId || !payment) {
+      if (ledgerId) {
+        await db.update(`payment_provider_events?id=eq.${ledgerId}`, {
+          status: "failed",
+          processed_at: new Date().toISOString(),
+        });
+      }
+      return json(200, { received: true, note: "Incomplete provider event" });
+    }
+
+    const notes = (payment.notes ?? {}) as Record<string, string>;
+    const filter = notes.payment_id
+      ? `id=eq.${encodeURIComponent(notes.payment_id)}`
+      : `provider_order_id=eq.${encodeURIComponent(orderId)}`;
+    const rows = (await db.select(
+      `payments?${filter}&select=id,amount_cents,currency`
+    )) as Array<{ id: string; amount_cents: number; currency: string }>;
+    const local = rows[0];
+    if (!local) {
+      if (ledgerId) {
+        await db.update(`payment_provider_events?id=eq.${ledgerId}`, {
+          status: "ignored",
+          processed_at: new Date().toISOString(),
+        });
+      }
+      return json(200, { received: true, note: "Unknown payment" });
+    }
+
+    const result = await rpc("settle_provider_payment", {
+      p_payment_id: local.id,
+      p_provider: "razorpay",
+      p_order_id: orderId,
+      p_provider_payment_id: providerPaymentId,
+      p_amount_cents: Number(payment.amount),
+      p_currency: String(payment.currency ?? ""),
+    });
+    if (ledgerId) {
+      await db.update(`payment_provider_events?id=eq.${ledgerId}`, {
+        payment_id: local.id,
+        status: result === "mismatch" ? "failed" : "processed",
+        processed_at: new Date().toISOString(),
+      });
+    }
     return json(200, { received: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Webhook failed";
-    console.error("razorpay-webhook failed", message);
-    return json(500, { error: message });
+  } catch {
+    console.error("razorpay-webhook processing failure");
+    return json(500, { error: "Webhook processing failed" });
   }
 });

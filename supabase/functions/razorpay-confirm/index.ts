@@ -74,6 +74,24 @@ async function razorpayGet(path: string) {
   return body;
 }
 
+async function settlePayment(input: Record<string, unknown>) {
+  const key = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const response = await fetch(
+    `${requireEnv("SUPABASE_URL")}/rest/v1/rpc/settle_provider_payment`,
+    {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    }
+  );
+  if (!response.ok) throw new Error("Atomic payment settlement failed");
+  return response.json() as Promise<string>;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders() });
@@ -123,14 +141,16 @@ serve(async (req) => {
 
     const db = serviceClient();
     const rows = (await db.select(
-      `payments?id=eq.${okavoPaymentId}&select=id,status,profile_id,provider,provider_reference,purpose`
+      `payments?id=eq.${okavoPaymentId}&select=id,status,profile_id,provider,provider_order_id,purpose,amount_cents,currency`
     )) as Array<{
       id: string;
       status: string;
       profile_id: string;
       provider: string;
-      provider_reference: string | null;
+      provider_order_id: string | null;
       purpose: string;
+      amount_cents: number;
+      currency: string;
     }>;
 
     const record = rows?.[0];
@@ -141,7 +161,7 @@ serve(async (req) => {
     if (record.provider !== "razorpay") {
       return json(400, { error: "Not a Razorpay payment" });
     }
-    if (record.provider_reference && record.provider_reference !== orderId) {
+    if (record.provider_order_id !== orderId) {
       return json(400, { error: "Order does not match this payment" });
     }
     if (record.status === "paid") {
@@ -151,13 +171,21 @@ serve(async (req) => {
     const remote = await razorpayGet(`payments/${razorpayPaymentId}`);
     const remoteStatus = String(remote.status ?? "");
     const remoteOrder = String(remote.order_id ?? "");
+    const remoteAmount = Number(remote.amount);
+    const remoteCurrency = String(remote.currency ?? "").toUpperCase();
     if (remoteOrder && remoteOrder !== orderId) {
       return json(400, { error: "Razorpay order mismatch" });
     }
-    if (remoteStatus !== "captured" && remoteStatus !== "authorized") {
+    if (remoteStatus !== "captured") {
       return json(409, {
         error: `Payment is ${remoteStatus || "unknown"}, not captured`,
       });
+    }
+    if (
+      remoteAmount !== record.amount_cents ||
+      remoteCurrency !== record.currency.toUpperCase()
+    ) {
+      return json(400, { error: "Payment amount or currency does not match" });
     }
 
     // notes.payment_id was set when the order was created — prefer that match.
@@ -166,16 +194,22 @@ serve(async (req) => {
       return json(400, { error: "Payment notes do not match" });
     }
 
-    await db.update(`payments?id=eq.${record.id}&status=neq.paid`, {
-      status: "paid",
-      paid_at: new Date().toISOString(),
-      provider_reference: razorpayPaymentId,
+    const result = await settlePayment({
+      p_payment_id: record.id,
+      p_provider: "razorpay",
+      p_order_id: orderId,
+      p_provider_payment_id: razorpayPaymentId,
+      p_amount_cents: remoteAmount,
+      p_currency: remoteCurrency,
     });
 
-    return json(200, { ok: true, purpose: record.purpose });
+    return json(200, {
+      ok: true,
+      alreadyPaid: result === "already_paid",
+      purpose: record.purpose,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Confirm failed";
-    console.error("razorpay-confirm failed", message);
-    return json(500, { error: message });
+    console.error("razorpay-confirm failed");
+    return json(500, { error: "Could not confirm payment" });
   }
 });
