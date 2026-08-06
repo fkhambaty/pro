@@ -39,18 +39,21 @@ export default async function handler(request: Request): Promise<Response> {
 
   const verifier = randomVerifier();
   const challenge = await challengeFor(verifier);
-  const response = await fetch(`${supabaseUrl()}/auth/v1/signup`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      email: input.email,
-      password: input.password,
-      data: input.data ?? {},
-      redirect_to: `${redirectOrigin(request)}/api/auth/callback`,
-      code_challenge: challenge,
-      code_challenge_method: "s256",
-    }),
-  });
+  const redirectTo = `${redirectOrigin(request)}/api/auth/callback`;
+  const response = await fetch(
+    `${supabaseUrl()}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectTo)}`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        email: input.email,
+        password: input.password,
+        data: input.data ?? {},
+        code_challenge: challenge,
+        code_challenge_method: "s256",
+      }),
+    }
+  );
   const body = await readSupabaseResponse(response);
   if (!response.ok) return upstreamError(response, body);
 
