@@ -171,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const recovery =
       new URLSearchParams(window.location.search).get("recovery") === "1";
     if (recovery) setPasswordRecovery(true);
+    getSupabase();
 
     const unsubscribe = onMemorySessionChange((nextSession) => {
       setSession(nextSession);

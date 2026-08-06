@@ -70,6 +70,16 @@ values
   )
 on conflict (slug) do nothing;
 
+update exam_briefs b
+set assignment_count = history.assignment_count,
+    last_assigned_at = history.last_assigned_at
+from (
+  select brief_id, count(*)::integer as assignment_count, max(started_at) as last_assigned_at
+  from build_exams
+  group by brief_id
+) history
+where b.id = history.brief_id;
+
 -- ---------------------------------------------------------------------------
 -- Operational controls and review signals
 -- ---------------------------------------------------------------------------
@@ -89,6 +99,7 @@ alter table exam_controls enable row level security;
 drop policy if exists exam_controls_read on exam_controls;
 create policy exam_controls_read on exam_controls
   for select to authenticated using (true);
+grant select on table exam_controls to authenticated;
 
 alter table build_exams
   add column if not exists auto_approval_hold boolean not null default false,
@@ -114,6 +125,12 @@ begin
   v := regexp_replace(v, '\.git$', '');
   v := regexp_replace(v, '^https://www\.github\.com/', 'https://github.com/');
   v := regexp_replace(v, '^https://www\.gitlab\.com/', 'https://gitlab.com/');
+  if v ~ '^https://github\.com/' then
+    v := regexp_replace(v, '^(https://github\.com/[^/]+/[^/]+).*$', '\1');
+  else
+    v := regexp_replace(v, '/-/.*$', '');
+  end if;
+  v := regexp_replace(v, '\.git$', '');
   return nullif(v, '');
 end;
 $$;
@@ -122,6 +139,18 @@ update build_exams
 set normalized_repo_url = normalize_exam_repo_url(github_url)
 where github_url is not null
   and normalized_repo_url is null;
+
+with duplicate_repos as (
+  select normalized_repo_url
+  from build_exams
+  where normalized_repo_url is not null
+  group by normalized_repo_url
+  having count(*) > 1
+)
+update build_exams e
+set duplicate_repo = true
+from duplicate_repos d
+where e.normalized_repo_url = d.normalized_repo_url;
 
 -- Exam content is changed only through narrow RPCs, never arbitrary updates.
 revoke update on table build_exams from authenticated;
@@ -173,9 +202,13 @@ declare
   v_exam uuid;
 begin
   if v_dev is null then raise exception 'Sign in required'; end if;
+  perform pg_advisory_xact_lock(hashtext('okavo.build_exam.controls'));
   if (select starts_paused from exam_controls where singleton) then
     raise exception 'New build exams are temporarily paused. Please try again later.';
   end if;
+  -- Serialize the small UTC-day quota check so simultaneous starts cannot
+  -- both observe the tenth place as available.
+  perform pg_advisory_xact_lock(hashtext('okavo.build_exam.daily_cap'));
   if (
     select count(*)
     from build_exams
@@ -210,8 +243,8 @@ begin
   from exam_briefs
   where active
   order by assignment_count asc, last_assigned_at asc nulls first, random()
-  for update skip locked
-  limit 1;
+  limit 1
+  for update skip locked;
   if v_brief is null then raise exception 'No exam briefs configured'; end if;
 
   update exam_briefs
@@ -340,6 +373,8 @@ begin
   set status = 'admin_questions',
       admin_question = exam_guard_text('question', p_question),
       developer_reply = null,
+      auto_approval_hold = true,
+      auto_approval_hold_reason = 'Admin requested more information.',
       review_deadline_at = now() + make_interval(hours => exam_admin_sla_hours())
   where id = p_exam_id
     and status in ('submitted', 'admin_questions');
@@ -362,7 +397,7 @@ begin
   if p_overall is null or p_overall < 0 or p_overall > 100 then
     raise exception 'Score must be between 0 and 100';
   end if;
-  if auth.role() <> 'service_role' and not is_admin() and not exists (
+  if coalesce(auth.role(), '') <> 'service_role' and not is_admin() and not exists (
     select 1 from build_exams
     where id = p_exam_id
       and developer_id = auth.uid()
@@ -396,6 +431,7 @@ set search_path = public
 as $$
 begin
   if not is_admin() then raise exception 'Admin only'; end if;
+  perform pg_advisory_xact_lock(hashtext('okavo.build_exam.controls'));
   update exam_controls
   set starts_paused = p_starts_paused,
       auto_approve_paused = p_auto_approve_paused,
@@ -463,6 +499,7 @@ declare
   r record;
   n integer := 0;
 begin
+  perform pg_advisory_xact_lock(hashtext('okavo.build_exam.controls'));
   if (select auto_approve_paused from exam_controls where singleton) then
     return 0;
   end if;
@@ -514,6 +551,7 @@ revoke all on function admin_ask_build_exam(uuid, text) from public;
 grant execute on function admin_ask_build_exam(uuid, text) to authenticated;
 revoke all on function save_exam_auto_score(uuid, integer, jsonb) from public;
 grant execute on function save_exam_auto_score(uuid, integer, jsonb) to authenticated;
+grant execute on function save_exam_auto_score(uuid, integer, jsonb) to service_role;
 
 comment on table exam_controls is
   'Singleton operational switches for exam starts and score-gated auto-approval.';

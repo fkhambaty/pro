@@ -15,13 +15,35 @@ type CheckoutSession = {
   id: string;
   payment_status?: string;
   amount_total?: number;
+  currency?: string;
   payment_intent?: string;
   metadata?: { payment_id?: string; purpose?: string; profile_id?: string };
 };
 
+async function settlePayment(body: Record<string, unknown>) {
+  const key = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const response = await fetch(
+    `${requireEnv("SUPABASE_URL")}/rest/v1/rpc/settle_provider_payment`,
+    {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!response.ok) throw new Error("Atomic settlement failed");
+  return response.json() as Promise<string>;
+}
+
 serve(async (req) => {
   if (req.method !== "POST") {
     return json(405, { error: "Method not allowed" });
+  }
+  if (Deno.env.get("PAYMENTS_PROVIDER") !== "stripe") {
+    return json(503, { error: "Stripe payments are disabled" });
   }
 
   const payload = await req.text();
@@ -33,8 +55,8 @@ serve(async (req) => {
       req.headers.get("stripe-signature"),
       requireEnv("STRIPE_WEBHOOK_SECRET")
     );
-  } catch (error) {
-    console.error("webhook config error", error);
+  } catch {
+    console.error("stripe-webhook configuration failure");
     return json(500, { error: "Webhook is not configured" });
   }
 
@@ -70,12 +92,14 @@ serve(async (req) => {
 
   try {
     const rows = (await db.select(
-      `payments?id=eq.${paymentId}&select=id,status,purpose,milestone_id`
+      `payments?id=eq.${paymentId}&select=id,status,purpose,amount_cents,currency,provider_order_id`
     )) as Array<{
       id: string;
       status: string;
       purpose: string;
-      milestone_id: string | null;
+      amount_cents: number;
+      currency: string;
+      provider_order_id: string | null;
     }>;
 
     const payment = rows?.[0];
@@ -87,28 +111,29 @@ serve(async (req) => {
     if (payment.status === "paid") {
       return json(200, { received: true, note: "Already settled" });
     }
-
-    await db.update(`payments?id=eq.${paymentId}&status=neq.paid`, {
-      status: "paid",
-      paid_at: new Date().toISOString(),
-      provider_reference: session.payment_intent
-        ? String(session.payment_intent)
-        : session.id,
-    });
-
-    // Escrow only moves the milestone after the money has actually landed.
-    if (payment.purpose === "milestone_funding" && payment.milestone_id) {
-      await db.update(`milestones?id=eq.${payment.milestone_id}`, {
-        status: "funded",
-        funded_at: new Date().toISOString(),
-      });
+    if (
+      session.id !== payment.provider_order_id ||
+      session.amount_total !== payment.amount_cents ||
+      String(session.currency ?? "").toUpperCase() !== payment.currency.toUpperCase()
+    ) {
+      return json(400, { error: "Payment amount, currency, or session mismatch" });
     }
 
+    await settlePayment({
+      p_payment_id: payment.id,
+      p_provider: "stripe",
+      p_order_id: session.id,
+      p_provider_payment_id: session.payment_intent
+        ? String(session.payment_intent)
+        : session.id,
+      p_amount_cents: session.amount_total,
+      p_currency: session.currency,
+    });
+
     return json(200, { received: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Webhook failed";
-    console.error("stripe-webhook failed", message);
+  } catch {
+    console.error("stripe-webhook failed");
     // A 500 makes Stripe retry, which is what we want on a transient failure.
-    return json(500, { error: message });
+    return json(500, { error: "Webhook processing failed" });
   }
 });

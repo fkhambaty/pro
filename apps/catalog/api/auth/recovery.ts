@@ -46,6 +46,6 @@ export default async function handler(request: Request): Promise<Response> {
 
   return json(
     { ok: true },
-    { headers: { "Set-Cookie": pkceCookie(request, verifier) } }
+    { headers: { "Set-Cookie": pkceCookie(request, verifier, "recovery") } }
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { money } from "../format";
 import * as api from "../lib/api";
@@ -54,6 +54,20 @@ export default function ContractPage() {
   const [blockReason, setBlockReason] = useState("");
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockNote, setBlockNote] = useState<string | null>(null);
+  const [proofMilestoneId, setProofMilestoneId] = useState<string | null>(null);
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProofs, setPaymentProofs] = useState<
+    api.ExternalPaymentProof[]
+  >([]);
+
+  useEffect(() => {
+    if (!connected || !project) return;
+    api
+      .fetchExternalPaymentProofs(project.milestones.map((milestone) => milestone.id))
+      .then(setPaymentProofs)
+      .catch(() => setPaymentProofs([]));
+  }, [connected, project]);
 
   async function confirmPaidOutside(projectId: string, milestoneId: string) {
     const ok = window.confirm(
@@ -70,12 +84,19 @@ export default function ContractPage() {
         fundMilestone(projectId, milestoneId);
         return;
       }
-      const succeeded = await fundMilestone(projectId, milestoneId);
-      if (succeeded === false) {
-        setPayError(
-          "Could not confirm payment. Accept the submitted work first, then confirm you paid outside Okavo."
-        );
-      }
+      await api.fundMilestone(
+        milestoneId,
+        paymentReference,
+        paymentProof,
+        userId ?? undefined
+      );
+      window.location.reload();
+    } catch (cause) {
+      setPayError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not confirm this outside payment."
+      );
     } finally {
       setConfirmingId(null);
     }
@@ -350,6 +371,43 @@ export default function ContractPage() {
                       </div>
                     )}
 
+                    {isBuyer &&
+                      milestone.status === "accepted" &&
+                      proofMilestoneId === milestone.id && (
+                        <div className="submit-box">
+                          <div className="field">
+                            <label htmlFor={`payment-reference-${milestone.id}`}>
+                              Payment reference (optional)
+                            </label>
+                            <input
+                              id={`payment-reference-${milestone.id}`}
+                              value={paymentReference}
+                              maxLength={200}
+                              onChange={(event) =>
+                                setPaymentReference(event.target.value)
+                              }
+                              placeholder="Bank, UPI, or transfer reference"
+                            />
+                          </div>
+                          <div className="field">
+                            <label htmlFor={`payment-proof-${milestone.id}`}>
+                              Private receipt or proof (optional)
+                            </label>
+                            <input
+                              id={`payment-proof-${milestone.id}`}
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(event) =>
+                                setPaymentProof(event.target.files?.[0] ?? null)
+                              }
+                            />
+                            <span className="hint">
+                              Only both contract parties and Okavo admins can open it.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                     <div className="bid-actions">
                       {isBuyer && milestone.status === "submitted" && (
                         <button
@@ -361,18 +419,33 @@ export default function ContractPage() {
                         </button>
                       )}
                       {isBuyer && milestone.status === "accepted" && (
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          disabled={confirmingId === milestone.id}
-                          onClick={() =>
-                            void confirmPaidOutside(project.id, milestone.id)
-                          }
-                        >
-                          {confirmingId === milestone.id
-                            ? "Confirming…"
-                            : `Confirm paid ${money(milestone.amount)}`}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() =>
+                              setProofMilestoneId((current) =>
+                                current === milestone.id ? null : milestone.id
+                              )
+                            }
+                          >
+                            {proofMilestoneId === milestone.id
+                              ? "Hide payment details"
+                              : "Add payment details"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            disabled={confirmingId === milestone.id}
+                            onClick={() =>
+                              void confirmPaidOutside(project.id, milestone.id)
+                            }
+                          >
+                            {confirmingId === milestone.id
+                              ? "Confirming…"
+                              : `Confirm paid ${money(milestone.amount)}`}
+                          </button>
+                        </>
                       )}
                       {isBuyer &&
                         milestone.status === "pending" &&
@@ -394,7 +467,38 @@ export default function ContractPage() {
                           </button>
                         )}
                       {milestone.status === "released" && (
-                        <span className="badge badge-lock">Paid &amp; closed</span>
+                        <>
+                          <span className="badge badge-lock">Paid &amp; closed</span>
+                          {paymentProofs
+                            .filter((proof) => proof.milestoneId === milestone.id)
+                            .map((proof) => (
+                              <span key={proof.milestoneId}>
+                                {proof.reference && (
+                                  <span className="badge">
+                                    Ref: {proof.reference}
+                                  </span>
+                                )}
+                                {proof.proofPath && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => {
+                                      void api
+                                        .signedPaymentProofUrl(proof.proofPath!)
+                                        .then((url) =>
+                                          window.open(url, "_blank", "noopener,noreferrer")
+                                        )
+                                        .catch(() =>
+                                          setPayError("Could not open the private proof.")
+                                        );
+                                    }}
+                                  >
+                                    Open private proof
+                                  </button>
+                                )}
+                              </span>
+                            ))}
+                        </>
                       )}
                       {milestone.status === "accepted" && !isBuyer && (
                         <span className="badge badge-draft">

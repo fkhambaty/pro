@@ -2,7 +2,7 @@ import type { Session, User } from "@supabase/supabase-js";
 
 type PublicSession = {
   access_token: string;
-  token_type: string;
+  token_type: "bearer";
   expires_in: number;
   expires_at: number;
   user: User;
@@ -12,6 +12,7 @@ type SessionListener = (session: Session | null) => void;
 
 let currentSession: Session | null = null;
 let refreshPromise: Promise<Session | null> | null = null;
+let sessionChecked = false;
 const listeners = new Set<SessionListener>();
 
 function asSession(session: PublicSession): Session {
@@ -27,6 +28,7 @@ function asSession(session: PublicSession): Session {
 }
 
 function publish(session: Session | null): Session | null {
+  sessionChecked = true;
   currentSession = session;
   for (const listener of listeners) listener(session);
   return session;
@@ -76,7 +78,10 @@ export async function refreshMemorySession(): Promise<Session | null> {
 
 export async function getAccessToken(): Promise<string | null> {
   const expiresAt = currentSession?.expires_at ?? 0;
-  if (!currentSession || expiresAt <= Math.floor(Date.now() / 1000) + 60) {
+  if (
+    !sessionChecked ||
+    (currentSession && expiresAt <= Math.floor(Date.now() / 1000) + 60)
+  ) {
     await refreshMemorySession();
   }
   return currentSession?.access_token ?? null;
@@ -110,6 +115,8 @@ export async function receptionistSignUp(input: {
 export async function receptionistSignOut(): Promise<void> {
   try {
     await request<{ ok: true }>("/api/auth/logout");
+  } catch {
+    // Local sign-out must still succeed if the network is unavailable.
   } finally {
     publish(null);
   }

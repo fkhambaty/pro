@@ -6,7 +6,12 @@ const CONTROLS = [
   {
     area: "Payments",
     detail:
-      "Platform fees are collected by Razorpay, an RBI-licensed payment aggregator. Card and UPI details never touch our servers — payment happens inside Razorpay's own checkout. A fee is only ever recorded as paid when Razorpay confirms it by signed webhook, so a modified browser cannot claim a payment that did not happen.",
+      "Platform fees are collected by Razorpay. Card and UPI details never touch our servers — payment happens inside Razorpay's own checkout. Signed callbacks are recorded once, the provider order and payment IDs stay separate, and the amount and currency must match our order before one atomic database step marks a fee paid.",
+  },
+  {
+    area: "Build payments",
+    detail:
+      "Okavo does not hold build money or provide escrow. A buyer first accepts a submitted milestone against the signed scope, pays the developer directly, and then records that payment once. An optional reference or receipt stays private to the two contract parties and authorised Okavo administrators.",
   },
   {
     area: "Your requirements",
@@ -21,7 +26,12 @@ const CONTROLS = [
   {
     area: "Identity documents",
     detail:
-      "Government IDs uploaded by developers go into private storage that is unreadable without an authorised, expiring link. They are reviewed by a person and are never shown to buyers — buyers see only the resulting verification status and tier.",
+      "Government IDs uploaded by developers go into private storage that is unreadable without an authorised, expiring link. They are reviewed by a person and are never shown to buyers. Ninety days after a decision, a scheduled cleanup deletes the files and redacts their stored paths.",
+  },
+  {
+    area: "Operational alerts",
+    detail:
+      "Payment mismatches, failed callbacks, stale orders, and overdue identity cleanup create structured operational events. Administrators see health counts and safe summaries without raw identity paths, payment payloads, keys, or secrets.",
   },
   {
     area: "Personal details",

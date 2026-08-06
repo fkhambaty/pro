@@ -78,6 +78,9 @@ export default function AdminHome() {
       <header className="topbar">
         <h1>Platform insights</h1>
         <div className="topbar-actions">
+          <Link className="btn btn-secondary btn-sm" to="/app/operations">
+            Operations
+          </Link>
           <Link className="btn btn-secondary btn-sm" to="/app/traffic">
             Traffic
           </Link>

@@ -33,6 +33,32 @@ export default function Privacy() {
             private storage and are reviewed by Okavo for verification.
           </p>
 
+          <h2>Identity-document retention</h2>
+          <p>
+            Identity files are kept in private storage while a review is open.
+            Ninety days after Okavo approves or rejects the verification, a
+            scheduled cleanup deletes the document and selfie, then replaces
+            their stored paths with a non-sensitive “purged” marker. The
+            verification decision itself may remain so the marketplace can
+            remember that the check happened.
+          </p>
+
+          <h2>Payment evidence</h2>
+          <p>
+            Okavo does not hold build payments. A buyer may optionally save a
+            bank or UPI reference and upload a receipt after accepting a
+            milestone. That evidence is private to the buyer, the contracted
+            developer, and authorised Okavo administrators.
+          </p>
+
+          <h2>Deletion requests</h2>
+          <p>
+            You may ask us to erase your account by emailing support@okavo.org.
+            We delete identity files and minimise personal data, while keeping
+            only records we must retain for security, tax, payment, dispute, or
+            legal obligations.
+          </p>
+
           <h2>Sharing</h2>
           <p>
             We share data with infrastructure providers (hosting, database,

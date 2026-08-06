@@ -3,7 +3,14 @@ import IdentityUpload from "./IdentityUpload";
 import * as api from "../../lib/api";
 import { collectFee } from "../../lib/checkout";
 import * as examApi from "../../lib/exam";
-import { EXAM_WINDOW_HOURS, type BuildExam } from "../../lib/exam";
+import {
+  EXAM_AUTO_APPROVE_MIN_SCORE,
+  EXAM_DAILY_START_CAP,
+  EXAM_WINDOW_HOURS,
+  type BuildExam,
+  type ExamControls,
+} from "../../lib/exam";
+import { checkGuardrails } from "../../lib/guardrails";
 import { MEMBERSHIP_FEE_LABEL, MEMBERSHIP_SETTLEMENT_HINT } from "../../lib/pricing";
 import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
 import { getSupabase } from "../../lib/supabase";
@@ -36,11 +43,17 @@ export default function Verification() {
   const [githubUrl, setGithubUrl] = useState("");
   const [liveUrl, setLiveUrl] = useState("");
   const [examReply, setExamReply] = useState("");
+  const [examControls, setExamControls] = useState<ExamControls | null>(null);
 
   const loadExam = useCallback(async () => {
     if (!connected) return;
     try {
-      setExam(await examApi.fetchMyBuildExam());
+      const [nextExam, controls] = await Promise.all([
+        examApi.fetchMyBuildExam(),
+        examApi.fetchExamControls(),
+      ]);
+      setExam(nextExam);
+      setExamControls(controls);
     } catch {
       // Page still works without exam fetch.
     }
@@ -266,13 +279,15 @@ export default function Verification() {
                   Anyone can register. Bidding needs (1) approved government ID,
                   (2) this timed build exam, (3) membership. You get a random brief
                   from Okavo’s bank, <strong>5 hours</strong> to ship a public
-                  GitHub repo + live URL (Vercel or similar). Okavo auto-scores
-                  the links; an admin may ask questions.{" "}
+                  GitHub repo + live URL (Vercel or similar). Okavo safely
+                  checks the public links; an admin may ask questions.{" "}
                   <strong>
-                    If an admin does not decide within 48 hours of your
-                    submission, the exam is auto-approved
+                    After 48 hours, auto-approval happens only when the score is{" "}
+                    {EXAM_AUTO_APPROVE_MIN_SCORE} or higher and no safety hold or
+                    admin pause is active
                   </strong>{" "}
-                  — you will see that clearly on this page.
+                  . A missing or lower score waits for a person. Up to{" "}
+                  {EXAM_DAILY_START_CAP} exams can start each UTC day.
                 </span>
               </div>
 
@@ -289,7 +304,7 @@ export default function Verification() {
                   <span>
                     Build exam approved
                     {exam?.autoApprovedAt
-                      ? " (auto-approved after the 48-hour admin window)."
+                      ? ` (auto-approved after the 48-hour admin window with a score of at least ${EXAM_AUTO_APPROVE_MIN_SCORE}).`
                       : "."}{" "}
                     You can bid once membership is paid and identity is approved.
                   </span>
@@ -302,10 +317,23 @@ export default function Verification() {
                     Start only when you can focus for up to five hours. Leaving
                     the page does not pause the clock.
                   </p>
+                  {examControls?.startsPaused && (
+                    <div className="callout callout-warn">
+                      <span>!</span>
+                      <span>
+                        New starts are temporarily paused. Your verification is
+                        safe; try again later.
+                      </span>
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="btn"
-                    disabled={examBusy || !identityApproved}
+                    disabled={
+                      examBusy ||
+                      !identityApproved ||
+                      examControls?.startsPaused === true
+                    }
                     onClick={() => {
                       void (async () => {
                         setExamBusy(true);
@@ -328,7 +356,9 @@ export default function Verification() {
                   >
                     {examBusy
                       ? "Starting…"
-                      : identityApproved
+                      : examControls?.startsPaused
+                        ? "Exam starts paused"
+                        : identityApproved
                         ? "Start 5-hour build exam"
                         : "Approve ID first"}
                   </button>
@@ -417,14 +447,32 @@ export default function Verification() {
                       {exam.reviewDeadlineAt
                         ? new Date(exam.reviewDeadlineAt).toLocaleString()
                         : "within 48 hours"}
-                      . If nobody acts by then, you are <strong>auto-approved</strong>.
+                      .
                     </p>
-                    {exam.autoScoreOverall !== null && (
+                    {exam.autoScoreOverall === null && (
                       <p className="hint">
-                        Auto-score assist: {exam.autoScoreOverall}/100 (advisory
-                        for admins, not the final decision).
+                        No score is available yet, so this exam stays in manual
+                        review and will not auto-approve.
                       </p>
                     )}
+                    {exam.autoScoreOverall !== null && (
+                      <p className="hint">
+                        Auto-score assist: {exam.autoScoreOverall}/100.{" "}
+                        {exam.autoScoreOverall >= EXAM_AUTO_APPROVE_MIN_SCORE
+                          ? "This meets the score threshold."
+                          : `This is below ${EXAM_AUTO_APPROVE_MIN_SCORE}, so it stays in manual review.`}
+                      </p>
+                    )}
+                    {exam.autoScoreOverall !== null &&
+                      exam.autoScoreOverall >= EXAM_AUTO_APPROVE_MIN_SCORE && (
+                        <p className="hint">
+                          {examControls?.autoApprovePaused
+                            ? "Auto-approvals are temporarily paused; an admin can still decide manually."
+                            : exam.autoApprovalHold
+                              ? "An admin placed this exam on hold for manual review."
+                              : "If no admin decides by the deadline, this exam can auto-approve."}
+                        </p>
+                      )}
                     {exam.status === "admin_questions" && exam.adminQuestion && (
                       <>
                         <p>
@@ -447,6 +495,14 @@ export default function Verification() {
                             void (async () => {
                               setExamBusy(true);
                               try {
+                                const guard = checkGuardrails(
+                                  "exam_reply",
+                                  examReply
+                                );
+                                if (!guard.ok) {
+                                  setExamError(guard.message);
+                                  return;
+                                }
                                 await examApi.replyBuildExam(
                                   exam.id,
                                   examReply.trim()

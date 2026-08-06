@@ -20,9 +20,46 @@ create policy deliverables_read on storage.objects
   );
 
 -- Optional evidence for money paid directly between contract parties.
+insert into storage.buckets (id, name, public)
+values ('payment-proofs', 'payment-proofs', false)
+on conflict (id) do nothing;
+
 alter table payments
   add column if not exists proof_storage_path text,
   add column if not exists payer_reference text;
+
+drop policy if exists payment_proofs_owner_write on storage.objects;
+create policy payment_proofs_owner_write on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'payment-proofs'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists payment_proofs_owner_delete on storage.objects;
+create policy payment_proofs_owner_delete on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'payment-proofs'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists payment_proofs_parties_read on storage.objects;
+create policy payment_proofs_parties_read on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'payment-proofs'
+    and (
+      is_admin()
+      or exists (
+        select 1
+          from payments p
+          join contracts c on c.id = p.contract_id
+         where p.proof_storage_path = storage.objects.name
+           and (c.buyer_id = auth.uid() or c.developer_id = auth.uid())
+      )
+    )
+  );
 
 create unique index if not exists payments_external_milestone_once
   on payments (milestone_id)
@@ -48,7 +85,9 @@ create policy payments_read on payments
     )
   );
 
-create or replace function attest_external_milestone_payment(
+drop function if exists attest_external_milestone_payment(uuid);
+
+create function attest_external_milestone_payment(
   p_milestone_id uuid,
   p_payer_reference text default null,
   p_proof_storage_path text default null
@@ -128,7 +167,6 @@ begin
 end;
 $$;
 
-drop function if exists attest_external_milestone_payment(uuid);
 revoke all on function attest_external_milestone_payment(uuid, text, text) from public;
 grant execute on function attest_external_milestone_payment(uuid, text, text) to authenticated;
 

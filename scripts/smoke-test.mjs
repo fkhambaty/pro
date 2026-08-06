@@ -1,61 +1,45 @@
 #!/usr/bin/env node
 /**
- * End-to-end check against the live Supabase project.
+ * End-to-end check against a configured Supabase project.
  * Signs in as each seeded account and exercises the paths the app uses.
+ *
+ * Target via SUPABASE_URL / VITE_SUPABASE_URL and anon key (see .env.example).
+ * CI runs this against staging only.
  *
  *   node scripts/smoke-test.mjs
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  fail,
+  passwordSignIn,
+  requireAnonKey,
+  resolveTarget,
+  restAs,
+} from "./lib/okavo-env.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const env = Object.fromEntries(
-  readFileSync(resolve(here, "../apps/catalog/.env.local"), "utf8")
-    .split("\n")
-    .filter((l) => l.trim() && !l.startsWith("#"))
-    .map((l) => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()])
-);
+const target = resolveTarget();
+const URL = target.supabaseUrl;
+const KEY = requireAnonKey(target);
 
-const URL = env.VITE_SUPABASE_URL;
-const KEY = env.VITE_SUPABASE_ANON_KEY;
+if (!URL || !KEY) {
+  fail("Missing SUPABASE_URL / VITE_SUPABASE_URL or anon key");
+}
+
+console.log(`Smoke against ${target.projectRef} (${target.envName})…`);
 
 const pass = [];
-const fail = [];
+const failList = [];
 
 function check(name, ok, detail = "") {
-  (ok ? pass : fail).push(`${name}${detail ? ` — ${detail}` : ""}`);
+  (ok ? pass : failList).push(`${name}${detail ? ` — ${detail}` : ""}`);
 }
 
 async function signIn(email, password) {
-  const res = await fetch(`${URL}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: { apikey: KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const body = await res.json();
-  return body.access_token ?? null;
+  return passwordSignIn(target, email, password);
 }
 
 async function rest(path, token, init = {}) {
-  const res = await fetch(`${URL}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      apikey: KEY,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = text;
-  }
-  return { status: res.status, body: json };
+  return restAs(target, path, token, init);
 }
 
 const ACCOUNTS = {
@@ -223,9 +207,9 @@ if (tokens.developer) {
 
 console.log("\nPASS");
 pass.forEach((p) => console.log("  ✓", p));
-if (fail.length) {
+if (failList.length) {
   console.log("\nFAIL");
-  fail.forEach((f) => console.log("  ✗", f));
+  failList.forEach((f) => console.log("  ✗", f));
 }
-console.log(`\n${pass.length} passed, ${fail.length} failed`);
-process.exit(fail.length ? 1 : 0);
+console.log(`\n${pass.length} passed, ${failList.length} failed`);
+process.exit(failList.length ? 1 : 0);

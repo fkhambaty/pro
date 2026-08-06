@@ -2,6 +2,7 @@ import {
   authHeaders,
   clearPkceCookie,
   json,
+  pkcePurpose,
   pkceVerifier,
   publicSession,
   readSupabaseResponse,
@@ -22,6 +23,7 @@ export default async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const verifier = pkceVerifier(request);
+  const purpose = pkcePurpose(request);
   if (!code || !verifier) {
     return Response.redirect(
       `${redirectOrigin(request)}/signin?recovery=failed`,
@@ -48,8 +50,10 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   const session = body as PublicSession & { refresh_token: string };
+  const destination =
+    purpose === "recovery" ? "/signin?recovery=1" : "/signin?confirmed=1";
   const headers = new Headers({
-    Location: `${redirectOrigin(request)}/signin?recovery=1`,
+    Location: `${redirectOrigin(request)}${destination}`,
     "Cache-Control": "no-store",
   });
   headers.append("Set-Cookie", refreshCookie(request, session.refresh_token));

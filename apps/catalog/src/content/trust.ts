@@ -45,7 +45,7 @@ export const GUARANTEES: Promise_[] = [
   },
   {
     title: "Every developer passes identity and a timed build exam before bidding",
-    body: "Government ID checked by a person, then a five-hour build exam with a random brief, public repo, and live URL. Membership unlocks bidding only after both are approved.",
+    body: "Government ID checked by a person, then a five-hour build exam with a rotating brief, public repo, and live URL. Links are safely checked and duplicate repositories are flagged for a person rather than automatically rejected. Membership unlocks bidding only after both gates are approved.",
     enforcedBy:
       "The database refuses a bid unless identity_status and interview_status are approved and membership is paid.",
   },
@@ -111,7 +111,7 @@ export const FAQS: FaqItem[] = [
   {
     question: "How are developers vetted?",
     answer:
-      "Today, two hard gates before a bid is possible: government ID checked by a person, then a timed build exam (random brief from Okavo’s bank, about five hours, public GitHub + live URL). Auto-scoring assists admins; if an admin does not decide within 48 hours the exam auto-approves — developers are told that on the verification page. Then the one-time membership unlocks bidding.",
+      "Today, two hard gates before a bid is possible: government ID checked by a person, then a timed build exam (a rotating brief from Okavo’s bank, about five hours, public GitHub + live URL). After 48 hours, only a score of 70 or higher may auto-approve, and only when no admin pause or per-exam hold is active. Missing and lower scores remain for manual review. Duplicate repositories, including possible forks, are flagged but never automatically rejected. Then the one-time membership unlocks bidding.",
   },
   {
     question: "Is Okavo an agency?",

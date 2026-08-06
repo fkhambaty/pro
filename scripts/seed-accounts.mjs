@@ -7,33 +7,30 @@
  * unconfirmed and cannot sign in. Turn it back on afterwards; accounts already
  * confirmed stay confirmed.
  *
+ * Refuses production unless OKAVO_ALLOW_PRODUCTION_DESTRUCTIVE=1.
+ * Point SUPABASE_URL / VITE_SUPABASE_URL at staging.
+ *
  *   node scripts/seed-accounts.mjs
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import {
+  assertSafeForDestructiveSeed,
+  fail,
+  requireAnonKey,
+  resolveTarget,
+} from "./lib/okavo-env.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(here, "../apps/catalog/.env.local");
+const target = resolveTarget();
+assertSafeForDestructiveSeed(target);
 
-const env = Object.fromEntries(
-  readFileSync(envPath, "utf8")
-    .split("\n")
-    .filter((line) => line.trim() && !line.trim().startsWith("#"))
-    .map((line) => {
-      const index = line.indexOf("=");
-      return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
-    })
-);
-
-const url = env.VITE_SUPABASE_URL;
-const key = env.VITE_SUPABASE_ANON_KEY;
+const url = target.supabaseUrl;
+const key = requireAnonKey(target);
 
 if (!url || !key) {
-  console.error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
-  process.exit(1);
+  fail("Missing SUPABASE_URL / VITE_SUPABASE_URL or anon key");
 }
+
+console.log(`Seeding accounts on ${target.projectRef} (${target.envName})…`);
 
 const ACCOUNTS = [
   {

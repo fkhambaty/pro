@@ -9,6 +9,11 @@
  * Credentials are read from .okavo-agent, which is gitignored and never
  * committed. Run `node scripts/okavo.mjs check` to confirm your setup.
  *
+ * Target project is parameterized via SUPABASE_PROJECT_REF / SUPABASE_URL
+ * (see .env.example). When unset, this console defaults to production so
+ * existing read-only inspection still works. Destructive seeds refuse
+ * production — use scripts/seed-*.mjs against staging instead.
+ *
  * Two different levels of access, deliberately kept apart:
  *
  *   `db`  / `sql`  use the service role and bypass row-level security.
@@ -19,123 +24,27 @@
  * The difference between those two is where most access bugs hide.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  ROOT,
+  conf,
+  fail,
+  managementSql,
+  resolveTarget,
+  serviceHeaders,
+  sessionFor,
+  requireAnonKey,
+} from "./lib/okavo-env.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PROJECT_REF = "fzgnzaflvbimbiseqnrz";
-const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
-const SITE_URL = process.env.OKAVO_SITE ?? "https://okavo.org";
-
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-
-function loadEnvFile(name) {
-  const path = join(root, name);
-  if (!existsSync(path)) return {};
-  return Object.fromEntries(
-    readFileSync(path, "utf8")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("#"))
-      .map((line) => {
-        const index = line.indexOf("=");
-        return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
-      })
-  );
-}
-
-const fileEnv = { ...loadEnvFile(".okavo-agent") };
-
-function conf(key) {
-  return process.env[key] ?? fileEnv[key];
-}
-
-function need(key, hint) {
-  const value = conf(key);
-  if (!value) {
-    fail(`${key} is not set.\n  ${hint}\n  Put it in .okavo-agent (gitignored) or export it.`);
-  }
-  return value;
-}
-
-function fail(message) {
-  console.error(`\n✗ ${message}\n`);
-  process.exit(1);
-}
+const target = resolveTarget({ defaultToProduction: true });
+const { projectRef: PROJECT_REF, supabaseUrl: SUPABASE_URL, siteUrl: SITE_URL } = target;
 
 const out = (value) =>
   console.log(typeof value === "string" ? value : JSON.stringify(value, null, 2));
 
-// ---------------------------------------------------------------------------
-// Supabase helpers
-// ---------------------------------------------------------------------------
-
-async function managementSql(query) {
-  const token = need(
-    "SUPABASE_ACCESS_TOKEN",
-    "Personal access token from supabase.com/dashboard/account/tokens"
-  );
-  const response = await fetch(
-    `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    }
-  );
-  const text = await response.text();
-  if (!response.ok) fail(`SQL failed: ${text.slice(0, 400)}`);
-  return text ? JSON.parse(text) : [];
-}
-
-function serviceHeaders() {
-  const key = need(
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "Project Settings → API → service_role key"
-  );
-  return { apikey: key, Authorization: `Bearer ${key}` };
-}
-
 function anonKey() {
-  return need("SUPABASE_ANON_KEY", "Project Settings → API → anon public key");
-}
-
-/**
- * Mints a session for any account without knowing its password, using the
- * admin magic-link endpoint. This is how you view a screen as a real user.
- */
-async function sessionFor(email) {
-  const link = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
-    method: "POST",
-    headers: { ...serviceHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "magiclink", email }),
-  });
-
-  const body = await link.json();
-  if (!link.ok) {
-    fail(`Could not generate a link for ${email}: ${JSON.stringify(body).slice(0, 300)}`);
-  }
-
-  const tokenHash = body?.properties?.hashed_token ?? body?.hashed_token;
-  if (!tokenHash) fail(`No token returned for ${email}`);
-
-  const verify = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-    method: "POST",
-    headers: { apikey: anonKey(), "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "magiclink", token_hash: tokenHash }),
-  });
-
-  const session = await verify.json();
-  if (!verify.ok || !session.access_token) {
-    fail(`Could not sign in as ${email}: ${JSON.stringify(session).slice(0, 300)}`);
-  }
-  return session;
+  return requireAnonKey(target);
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +52,7 @@ async function sessionFor(email) {
 // ---------------------------------------------------------------------------
 
 function screens() {
-  const source = readFileSync(join(root, "apps/catalog/src/App.tsx"), "utf8");
+  const source = readFileSync(join(ROOT, "apps/catalog/src/App.tsx"), "utf8");
   const rows = [];
 
   // Public routes sit at the top level; app routes are nested under /app.
@@ -177,17 +86,19 @@ const commands = {
     const rows = [
       ["SUPABASE_ACCESS_TOKEN", conf("SUPABASE_ACCESS_TOKEN")],
       ["SUPABASE_SERVICE_ROLE_KEY", conf("SUPABASE_SERVICE_ROLE_KEY")],
-      ["SUPABASE_ANON_KEY", conf("SUPABASE_ANON_KEY")],
+      ["SUPABASE_ANON_KEY", conf("SUPABASE_ANON_KEY") ?? conf("VITE_SUPABASE_ANON_KEY")],
     ];
     for (const [key, value] of rows) {
       console.log(`${value ? "✓" : "✗"} ${key}${value ? ` (${value.slice(0, 8)}…)` : " missing"}`);
     }
     console.log(`\nsite: ${SITE_URL}`);
     console.log(`project: ${PROJECT_REF}`);
+    console.log(`url: ${SUPABASE_URL}`);
+    console.log(`env: ${target.envName}${target.isProduction ? " (production)" : ""}`);
   },
 
   async accounts() {
-    const rows = await managementSql(`
+    const rows = await managementSql(target, `
       select u.email,
              coalesce(p.role::text, 'no profile') as role,
              p.full_name,
@@ -210,7 +121,7 @@ const commands = {
 
   async token([email]) {
     if (!email) fail("Usage: token <email>");
-    const session = await sessionFor(email);
+    const session = await sessionFor(target, email);
     out({
       email,
       access_token: session.access_token,
@@ -224,7 +135,7 @@ const commands = {
     if (!table) fail('Usage: db <table> ["select=*&limit=5"]');
     const qs = query ?? "select=*&limit=20";
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${qs}`, {
-      headers: serviceHeaders(),
+      headers: serviceHeaders(target),
     });
     const body = await response.text();
     if (!response.ok) fail(`${response.status}: ${body.slice(0, 300)}`);
@@ -234,7 +145,7 @@ const commands = {
   async sql(args) {
     const query = args.join(" ");
     if (!query) fail('Usage: sql "select count(*) from projects"');
-    out(await managementSql(query));
+    out(await managementSql(target, query));
   },
 
   /**
@@ -247,7 +158,7 @@ const commands = {
       fail('Usage: as <email> <GET|POST|PATCH|DELETE> <path> [json]\n' +
         '  e.g. as fk_qrf@yahoo.com GET "projects?select=title,stage"');
     }
-    const session = await sessionFor(email);
+    const session = await sessionFor(target, email);
     const body = rest.join(" ");
 
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -280,7 +191,7 @@ const commands = {
       fail("Playwright is not installed.\n  npm i -D playwright && npx playwright install chromium");
     }
 
-    const session = email ? await sessionFor(email) : null;
+    const session = email ? await sessionFor(target, email) : null;
     const browser = await chromium.launch();
     const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
     const page = await context.newPage();
@@ -333,7 +244,9 @@ Examples
   node scripts/okavo.mjs sql "select role, count(*) from profiles group by role"
   node scripts/okavo.mjs shot /app/traffic --as admin@okavo.app
 
-Set OKAVO_SITE=http://127.0.0.1:5180 to drive the local dev server instead.
+Target is set by SUPABASE_PROJECT_REF / SUPABASE_URL (defaults to production
+for this read-only console). Set OKAVO_SITE=http://127.0.0.1:5180 to drive
+the local dev server instead.
 `);
   },
 };

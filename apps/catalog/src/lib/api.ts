@@ -894,13 +894,70 @@ export async function submitInterview(profileId: string) {
   if (error) throw error;
 }
 
-export async function fundMilestone(milestoneId: string) {
+export type ExternalPaymentProof = {
+  milestoneId: string;
+  reference: string | null;
+  proofPath: string | null;
+  paidAt: string;
+};
+
+export async function fetchExternalPaymentProofs(
+  milestoneIds: string[]
+): Promise<ExternalPaymentProof[]> {
+  if (milestoneIds.length === 0) return [];
+  const { data, error } = await db()
+    .from("payments")
+    .select("milestone_id, payer_reference, proof_storage_path, paid_at")
+    .in("milestone_id", milestoneIds)
+    .eq("provider", "external")
+    .eq("status", "paid");
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    milestoneId: row.milestone_id as string,
+    reference: (row.payer_reference as string | null) ?? null,
+    proofPath: (row.proof_storage_path as string | null) ?? null,
+    paidAt: formatDate(row.paid_at as string),
+  }));
+}
+
+export async function signedPaymentProofUrl(path: string) {
+  const { data, error } = await db()
+    .storage.from("payment-proofs")
+    .createSignedUrl(path, 300);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function fundMilestone(
+  milestoneId: string,
+  reference?: string,
+  proof?: File | null,
+  profileId?: string
+) {
+  let proofPath: string | null = null;
+  if (proof) {
+    if (!profileId) throw new Error("Could not identify the proof owner");
+    const safeName = proof.name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
+    proofPath = `${profileId}/${milestoneId}/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await db()
+      .storage.from("payment-proofs")
+      .upload(proofPath, proof, { upsert: false });
+    if (uploadError) throw uploadError;
+  }
+
   // Buyer attests they paid the developer outside Okavo. Creates a paid
-  // payments row so enforce_milestone_funding allows status=funded.
+  // external payment record after work acceptance. Okavo never holds it.
   const { error } = await db().rpc("attest_external_milestone_payment", {
     p_milestone_id: milestoneId,
+    p_payer_reference: reference?.trim() || null,
+    p_proof_storage_path: proofPath,
   });
-  if (error) throw error;
+  if (error) {
+    if (proofPath) {
+      await db().storage.from("payment-proofs").remove([proofPath]);
+    }
+    throw error;
+  }
 
   logAudit("milestone.fund", "milestone", milestoneId);
 }
@@ -1674,4 +1731,62 @@ export async function reviewDeveloperBlock(
   });
   if (error) throw error;
   logAudit(approve ? "block.approve" : "block.reject", "block", requestId);
+}
+
+export type OperationsHealth = {
+  pendingPayments: number;
+  failedEvents24h: number;
+  openCriticalEvents: number;
+  identityDocumentsDue: number;
+  checkedAt: string;
+};
+
+export type OperationsEvent = {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  category: string;
+  code: string;
+  summary: string;
+  entityType: string | null;
+  entityId: string | null;
+  detail: Record<string, unknown>;
+  resolvedAt: string | null;
+  createdAt: string;
+};
+
+export async function fetchOperationsHealth(): Promise<OperationsHealth> {
+  const { data, error } = await db().rpc("admin_operations_health");
+  if (error) throw error;
+  const row = (data ?? {}) as Record<string, unknown>;
+  return {
+    pendingPayments: Number(row.pending_payments ?? 0),
+    failedEvents24h: Number(row.failed_events_24h ?? 0),
+    openCriticalEvents: Number(row.open_critical_events ?? 0),
+    identityDocumentsDue: Number(row.identity_documents_due ?? 0),
+    checkedAt: String(row.checked_at ?? ""),
+  };
+}
+
+export async function fetchOperationsEvents(
+  limit = 100
+): Promise<OperationsEvent[]> {
+  const { data, error } = await db().rpc("admin_operations_events", {
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: String(row.id),
+    severity: row.severity as OperationsEvent["severity"],
+    category: String(row.category),
+    code: String(row.code),
+    summary: String(row.summary),
+    entityType: row.entity_type ? String(row.entity_type) : null,
+    entityId: row.entity_id ? String(row.entity_id) : null,
+    detail:
+      row.detail && typeof row.detail === "object"
+        ? (row.detail as Record<string, unknown>)
+        : {},
+    resolvedAt: row.resolved_at ? String(row.resolved_at) : null,
+    createdAt: String(row.created_at),
+  }));
 }

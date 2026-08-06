@@ -56,7 +56,7 @@ const DEV_STEPS = [
   {
     title: "Pass the timed build exam",
     detail:
-      "After ID approval you get a random brief from Okavo’s bank and five hours to ship a public GitHub repo plus a live URL. Auto-scoring assists admins; if an admin does not decide within 48 hours the exam auto-approves (you are told that on Verification).",
+      "After ID approval you get a rotating brief from Okavo’s bank and five hours to ship a public GitHub repo plus a live URL. Okavo checks the public links safely and flags reused repositories for human review. After 48 hours, only scores of 70 or higher can auto-approve; missing or lower scores stay with an admin, and pauses or holds can stop auto-approval.",
   },
   {
     title: "Pay once, bid freely",

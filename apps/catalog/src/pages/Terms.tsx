@@ -62,13 +62,17 @@ export default function Terms() {
           <h2>5. Identity, build exam, conduct, and blocking</h2>
           <p>
             Developers must pass identity checks and Okavo’s timed build exam
-            before bidding. After exam submission, if Okavo does not approve or
-            reject within forty-eight hours, the exam may auto-approve — that
-            rule is shown to developers on the verification page. Buyers may
-            request that Okavo block a developer for ghosting, fraud, or other
-            serious misconduct after a hire. Okavo may approve or reject that
-            request and may suspend accounts. Okavo is not obliged to mediate
-            every dispute or to recover money paid outside the platform.
+            before bidding. After exam submission, an exam may auto-approve
+            after forty-eight hours only if its automated score is at least 70
+            and no platform pause or exam-specific hold is active. Exams without
+            a score, or with a lower score, remain for manual review. Reused
+            repository signals, including possible forks, are review clues and
+            are not automatic rejection grounds. These rules are shown to
+            developers on the verification page. Buyers may request that Okavo
+            block a developer for ghosting, fraud, or other serious misconduct
+            after a hire. Okavo may approve or reject that request and may
+            suspend accounts. Okavo is not obliged to mediate every dispute or
+            to recover money paid outside the platform.
           </p>
 
           <h2>6. Limitation of liability</h2>

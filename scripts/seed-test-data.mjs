@@ -1,53 +1,47 @@
 #!/usr/bin/env node
 /**
- * Fills the live database with believable test data: dummy developers and
- * buyers, requirements at every stage, bids, contracts and milestones.
+ * Fills a non-production database with believable test data: dummy developers
+ * and buyers, requirements at every stage, bids, contracts and milestones.
  *
  * Safe to re-run: it deletes the rows it previously created (identified by the
  * @okavo.test email domain) before inserting again. It never touches the real
  * accounts beyond making them usable for testing.
  *
+ * Refuses production unless OKAVO_ALLOW_PRODUCTION_DESTRUCTIVE=1.
+ * Point SUPABASE_PROJECT_REF / SUPABASE_URL at staging.
+ *
  *   node scripts/seed-test-data.mjs
  */
 
-import { readFileSync } from "node:fs";
+import {
+  assertSafeForDestructiveSeed,
+  fail,
+  managementSql,
+  requireAccessToken,
+  resolveTarget,
+} from "./lib/okavo-env.mjs";
 
-const PROJECT_REF = "fzgnzaflvbimbiseqnrz";
-const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
+const target = resolveTarget();
+assertSafeForDestructiveSeed(target);
+
+const { projectRef: PROJECT_REF, supabaseUrl: SUPABASE_URL } = target;
 const TEST_PASSWORD = "123456789";
 
-const managementToken = readFileSync(
-  new URL("../.supabase-token", import.meta.url),
-  "utf8"
-)
-  .split("=")[1]
-  .trim();
-
 async function sql(query) {
-  const response = await fetch(
-    `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${managementToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    }
-  );
-  const text = await response.text();
-  if (!response.ok) throw new Error(`SQL failed: ${text.slice(0, 500)}`);
-  return text ? JSON.parse(text) : [];
+  return managementSql(target, query);
 }
 
 async function serviceRoleKey() {
+  if (target.serviceRoleKey) return target.serviceRoleKey;
+
+  const token = requireAccessToken(target);
   const response = await fetch(
     `https://api.supabase.com/v1/projects/${PROJECT_REF}/api-keys`,
-    { headers: { Authorization: `Bearer ${managementToken}` } }
+    { headers: { Authorization: `Bearer ${token}` } }
   );
   const keys = await response.json();
   const key = keys.find((k) => k.name === "service_role");
-  if (!key) throw new Error("service_role key not found");
+  if (!key) fail("service_role key not found (set SUPABASE_SERVICE_ROLE_KEY)");
   return key.api_key;
 }
 
@@ -162,6 +156,7 @@ const q = (value) =>
     : `'${String(value).replace(/'/g, "''")}'`;
 
 async function main() {
+  console.log(`Seeding project ${PROJECT_REF} (${target.envName})…`);
   const serviceKey = await serviceRoleKey();
 
   console.log("Resolving the real accounts…");

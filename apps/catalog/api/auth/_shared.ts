@@ -2,7 +2,7 @@ const REFRESH_COOKIE = "okavo-refresh";
 const PKCE_COOKIE = "okavo-pkce";
 const COOKIE_PATH = "/";
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 30;
-const PKCE_MAX_AGE = 60 * 15;
+const PKCE_MAX_AGE = 60 * 60;
 
 export type PublicSession = {
   access_token: string;
@@ -74,8 +74,17 @@ export function clearRefreshCookie(request: Request): string {
   return cookie(request, REFRESH_COOKIE, "", 0);
 }
 
-export function pkceCookie(request: Request, verifier: string): string {
-  return cookie(request, PKCE_COOKIE, verifier, PKCE_MAX_AGE);
+export function pkceCookie(
+  request: Request,
+  verifier: string,
+  purpose: "recovery" | "signup"
+): string {
+  return cookie(
+    request,
+    PKCE_COOKIE,
+    `${purpose}.${verifier}`,
+    PKCE_MAX_AGE
+  );
 }
 
 export function clearPkceCookie(request: Request): string {
@@ -87,7 +96,15 @@ export function refreshToken(request: Request): string | null {
 }
 
 export function pkceVerifier(request: Request): string | null {
-  return parseCookies(request).get(PKCE_COOKIE) ?? null;
+  const value = parseCookies(request).get(PKCE_COOKIE);
+  return value?.split(".", 2)[1] ?? null;
+}
+
+export function pkcePurpose(
+  request: Request
+): "recovery" | "signup" | null {
+  const purpose = parseCookies(request).get(PKCE_COOKIE)?.split(".", 1)[0];
+  return purpose === "recovery" || purpose === "signup" ? purpose : null;
 }
 
 export function publicSession(session: SupabaseSession): PublicSession {
