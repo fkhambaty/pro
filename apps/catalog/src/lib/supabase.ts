@@ -1,15 +1,29 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-/**
- * Present only when both environment variables are set. Without them the app
- * runs on seeded demo data so the interface stays usable before any backend
- * exists.
- */
-export const supabase: SupabaseClient | null =
-  url && anonKey ? createClient(url, anonKey) : null;
+export const isSupabaseConfigured = Boolean(url && anonKey);
 
-export const isSupabaseConfigured = supabase !== null;
+let client: SupabaseClient | null | undefined;
 
+export function getSupabase(): SupabaseClient | null {
+  if (client !== undefined) return client;
+  if (!url || !anonKey) {
+    client = null;
+    return null;
+  }
+  client = createClient(url, anonKey);
+  return client;
+}
+
+/** True when a prior session is likely in localStorage (returning visitor). */
+export function hasLikelySupabaseSession(): boolean {
+  try {
+    return Object.keys(localStorage).some(
+      (key) => key.startsWith("sb-") && key.includes("auth")
+    );
+  } catch {
+    return false;
+  }
+}

@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { getSupabase } from "./supabase";
 
 export type AuditAction =
   | "auth.sign_in"
@@ -19,7 +19,11 @@ export type AuditAction =
   | "clarification.answer"
   | "guardrail.block"
   | "assist.request"
-  | "assist.complete";
+  | "assist.complete"
+  | "terms.accept"
+  | "block.request"
+  | "block.approve"
+  | "block.reject";
 
 /**
  * Fire-and-forget audit write. Never throws to the caller — logging must not
@@ -31,9 +35,10 @@ export function logAudit(
   entityId?: string | null,
   detail?: Record<string, unknown>
 ): void {
-  if (!supabase) return;
+  const client = getSupabase();
+  if (!client) return;
 
-  void supabase
+  void client
     .rpc("write_audit_event", {
       p_action: action,
       p_entity_type: entityType,

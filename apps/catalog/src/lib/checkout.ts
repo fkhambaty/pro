@@ -1,5 +1,5 @@
 import { logAudit } from "./audit";
-import { supabase } from "./supabase";
+import { getSupabase } from "./supabase";
 
 export type CheckoutPurpose = "requirement_posting" | "bidding_membership";
 
@@ -46,6 +46,7 @@ function loadCheckout(): Promise<boolean> {
  * covers a race where confirm returns before the row is visible to the client.
  */
 async function waitForSettlement(paymentId: string): Promise<boolean> {
+  const supabase = getSupabase();
   if (!supabase) return false;
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -113,6 +114,7 @@ export async function collectFee(
   buyer?: { name?: string; email?: string | null }
 ): Promise<CheckoutResult> {
   const base = import.meta.env.VITE_SUPABASE_URL;
+  const supabase = getSupabase();
   if (!supabase || !base) {
     return { status: "error", message: "Payments are unavailable in demo mode." };
   }

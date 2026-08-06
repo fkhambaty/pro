@@ -9,7 +9,11 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { logAudit } from "./audit";
-import { isSupabaseConfigured, supabase } from "./supabase";
+import {
+  getSupabase,
+  hasLikelySupabaseSession,
+  isSupabaseConfigured,
+} from "./supabase";
 import type { BuyerScale, Role } from "../types";
 
 type SignUpInput = {
@@ -94,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * no session exists at sign-up time.
    */
   const ensureProfile = useCallback(async (activeSession: Session) => {
+    const supabase = getSupabase();
     if (!supabase) return;
     const { user } = activeSession;
     const meta = user.user_metadata ?? {};
@@ -154,7 +159,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    const path = window.location.pathname;
+    const shouldBoot =
+      isSupabaseConfigured &&
+      (path.startsWith("/app") ||
+        path.startsWith("/signin") ||
+        hasLikelySupabaseSession());
+
+    if (!shouldBoot) {
+      setReady(true);
+      return;
+    }
+
+    const supabase = getSupabase();
+    if (!supabase) {
+      setReady(true);
+      return;
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -187,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(async (input: SignUpInput) => {
     setError(null);
     setNotice(null);
+    const supabase = getSupabase();
     if (!supabase) return;
 
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -231,6 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resendVerification = useCallback(async (email: string) => {
     setError(null);
     setNotice(null);
+    const supabase = getSupabase();
     if (!supabase) return;
     const { error: resendError } = await supabase.auth.resend({
       type: "signup",
@@ -246,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = useCallback(async (email: string) => {
     setError(null);
     setNotice(null);
+    const supabase = getSupabase();
     if (!supabase) return;
     const redirectTo = `${window.location.origin}/signin`;
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
@@ -264,6 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePassword = useCallback(async (password: string) => {
     setError(null);
     setNotice(null);
+    const supabase = getSupabase();
     if (!supabase) return;
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
@@ -281,6 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
     setNotice(null);
+    const supabase = getSupabase();
     if (!supabase) return;
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -299,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       "session",
       null
     );
+    const supabase = getSupabase();
     if (supabase) await supabase.auth.signOut();
     setRole("guest");
     setDisplayName("");

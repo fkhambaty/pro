@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { money } from "../format";
+import * as api from "../lib/api";
 import { REVIEW_CRITERIA, formatRating } from "../lib/reviewCriteria";
 import { useStore } from "../store";
 import type { ReviewScores } from "../types";
@@ -50,16 +51,16 @@ export default function ContractPage() {
     (scores.scope + scores.quality + scores.communication + scores.timeliness) / 4;
   const [payError, setPayError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-
-  // Escrow moves money to a developer, which needs payout rails Okavo has not
-  // switched on yet. Until then buyers attest they paid outside Okavo.
-  const escrowLive = false;
+  const [blockReason, setBlockReason] = useState("");
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [blockNote, setBlockNote] = useState<string | null>(null);
 
   async function confirmPaidOutside(projectId: string, milestoneId: string) {
     const ok = window.confirm(
-      "Confirm that you have already paid your developer for this milestone outside Okavo.\n\n" +
-        "Okavo did not hold this money. The signed scope still decides what must be delivered. " +
-        "After you confirm, the developer can submit work for this milestone."
+      "Confirm only after you have already paid your developer for this milestone outside Okavo.\n\n" +
+        "You should have accepted the submitted work against the signed scope first. " +
+        "Okavo did not hold this money and cannot refund it. " +
+        "Never pay the full build price up front."
     );
     if (!ok) return;
     setPayError(null);
@@ -72,7 +73,7 @@ export default function ContractPage() {
       const succeeded = await fundMilestone(projectId, milestoneId);
       if (succeeded === false) {
         setPayError(
-          "Could not confirm payment. Make sure you are the buyer on this contract and the milestone is still pending."
+          "Could not confirm payment. Accept the submitted work first, then confirm you paid outside Okavo."
         );
       }
     } finally {
@@ -108,16 +109,8 @@ export default function ContractPage() {
   const awaitingCountersign = Boolean(awarded) && !developerCountersigned;
   const iAmAwardedDeveloper =
     !isBuyer && Boolean(awarded && userId && awarded.developerId === userId);
-  const firstMilestone = project.milestones[0];
-  const firstMilestoneFunded = Boolean(
-    firstMilestone &&
-      ["funded", "in_progress", "submitted", "accepted", "released"].includes(
-        firstMilestone.status
-      )
-  );
-  const fundingGateOpen = Boolean(awarded) && !firstMilestoneFunded;
   const canCountersign =
-    awaitingCountersign && iAmAwardedDeveloper && firstMilestoneFunded;
+    awaitingCountersign && iAmAwardedDeveloper;
   const contractValue = awarded?.amount ?? project.budgetMax;
   const releasedTotal = project.milestones
     .filter((m) => m.status === "released")
@@ -250,29 +243,18 @@ export default function ContractPage() {
                     </strong>
                   </div>
                 </div>
-                {fundingGateOpen && (
-                  <div className="callout callout-warn" style={{ marginTop: "1rem" }}>
-                    <span>!</span>
-                    <span>
-                      Funding gate: the buyer must confirm the first milestone
-                      is funded before the developer can countersign. When Okavo
-                      escrow is live, that deposit will sit in escrow; today the
-                      buyer pays outside Okavo and attests here.
-                    </span>
-                  </div>
-                )}
-                {awaitingCountersign && iAmAwardedDeveloper && !firstMilestoneFunded && (
+                {awaitingCountersign && iAmAwardedDeveloper && (
                   <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
-                    Waiting for the buyer to fund “{firstMilestone?.title ?? "the first milestone"}”
-                    before you can countersign.
+                    Countersign to start delivery. You get paid after the buyer
+                    accepts each milestone’s work — not as a full prepayment.
                   </p>
                 )}
                 {canCountersign && (
                   <div className="callout callout-warn" style={{ marginTop: "1rem" }}>
                     <span>!</span>
                     <span>
-                      First milestone is funded. Countersigning means you accept
-                      the locked scope as the only definition of done.
+                      Countersigning means you accept the locked scope as the only
+                      definition of done. Okavo does not hold build money.
                     </span>
                   </div>
                 )}
@@ -286,15 +268,11 @@ export default function ContractPage() {
                     Countersign the locked scope
                   </button>
                 )}
-                {awaitingCountersign && isBuyer && firstMilestoneFunded && (
+                {awaitingCountersign && isBuyer && (
                   <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
                     Waiting for {awarded?.developerName ?? "the developer"} to
-                    countersign. Delivery starts after that.
-                  </p>
-                )}
-                {awaitingCountersign && isBuyer && !firstMilestoneFunded && (
-                  <p style={{ color: "var(--muted)", marginTop: "0.85rem" }}>
-                    Fund the first milestone below to unlock developer countersign.
+                    countersign. Then they submit work → you accept → you pay
+                    that milestone only.
                   </p>
                 )}
               </div>
@@ -328,23 +306,13 @@ export default function ContractPage() {
                 <div className="callout callout-info">
                   <span>i</span>
                   <span>
-                    After hire, fund the first milestone before countersign
-                    (funding gate). Okavo does not yet hold build money in
-                    escrow — pay your developer directly, then confirm here.
-                    When escrow is live, the same gate deposits into Okavo-held
-                    escrow instead.
+                    Trust path without escrow: developer submits proof → you
+                    accept against the signed scope → you pay that milestone
+                    outside Okavo → you confirm payment here. Never pay the full
+                    build up front. First milestone is capped at ~20%. Okavo does
+                    not hold or refund build money.
                   </span>
                 </div>
-
-                {fundingGateOpen && (
-                  <div className="callout callout-warn">
-                    <span>!</span>
-                    <span>
-                      Countersign stays locked until the first milestone is
-                      confirmed funded.
-                    </span>
-                  </div>
-                )}
 
                 {project.milestones.length === 0 && (
                   <div className="empty">
@@ -383,9 +351,16 @@ export default function ContractPage() {
                     )}
 
                     <div className="bid-actions">
-                      {isBuyer &&
-                        milestone.status === "pending" &&
-                        Boolean(awarded) && (
+                      {isBuyer && milestone.status === "submitted" && (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => acceptMilestone(project.id, milestone.id)}
+                        >
+                          Accept work against signed scope
+                        </button>
+                      )}
+                      {isBuyer && milestone.status === "accepted" && (
                         <button
                           type="button"
                           className="btn btn-sm"
@@ -394,11 +369,9 @@ export default function ContractPage() {
                             void confirmPaidOutside(project.id, milestone.id)
                           }
                         >
-                          {escrowLive
-                            ? `Fund escrow ${money(milestone.amount)}`
-                            : confirmingId === milestone.id
-                              ? "Confirming…"
-                              : `Confirm funded ${money(milestone.amount)}`}
+                          {confirmingId === milestone.id
+                            ? "Confirming…"
+                            : `Confirm paid ${money(milestone.amount)}`}
                         </button>
                       )}
                       {isBuyer &&
@@ -408,19 +381,10 @@ export default function ContractPage() {
                             Hire a developer first
                           </span>
                         )}
-                      {isBuyer && milestone.status === "submitted" && (
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          onClick={() => acceptMilestone(project.id, milestone.id)}
-                        >
-                          Accept against signed scope
-                        </button>
-                      )}
                       {!isBuyer &&
                         developerCountersigned &&
-                        (milestone.status === "funded" ||
-                          milestone.status === "in_progress") && (
+                        (milestone.status === "in_progress" ||
+                          milestone.status === "funded") && (
                           <button
                             type="button"
                             className="btn btn-sm"
@@ -430,15 +394,18 @@ export default function ContractPage() {
                           </button>
                         )}
                       {milestone.status === "released" && (
-                        <span className="badge badge-lock">Accepted</span>
+                        <span className="badge badge-lock">Paid &amp; closed</span>
+                      )}
+                      {milestone.status === "accepted" && !isBuyer && (
+                        <span className="badge badge-draft">
+                          Work accepted — awaiting buyer payment
+                        </span>
                       )}
                       {!isBuyer && milestone.status === "pending" && (
                         <span className="badge badge-draft">
-                          {firstMilestoneFunded || milestone.id !== firstMilestone?.id
-                            ? developerCountersigned
-                              ? "Awaiting buyer payment confirmation"
-                              : "Awaiting countersign"
-                            : "Buyer funds this before you countersign"}
+                          {developerCountersigned
+                            ? "Waiting for previous milestone to close"
+                            : "Awaiting countersign"}
                         </span>
                       )}
                     </div>
@@ -943,6 +910,58 @@ export default function ContractPage() {
                 </>
               )}
             </div>
+
+            {isBuyer && awarded?.developerId && (
+              <div className="card card-pad" style={{ marginTop: "1rem" }}>
+                <h2 style={{ marginTop: 0 }}>Request developer block</h2>
+                <p className="hint">
+                  If they ghosted you or cheated, ask Okavo to ban them from
+                  bidding. This does not refund money paid outside Okavo.
+                </p>
+                <div className="field">
+                  <label htmlFor="block-reason">What happened?</label>
+                  <textarea
+                    id="block-reason"
+                    rows={3}
+                    value={blockReason}
+                    onChange={(e) => setBlockReason(e.target.value)}
+                    placeholder="Ghosted after payment, delivered nothing, fraud…"
+                  />
+                </div>
+                {blockNote && <p className="hint">{blockNote}</p>}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  disabled={blockBusy || blockReason.trim().length < 8}
+                  onClick={() => {
+                    void (async () => {
+                      setBlockBusy(true);
+                      setBlockNote(null);
+                      try {
+                        await api.requestDeveloperBlock(
+                          awarded.developerId!,
+                          blockReason.trim(),
+                          undefined,
+                          project.id
+                        );
+                        setBlockNote("Request sent to Okavo for review.");
+                        setBlockReason("");
+                      } catch (cause) {
+                        setBlockNote(
+                          cause instanceof Error
+                            ? cause.message
+                            : "Could not send block request."
+                        );
+                      } finally {
+                        setBlockBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {blockBusy ? "Sending…" : "Send block request"}
+                </button>
+              </div>
+            )}
           </aside>
         </div>
       </div>

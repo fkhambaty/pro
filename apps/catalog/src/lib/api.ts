@@ -1,6 +1,6 @@
 import { logAudit } from "./audit";
 import { checkGuardrails } from "./guardrails";
-import { supabase } from "./supabase";
+import { getSupabase } from "./supabase";
 import type {
   AppNotification,
   Bid,
@@ -25,8 +25,9 @@ import type {
 } from "../types";
 
 function db() {
-  if (!supabase) throw new Error("Supabase is not configured");
-  return supabase;
+  const client = getSupabase();
+  if (!client) throw new Error("Supabase is not configured");
+  return client;
 }
 
 /** PostgREST returns embedded rows as an object or an array depending on cardinality. */
@@ -614,47 +615,30 @@ export async function createProject(
     if (scaleError) throw scaleError;
   }
 
-  const { data, error } = await db()
-    .from("projects")
-    .insert({
-      buyer_id: buyerId,
-      title: input.title,
-      category: input.category,
-      outcome_statement: input.outcome,
-      budget_min_cents: toCents(input.budgetMin),
-      budget_max_cents: toCents(input.budgetMax),
-      monthly_run_cents: toCents(input.monthlyOps),
-      timeline_weeks: input.timelineWeeks,
-      // Published for pre-lock Q&A — bids stay closed until lockProject.
-      stage: "clarifying",
-      published_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+  const { data, error } = await db().rpc("publish_requirement", {
+    p_title: input.title,
+    p_category: input.category,
+    p_outcome: input.outcome,
+    p_budget_min_cents: toCents(input.budgetMin),
+    p_budget_max_cents: toCents(input.budgetMax),
+    p_monthly_run_cents: toCents(input.monthlyOps),
+    p_timeline_weeks: input.timelineWeeks,
+    p_scope: input.scope.map((item) => ({
+      label: item.label,
+      detail: item.detail,
+      included: item.included,
+      acceptance_criteria: item.acceptanceCriteria ?? "",
+    })),
+  });
   if (error) throw error;
 
-  if (input.scope.length > 0) {
-    const { error: scopeError } = await db()
-      .from("scope_items")
-      .insert(
-        input.scope.map((item, index) => ({
-          project_id: data.id,
-          label: item.label,
-          detail: item.detail,
-          included: item.included,
-          acceptance_criteria: item.acceptanceCriteria ?? null,
-          position: index,
-        }))
-      );
-    if (scopeError) throw scopeError;
-  }
-
-  logAudit("project.publish", "project", data.id, {
+  const id = data as string;
+  logAudit("project.publish", "project", id, {
     title: input.title,
     category: input.category,
   });
 
-  return data.id as string;
+  return id;
 }
 
 export async function lockProject(
@@ -763,29 +747,30 @@ export async function awardBid(
 
   await db().from("projects").update({ stage: "hired" }).eq("id", projectId);
 
-  const first = Math.round(amount * 0.35);
+  const first = Math.round(amount * 0.2);
   const second = Math.round(amount * 0.4);
   const { error: milestoneError } = await db()
     .from("milestones")
     .insert([
       {
         contract_id: contract.id,
-        title: "Foundation and core flows",
-        description: "Environment, data model, and the first locked scope items.",
+        title: "Foundation (small first slice)",
+        description:
+          "First locked flows only — keep this milestone small so the buyer never prepays the whole build.",
         amount_cents: toCents(first),
         position: 0,
       },
       {
         contract_id: contract.id,
         title: "Main functionality",
-        description: "The bulk of the locked scope, demoed weekly.",
+        description: "The bulk of the locked scope, demoed against acceptance lines.",
         amount_cents: toCents(second),
         position: 1,
       },
       {
         contract_id: contract.id,
         title: "Acceptance and handover",
-        description: "Every scope item verified, documentation and deployment.",
+        description: "Remaining scope verified, documentation and deployment.",
         amount_cents: toCents(amount - first - second),
         position: 2,
       },
@@ -1602,4 +1587,73 @@ export async function markNotificationsRead(userId: string) {
     .eq("profile_id", userId)
     .is("read_at", null);
   if (error) throw error;
+}
+
+export async function acceptPlatformTerms(version: string) {
+  const { error } = await db().rpc("accept_platform_terms", {
+    p_version: version,
+  });
+  if (error) throw error;
+  logAudit("terms.accept", "profile", null, { version });
+}
+
+export async function hasAcceptedTerms(version: string) {
+  const { data, error } = await db().rpc("has_accepted_current_terms", {
+    p_version: version,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function requestDeveloperBlock(
+  developerId: string,
+  reason: string,
+  detail?: string,
+  projectId?: string | null
+) {
+  const { data, error } = await db().rpc("request_developer_block", {
+    p_developer_id: developerId,
+    p_reason: reason,
+    p_detail: detail ?? null,
+    p_project_id: projectId ?? null,
+  });
+  if (error) throw error;
+  logAudit("block.request", "developer", developerId, { reason });
+  return data as string;
+}
+
+export async function listBlockRequests(status: "open" | "approved" | "rejected" = "open") {
+  const { data, error } = await db()
+    .from("developer_block_requests")
+    .select(
+      "id, buyer_id, developer_id, project_id, reason, detail, status, created_at"
+    )
+    .eq("status", status)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    buyerId: row.buyer_id as string,
+    developerId: row.developer_id as string,
+    projectId: (row.project_id as string) ?? null,
+    reason: row.reason as string,
+    detail: (row.detail as string) ?? null,
+    status: row.status as string,
+    createdAt: formatDate(row.created_at as string),
+  }));
+}
+
+export async function reviewDeveloperBlock(
+  requestId: string,
+  approve: boolean,
+  adminNote?: string
+) {
+  const { error } = await db().rpc("review_developer_block", {
+    p_request_id: requestId,
+    p_approve: approve,
+    p_admin_note: adminNote ?? null,
+  });
+  if (error) throw error;
+  logAudit(approve ? "block.approve" : "block.reject", "block", requestId);
 }

@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, type ReactElement, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import { TermsGate } from "./components/TermsGate";
 import { trackPageView } from "./lib/analytics";
 import { IdleSessionGuard } from "./lib/idleSession";
 import { applySeo } from "./lib/seo";
 import { useAuth } from "./lib/auth";
-import { useStore } from "./store";
+import { StoreProvider, useStore } from "./store";
 
 /** Marketing + workspace pages load on demand — keeps first paint off the 700KB monolith. */
 const About = lazy(() => import("./pages/About"));
@@ -16,12 +17,15 @@ const Faq = lazy(() => import("./pages/Faq"));
 const Guarantee = lazy(() => import("./pages/Guarantee"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const Landing = lazy(() => import("./pages/Landing"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 const Security = lazy(() => import("./pages/Security"));
+const Terms = lazy(() => import("./pages/Terms"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminAuditLogs = lazy(() => import("./pages/admin/AdminAuditLogs"));
+const AdminBlocks = lazy(() => import("./pages/admin/AdminBlocks"));
 const AdminHome = lazy(() => import("./pages/admin/AdminHome"));
 const AdminVerifications = lazy(() => import("./pages/admin/AdminVerifications"));
 const BuyerHome = lazy(() => import("./pages/buyer/BuyerHome"));
@@ -83,7 +87,7 @@ function AdminOnly({ children }: { children: ReactElement }) {
 }
 
 function Home() {
-  const { role } = useStore();
+  const { role } = useAuth();
   if (role === "guest") return <Landing />;
   return <Navigate to="/app" replace />;
 }
@@ -133,12 +137,18 @@ export default function App() {
           <Route path="/security" element={<Security />} />
           <Route path="/faq" element={<Faq />} />
           <Route path="/about" element={<About />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/signin" element={<SignIn />} />
           <Route
             path="/app"
             element={
               <RequireAuth>
-                <AppShell />
+                <StoreProvider>
+                  <TermsGate>
+                    <AppShell />
+                  </TermsGate>
+                </StoreProvider>
               </RequireAuth>
             }
           >
@@ -225,6 +235,14 @@ export default function App() {
               element={
                 <AdminOnly>
                   <AdminAuditLogs />
+                </AdminOnly>
+              }
+            />
+            <Route
+              path="blocks"
+              element={
+                <AdminOnly>
+                  <AdminBlocks />
                 </AdminOnly>
               }
             />

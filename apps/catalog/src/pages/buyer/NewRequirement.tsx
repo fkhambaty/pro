@@ -21,7 +21,7 @@ import {
   suggestedMustHaves,
   type Audience,
 } from "../../lib/requirementBlueprint";
-import { supabase } from "../../lib/supabase";
+import { getSupabase } from "../../lib/supabase";
 import { useStore } from "../../store";
 import type { BuyerScale, ScopeItem } from "../../types";
 
@@ -254,6 +254,9 @@ export default function NewRequirement() {
     if (step === 3 && mustHaves.length === 0) {
       return "Tick at least one must-have so the sketch has something to show.";
     }
+    if (step === 3 && !excluded.trim()) {
+      return "Name at least one exclusion (what is out of scope) so bids stay comparable.";
+    }
     if (step === 4) {
       const min = Number(budgetMin);
       const max = Number(budgetMax);
@@ -389,7 +392,7 @@ export default function NewRequirement() {
     });
 
     try {
-      const { data: session } = (await supabase?.auth.getSession()) ?? {
+      const { data: session } = (await getSupabase()?.auth.getSession()) ?? {
         data: { session: null },
       };
       const result = await requestAssist(

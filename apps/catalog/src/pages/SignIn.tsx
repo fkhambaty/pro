@@ -20,6 +20,7 @@ export default function SignIn() {
   const [scale] = useState<BuyerScale>("Local business");
   const [busy, setBusy] = useState(false);
   const [idleNotice, setIdleNotice] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     try {
@@ -41,6 +42,10 @@ export default function SignIn() {
 
   async function submit() {
     setBusy(true);
+    if (!acceptedTerms) {
+      setBusy(false);
+      return;
+    }
     if (!auth.connected) {
       auth.demoSignIn(
         role,
@@ -53,6 +58,13 @@ export default function SignIn() {
 
     if (mode === "signin") {
       await auth.signIn(email.trim(), password);
+      try {
+        const { acceptPlatformTerms } = await import("../lib/api");
+        const { TERMS_VERSION } = await import("../lib/terms");
+        await acceptPlatformTerms(TERMS_VERSION);
+      } catch {
+        // Profile may not exist yet on first paint; TermsGate in /app retries.
+      }
     } else {
       await auth.signUp({
         email: email.trim(),
@@ -62,6 +74,13 @@ export default function SignIn() {
         organizationName: organization.trim() || fullName.trim(),
         scale,
       });
+      try {
+        const { acceptPlatformTerms } = await import("../lib/api");
+        const { TERMS_VERSION } = await import("../lib/terms");
+        await acceptPlatformTerms(TERMS_VERSION);
+      } catch {
+        // Same as above.
+      }
     }
     setBusy(false);
   }
@@ -267,11 +286,45 @@ export default function SignIn() {
           </div>
         )}
 
+        <label
+          style={{
+            display: "flex",
+            gap: "0.65rem",
+            alignItems: "flex-start",
+            marginBottom: "1rem",
+            fontSize: "0.9rem",
+            color: "var(--body)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            style={{ marginTop: "0.2rem" }}
+          />
+          <span>
+            I agree to the{" "}
+            <Link to="/terms" target="_blank" rel="noreferrer">
+              Okavo Terms
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" target="_blank" rel="noreferrer">
+              Privacy
+            </Link>
+            . Okavo is a marketplace intermediary and does not hold build money
+            or guarantee the other party’s performance.
+          </span>
+        </label>
+
         <button
           type="button"
           className="btn btn-block btn-lg"
           onClick={submit}
-          disabled={busy || (auth.connected && (!email.trim() || !password))}
+          disabled={
+            busy ||
+            !acceptedTerms ||
+            (auth.connected && (!email.trim() || !password))
+          }
         >
           {busy
             ? "Working…"

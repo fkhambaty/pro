@@ -101,6 +101,8 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <div>
               <h4>Company</h4>
               <Link to="/about">About Okavo</Link>
+              <Link to="/terms">Terms of Use</Link>
+              <Link to="/privacy">Privacy</Link>
               <a href={SUPPORT_MAILTO}>Contact us</a>
             </div>
             <div>

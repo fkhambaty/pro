@@ -65,6 +65,16 @@ export type FaqItem = {
 
 export const FAQS: FaqItem[] = [
   {
+    question: "Do I pay the developer the full amount up front?",
+    answer:
+      "No. Okavo’s process is accept work for a milestone against the signed scope, then pay that milestone only, then confirm payment in Okavo. The first milestone is capped near 20% of the build. Okavo does not hold build money while escrow is off — never treat Okavo as a bank or insurer for off-platform payments.",
+  },
+  {
+    question: "What if the developer ghosts me or cheats?",
+    answer:
+      "Open a dispute against the locked scope lines, and from the contract page request that Okavo block the developer from bidding again. Okavo can ban accounts after review. Okavo cannot refund money you paid outside the platform.",
+  },
+  {
     question: "What does Okavo cost?",
     answer:
       `Buyers pay ${POSTING_FEE_LABEL} to post a requirement. Developers browse free and pay a one-time ${MEMBERSHIP_FEE_LABEL} before their first bid. Okavo’s marketplace fee is a flat 10% on the awarded build — automatic collection of that commission is next; posting and membership are live today. You still pay the developer the agreed build price milestone by milestone. Fees are shown in USD; until Stripe USD checkout is live, Razorpay collects the INR equivalent (${POSTING_FEE_INR_LABEL} / ${MEMBERSHIP_FEE_INR_LABEL}).`,

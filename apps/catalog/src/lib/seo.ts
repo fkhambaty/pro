@@ -113,6 +113,30 @@ export const PAGES: PageSeo[] = [
     ],
   },
   {
+    path: "/terms",
+    title: "Okavo Terms of Use",
+    description:
+      "Marketplace intermediary terms: milestone payments, no full prepay culture, limitation of liability, and how Okavo relates to buyers and developers.",
+    indexed: true,
+    priority: 0.4,
+    h1: "Okavo Terms of Use",
+    body: [
+      "Okavo is a marketplace intermediary. Build money is paid between buyer and developer unless escrow is explicitly live.",
+    ],
+  },
+  {
+    path: "/privacy",
+    title: "Okavo Privacy",
+    description:
+      "How Okavo handles account data, identity documents, and Razorpay payment metadata.",
+    indexed: true,
+    priority: 0.3,
+    h1: "Privacy",
+    body: [
+      "Okavo collects what the marketplace needs and does not sell personal data.",
+    ],
+  },
+  {
     path: "/signin",
     title: "Sign in to Okavo",
     description:
