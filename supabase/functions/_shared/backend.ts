@@ -12,20 +12,44 @@ export function isPurpose(value: unknown): value is Purpose {
   return typeof value === "string" && (PURPOSES as readonly string[]).includes(value);
 }
 
-export function corsHeaders(): Record<string, string> {
+const DEFAULT_ORIGINS = [
+  "https://okavo.org",
+  "https://www.okavo.org",
+  "http://127.0.0.1:5180",
+  "http://localhost:5180",
+];
+
+/** Origin-aware CORS. Never reflects arbitrary Origin headers. */
+export function corsHeaders(req?: Request): Record<string, string> {
+  const configured = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const allowed = new Set([...DEFAULT_ORIGINS, ...configured]);
+  const origin = req?.headers.get("origin");
   return {
-    "Access-Control-Allow-Origin": "*",
+    ...(origin && allowed.has(origin)
+      ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" }
+      : {}),
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type, stripe-signature, x-okavo-notify, x-razorpay-signature",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
 }
 
-export function json(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders() },
-  });
+export function json(
+  status: number,
+  body: Record<string, unknown>,
+  req?: Request
+) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...corsHeaders(req),
+  };
+  if (status === 429 && typeof body.retry_after_seconds === "number") {
+    headers["Retry-After"] = String(body.retry_after_seconds);
+  }
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 export function requireEnv(name: string): string {

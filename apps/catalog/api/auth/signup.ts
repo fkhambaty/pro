@@ -1,4 +1,5 @@
 import {
+  assertAuthRateLimit,
   assertCookieMutation,
   authHeaders,
   challengeFor,
@@ -26,6 +27,9 @@ type SignupBody = {
 export default async function handler(request: Request): Promise<Response> {
   const invalid = assertCookieMutation(request);
   if (invalid) return invalid;
+
+  const throttled = await assertAuthRateLimit(request, "signup", 10, 3600);
+  if (throttled) return throttled;
 
   let input: SignupBody;
   try {

@@ -5,6 +5,7 @@ import {
   requireEnv,
   serviceClient,
 } from "../_shared/backend.ts";
+import { consumeRateLimit, tooManyRequests } from "../_shared/rateLimit.ts";
 
 /**
  * Opens a Razorpay order for one of the platform fees.
@@ -54,27 +55,47 @@ async function resolveUser(req: Request) {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
-  if (req.method !== "POST") return json(405, { error: "Method not allowed" });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders(req) });
+  }
+  if (req.method !== "POST") {
+    return json(405, { error: "Method not allowed" }, req);
+  }
 
   let user: { id: string; email?: string };
   try {
     user = await resolveUser(req);
   } catch (error) {
-    return json(401, {
-      error: error instanceof Error ? error.message : "Not signed in",
-    });
+    return json(
+      401,
+      { error: error instanceof Error ? error.message : "Not signed in" },
+      req
+    );
+  }
+
+  const withinLimit = await consumeRateLimit({
+    scope: "razorpay-order",
+    actor: user.id,
+    limit: 15,
+    windowSeconds: 3600,
+  });
+  if (!withinLimit) {
+    return tooManyRequests(
+      req,
+      3600,
+      "Too many checkout attempts. Try again in an hour."
+    );
   }
 
   let payload: { purpose?: unknown; bid_id?: unknown };
   try {
     payload = await req.json();
   } catch {
-    return json(400, { error: "Invalid JSON" });
+    return json(400, { error: "Invalid JSON" }, req);
   }
 
   if (!isPurpose(payload.purpose)) {
-    return json(400, { error: "Unknown payment purpose" });
+    return json(400, { error: "Unknown payment purpose" }, req);
   }
   const purpose = payload.purpose;
   const db = serviceClient();
@@ -88,7 +109,11 @@ serve(async (req) => {
     if (purpose === "platform_fee") {
       bidId = typeof payload.bid_id === "string" ? payload.bid_id : null;
       if (!bidId) {
-        return json(400, { error: "bid_id is required for the hire success fee" });
+        return json(
+          400,
+          { error: "bid_id is required for the hire success fee" },
+          req
+        );
       }
       const bids = (await db.select(
         `bids?id=eq.${bidId}&select=id,amount_cents,project_id,status`
@@ -99,21 +124,21 @@ serve(async (req) => {
         status: string;
       }>;
       const bid = bids[0];
-      if (!bid) return json(404, { error: "Bid not found" });
+      if (!bid) return json(404, { error: "Bid not found" }, req);
       const projects = (await db.select(
         `projects?id=eq.${bid.project_id}&select=buyer_id`
       )) as Array<{ buyer_id: string }>;
       if (projects[0]?.buyer_id !== user.id) {
-        return json(403, { error: "Only the buyer can pay the hire fee" });
+        return json(403, { error: "Only the buyer can pay the hire fee" }, req);
       }
       if (bid.status === "awarded") {
-        return json(409, { error: "This bid is already awarded" });
+        return json(409, { error: "This bid is already awarded" }, req);
       }
       const already = (await db.select(
         `payments?bid_id=eq.${bidId}&purpose=eq.platform_fee&status=eq.paid&select=id`
       )) as unknown[];
       if (already?.length) {
-        return json(409, { error: "Hire fee already paid for this bid" });
+        return json(409, { error: "Hire fee already paid for this bid" }, req);
       }
       // 10% of bid (USD cents → INR paise via fixed $1=₹99 map), minimum ₹99.
       amount = Math.max(
@@ -132,7 +157,11 @@ serve(async (req) => {
         `payments?profile_id=eq.${user.id}&purpose=eq.bidding_membership&status=eq.paid&select=id`
       )) as unknown[];
       if (paid?.length) {
-        return json(409, { error: "Bidding is already unlocked on this account" });
+        return json(
+          409,
+          { error: "Bidding is already unlocked on this account" },
+          req
+        );
       }
     }
 
@@ -154,20 +183,28 @@ serve(async (req) => {
     }>;
     const reusable = pending[0];
     if (reusable?.provider_order_id) {
-      return json(200, {
-        orderId: reusable.provider_order_id,
-        amount: reusable.amount_cents,
-        currency: reusable.currency,
-        label,
-        paymentId: reusable.id,
-        keyId: requireEnv("RAZORPAY_KEY_ID"),
-        reused: true,
-      });
+      return json(
+        200,
+        {
+          orderId: reusable.provider_order_id,
+          amount: reusable.amount_cents,
+          currency: reusable.currency,
+          label,
+          paymentId: reusable.id,
+          keyId: requireEnv("RAZORPAY_KEY_ID"),
+          reused: true,
+        },
+        req
+      );
     }
     if (reusable) {
-      return json(409, {
-        error: "A payment order is already being opened. Please retry shortly.",
-      });
+      return json(
+        409,
+        {
+          error: "A payment order is already being opened. Please retry shortly.",
+        },
+        req
+      );
     }
 
     const insertRow: Record<string, unknown> = {
@@ -218,16 +255,20 @@ serve(async (req) => {
       provider_reference: String(order.id),
     });
 
-    return json(200, {
-      orderId: order.id,
-      amount,
-      currency: CURRENCY,
-      label,
-      paymentId,
-      keyId: requireEnv("RAZORPAY_KEY_ID"),
-    });
+    return json(
+      200,
+      {
+        orderId: order.id,
+        amount,
+        currency: CURRENCY,
+        label,
+        paymentId,
+        keyId: requireEnv("RAZORPAY_KEY_ID"),
+      },
+      req
+    );
   } catch (error) {
     console.error("razorpay-order failed");
-    return json(500, { error: "Could not open checkout" });
+    return json(500, { error: "Could not open checkout" }, req);
   }
 });

@@ -1,0 +1,55 @@
+name: Identity retention sweep
+
+# Purges identity documents past their 90-day retention deadline and completes
+# account-erasure requests. The edge function guards itself with
+# IDENTITY_SWEEP_SECRET (x-okavo-notify) and runs with verify_jwt = false, so
+# this job never handles a Supabase key.
+
+on:
+  schedule:
+    # Weekly, Mondays 03:17 UTC (off the hour to avoid scheduler contention).
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: identity-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Run retention sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect secrets
+        id: secrets
+        env:
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          IDENTITY_SWEEP_SECRET: ${{ secrets.IDENTITY_SWEEP_SECRET }}
+        run: |
+          if [ -n "$PROD_SUPABASE_URL" ] && [ -n "$IDENTITY_SWEEP_SECRET" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "PROD_SUPABASE_URL / IDENTITY_SWEEP_SECRET not set — skipping sweep."
+          fi
+
+      - name: Invoke identity-retention-sweep
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          IDENTITY_SWEEP_SECRET: ${{ secrets.IDENTITY_SWEEP_SECRET }}
+        run: |
+          set -euo pipefail
+          url="${PROD_SUPABASE_URL%/}/functions/v1/identity-retention-sweep"
+          body="$(mktemp)"
+          status="$(curl -sS -o "$body" -w '%{http_code}' -X POST "$url" \
+            -H "x-okavo-notify: ${IDENTITY_SWEEP_SECRET}" \
+            -H "content-type: application/json" \
+            --data '{}')"
+          echo "HTTP $status"
+          cat "$body"
+          echo
+          if [ "$status" != "200" ]; then
+            echo "::error::identity-retention-sweep returned $status"
+            exit 1
+          fi

@@ -4,7 +4,6 @@ import {
   json,
   pkcePurpose,
   pkceVerifier,
-  publicSession,
   readSupabaseResponse,
   redirectOrigin,
   refreshCookie,

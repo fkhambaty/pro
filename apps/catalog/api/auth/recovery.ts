@@ -1,4 +1,5 @@
 import {
+  assertAuthRateLimit,
   assertCookieMutation,
   authHeaders,
   challengeFor,
@@ -16,6 +17,9 @@ export const config = { runtime: "edge" };
 export default async function handler(request: Request): Promise<Response> {
   const invalid = assertCookieMutation(request);
   if (invalid) return invalid;
+
+  const throttled = await assertAuthRateLimit(request, "recovery", 10, 3600);
+  if (throttled) return throttled;
 
   let email: string | undefined;
   try {

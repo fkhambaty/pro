@@ -39,6 +39,71 @@ for **read-only** inspection when no project ref is set.
 When those secrets are absent, CI still typechecks, lints, and builds; the
 RLS/smoke job skips.
 
+### Scheduled identity-retention sweep
+
+[`.github/workflows/identity-sweep.yml`](../.github/workflows/identity-sweep.yml)
+runs weekly (and on demand) to purge identity documents past their 90-day
+deadline and to complete account-erasure requests. It calls the
+`identity-retention-sweep` edge function, which is `verify_jwt = false` and
+guards itself with a shared secret, so the job never handles a Supabase key.
+
+| Secret | Purpose |
+|--------|---------|
+| `PROD_SUPABASE_URL` | Base URL of the project to sweep (e.g. `https://fzgnzaflvbimbiseqnrz.supabase.co`) |
+| `IDENTITY_SWEEP_SECRET` | Must match the function's `IDENTITY_SWEEP_SECRET`; sent as the `x-okavo-notify` header |
+
+When either secret is absent the workflow skips instead of failing.
+
+### Scheduled Razorpay reconcile (report mode)
+
+[`.github/workflows/razorpay-reconcile.yml`](../.github/workflows/razorpay-reconcile.yml)
+runs daily and on demand. It calls `razorpay-reconcile` with
+`RAZORPAY_RECONCILE_SECRET`. The function stays report-only unless
+`ALLOW_PAYMENT_RECONCILIATION=true` is set on the Supabase function secrets.
+
+| Secret | Purpose |
+|--------|---------|
+| `PROD_SUPABASE_URL` | Same production URL as the identity sweep |
+| `RAZORPAY_RECONCILE_SECRET` | Must match the function secret (`x-okavo-notify`) |
+
+## Hardening rollout (staging → production)
+
+All Aug 2026 hardening work lands in-branch first. **Do not claim it live**
+until the staging steps below pass.
+
+1. **Provision staging Supabase** (separate project from `fzgnzaflvbimbiseqnrz`).
+2. **Push migrations** `0001`–`0025` to staging, then production in bounded groups:
+   - Group A: access / attestation / deliverables (`0021`)
+   - Group B: exam hardening (`0022`)
+   - Group C: payment ops + identity retention (`0023`, `0024`)
+   - Group D: edge rate limits (`0025`)
+3. **Deploy edge functions** to staging, then production
+   (`razorpay-*`, `exam-analyze`, `requirement-assist`,
+   `identity-retention-sweep`, `razorpay-reconcile`; Stripe stays disabled).
+4. **Set secrets** (staging first):
+   - GitHub: `STAGING_SUPABASE_*`, `PROD_SUPABASE_URL`,
+     `IDENTITY_SWEEP_SECRET`, `RAZORPAY_RECONCILE_SECRET`
+   - Vercel: `VITE_SUPABASE_*`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+     `SUPABASE_SERVICE_ROLE_KEY` (auth throttle + analytics only — never
+     expose to the browser bundle), `PUBLIC_SITE_URL`,
+     `AUTH_ALLOWED_ORIGINS`, `ALLOWED_ORIGINS`, `RATE_LIMIT_SALT`
+   - Supabase function secrets: Razorpay keys, reconcile/sweep secrets,
+     `RATE_LIMIT_SALT`, optional `OPENAI_API_KEY`
+5. **Auth allowlist:** add `/api/auth/callback` for production + preview URLs.
+6. **Verify staging:**
+   ```bash
+   OKAVO_ENV=staging npm run seed:accounts
+   OKAVO_ENV=staging npm run seed:test
+   OKAVO_ENV=staging npm run rls
+   OKAVO_ENV=staging npm run smoke
+   ```
+   Manually exercise: receptionist login/refresh/logout, exam submit/analyze,
+   Razorpay test-mode order+confirm, attestation with proof, admin
+   `/app/operations`, and a dry-run of the identity sweep.
+7. **Production:** deploy the same groups, keep reconcile in report mode,
+   enable the weekly identity sweep only after retention policy sign-off,
+   and compare sensitive flows with `okavo.mjs db` vs `as`.
+
 ## 1. Create the database
 
 The CLI on this machine is not authenticated, so this step needs your
@@ -103,35 +168,64 @@ custom SMTP is configured. In Auth → SMTP Settings use GoDaddy mailbox SMTP:
 After SMTP is live, raise the email rate limit and brand the confirmation /
 OTP templates to mention `support@okavo.org`.
 
-## Payments (Stripe)
+## Payments (Razorpay is the live rail)
 
-Money is never written by the browser. `stripe-checkout` opens a Checkout
-session and `stripe-webhook` is the only thing that marks a payment paid, so
-the `payments` table has a read-only policy for signed-in users.
+Money is never written by the browser. Amounts are decided in the edge
+functions, and a payment is only marked paid by a signature-verified webhook via
+the `settle_provider_payment` RPC (amount/currency/order must match; mismatches
+are logged to `ops_events`). The `payments` table stays read-only for signed-in
+users.
 
-Set these Supabase function secrets:
+**Razorpay** is the only enabled provider. **Stripe is hard-disabled**: every
+Stripe function refuses to run unless `PAYMENTS_PROVIDER=stripe` is explicitly
+set, so the stubs cannot process money by accident.
+
+Set these Supabase function secrets (production):
 
 | Secret | Where it comes from |
 |--------|---------------------|
-| `STRIPE_SECRET_KEY` | Stripe → Developers → API keys (`sk_live_…` / `sk_test_…`) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks → signing secret (`whsec_…`) |
+| `RAZORPAY_KEY_ID` | Razorpay → Settings → API Keys |
+| `RAZORPAY_KEY_SECRET` | Razorpay → Settings → API Keys |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay → Settings → Webhooks → signing secret |
+| `RAZORPAY_RECONCILE_SECRET` | Any strong random string; sent as `x-okavo-notify` to `razorpay-reconcile` |
 | `SITE_URL` | `https://okavo.org` |
+| `IDENTITY_SWEEP_SECRET` | Any strong random string; gate for `identity-retention-sweep` |
+| `RATE_LIMIT_SALT` | Optional; salts hashed rate-limit buckets (defaults to `okavo-edge-v1`) |
+| `OPENAI_API_KEY` | Optional; enables LLM assist/exam analysis (heuristics run without it) |
 
 ```bash
 supabase secrets set --project-ref fzgnzaflvbimbiseqnrz \
-  STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_...
+  RAZORPAY_KEY_ID=rzp_... RAZORPAY_KEY_SECRET=... RAZORPAY_WEBHOOK_SECRET=... \
+  RAZORPAY_RECONCILE_SECRET=... IDENTITY_SWEEP_SECRET=...
 ```
 
-In Stripe, add one webhook endpoint pointing at
-`https://fzgnzaflvbimbiseqnrz.supabase.co/functions/v1/stripe-webhook`
-subscribed to `checkout.session.completed` and
-`checkout.session.async_payment_succeeded`.
+In Razorpay, add one webhook endpoint pointing at
+`https://fzgnzaflvbimbiseqnrz.supabase.co/functions/v1/razorpay-webhook`.
+`razorpay-reconcile` is read-only by default (reports drift); it only writes
+settlements when invoked with `ALLOW_PAYMENT_RECONCILIATION=true`.
 
 Prices for platform fees live in `apps/catalog/src/lib/pricing.ts` (display) and
 the Razorpay edge functions (charge in INR paise): ₹99 posting / ₹899 membership,
 shown on the site as $1 / $11 until Stripe USD checkout is live.
-Milestone build amounts are agreed on the locked contract; Okavo-held escrow is
-not live yet — buyers pay developers directly against that schedule.
+Okavo collects the 10% hire success fee but does **not** hold build funds and
+does **not** offer escrow — buyers pay developers directly against the locked
+milestone schedule and attest each payment (with a private proof artifact).
+
+### Auth receptionist (`/api/auth`)
+
+Sessions no longer live in `localStorage`: the Vercel `/api/auth` functions keep
+the refresh token in a rotating HttpOnly cookie and hand the browser a
+memory-only access token. Set these on the Vercel project (Production + Preview):
+
+| Name | Value |
+|------|-------|
+| `SUPABASE_URL` | project API URL (staging URL for Preview) |
+| `SUPABASE_ANON_KEY` | project anon key (staging for Preview) |
+| `PUBLIC_SITE_URL` | `https://okavo.org` (Preview → its URL) |
+| `AUTH_ALLOWED_ORIGINS` | optional extra origins for cookie mutations |
+
+Add `https://okavo.org/api/auth/callback` (plus preview URLs) to the Supabase
+Auth redirect allowlist, or PKCE sign-in bounces.
 
 ## 3. Storage buckets
 
@@ -153,6 +247,13 @@ Create three **private** buckets: `identity-documents`,
    |------|------------|---------|
    | `VITE_SUPABASE_URL` | production URL | **staging** URL |
    | `VITE_SUPABASE_ANON_KEY` | production anon | **staging** anon |
+   | `SUPABASE_URL` | production URL (auth + collect) | **staging** URL |
+   | `SUPABASE_ANON_KEY` | production anon | **staging** anon |
+   | `SUPABASE_SERVICE_ROLE_KEY` | production service role (server-only: auth rate limits + analytics) | **staging** service role |
+   | `PUBLIC_SITE_URL` | `https://okavo.org` | preview URL |
+   | `AUTH_ALLOWED_ORIGINS` | optional extras | optional extras |
+   | `ALLOWED_ORIGINS` | optional extras for `/api/collect` | optional extras |
+   | `RATE_LIMIT_SALT` | shared with edge functions | shared with staging edges |
 
 5. Deploy, then add the resulting URL to Supabase Auth URL Configuration
 

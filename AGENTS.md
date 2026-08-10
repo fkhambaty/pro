@@ -86,14 +86,17 @@ npm run rls
 - **Never invent social proof.** No testimonials, customer logos, or usage
   numbers that are not real. The About page commits to this, and the homepage
   previously carried a fabricated "74 countries" claim that had to be removed.
-- **Never claim a feature that is not switched on.** Escrow is built in the
-  database but not enabled; the marketing copy says so explicitly. Keep it that
-  way until it is true.
+- **Never claim a feature that is not switched on.** Okavo does not hold build
+  funds and does not offer a delivery guarantee. Escrow tables may exist in
+  older migrations but are not enabled; keep marketing honest.
 - Prices live in `apps/catalog/src/lib/pricing.ts`. Change them there, never
   inline, or the site will quote one number and charge another. Fees are shown
   in USD; Razorpay still collects INR equivalents until Stripe USD is live.
 - Payment amounts are decided in the edge functions, never accepted from the
-  browser, and a payment is only marked paid by a signature-verified webhook.
+  browser, and a payment is only marked paid by a signature-verified webhook
+  (or confirm path) through `settle_provider_payment`.
+- Sessions use the Vercel `/api/auth` receptionist: HttpOnly refresh cookie +
+  memory-only access token. Do not reintroduce `localStorage` session persistence.
 
 ## Checking your work
 
@@ -112,9 +115,9 @@ references. Use `tsc -b --force`.
 | Path | What |
 |------|------|
 | `apps/catalog/src` | The React app |
-| `apps/catalog/api` | Vercel edge functions (analytics collector) |
-| `supabase/functions` | Supabase edge functions (payments, signup alerts) |
+| `apps/catalog/api` | Vercel edge functions (auth receptionist, analytics collector) |
+| `supabase/functions` | Supabase edge functions (payments, exams, retention, ops) |
 | `supabase/migrations` | Schema, row-level security, views |
 | `supabase/config.toml` | Local `supabase start` config |
 | `scripts` | Seeding, smoke tests, RLS matrix, the agent console |
-| `.github/workflows` | CI: typecheck / lint / build; optional staging RLS + smoke |
+| `.github/workflows` | CI + optional staging RLS/smoke; weekly identity sweep + Razorpay reconcile |

@@ -4,6 +4,7 @@ import {
   requireEnv,
   serviceClient,
 } from "../_shared/backend.ts";
+import { consumeRateLimit, tooManyRequests } from "../_shared/rateLimit.ts";
 import { safeFetch } from "../_shared/safeUrl.ts";
 
 /**
@@ -46,25 +47,25 @@ async function userSelect(token: string, path: string): Promise<unknown> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders() });
+    return new Response(null, { headers: corsHeaders(req) });
   }
-  if (req.method !== "POST") return json(405, { error: "POST only" });
+  if (req.method !== "POST") return json(405, { error: "POST only" }, req);
 
   let user: { id: string; token: string };
   try {
     user = await resolveUser(req);
   } catch {
-    return json(401, { error: "Sign in required" });
+    return json(401, { error: "Sign in required" }, req);
   }
 
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
-    return json(400, { error: "Invalid JSON" });
+    return json(400, { error: "Invalid JSON" }, req);
   }
   if (typeof body.exam_id !== "string" || !UUID.test(body.exam_id)) {
-    return json(400, { error: "Valid exam_id required" });
+    return json(400, { error: "Valid exam_id required" }, req);
   }
 
   // Query through the caller's JWT first. build_exams RLS exposes a row only
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
     `build_exams?id=eq.${encodeURIComponent(body.exam_id)}&select=id,developer_id,github_url,live_url,status,brief_id,duplicate_repo,duplicate_of_exam_id`
   )) as Record<string, unknown>[];
   const exam = rows[0];
-  if (!exam) return json(404, { error: "Exam not found" });
+  if (!exam) return json(404, { error: "Exam not found" }, req);
 
   const profiles = (await userSelect(
     user.token,
@@ -83,10 +84,27 @@ Deno.serve(async (req) => {
   )) as { role?: string }[];
   const isAdmin = profiles[0]?.role === "admin";
   if (exam.developer_id !== user.id && !isAdmin) {
-    return json(403, { error: "Not allowed to analyze this exam" });
+    return json(403, { error: "Not allowed to analyze this exam" }, req);
   }
   if (exam.status !== "submitted" && exam.status !== "admin_questions") {
-    return json(400, { error: "Exam is not in a reviewable state" });
+    return json(400, { error: "Exam is not in a reviewable state" }, req);
+  }
+
+  // Applicants get a tight budget; admins reviewing the queue get a higher one.
+  const withinLimit = await consumeRateLimit({
+    scope: isAdmin ? "exam-analyze-admin" : "exam-analyze",
+    actor: user.id,
+    limit: isAdmin ? 60 : 10,
+    windowSeconds: 3600,
+  });
+  if (!withinLimit) {
+    return tooManyRequests(
+      req,
+      3600,
+      isAdmin
+        ? "Admin exam-analysis budget exhausted for this hour."
+        : "Too many exam analyses. Try again in an hour."
+    );
   }
 
   // Owner/admin authorization is complete before this deliberate RLS bypass.
@@ -258,8 +276,8 @@ Deno.serve(async (req) => {
     }),
   });
   if (!saveResponse.ok) {
-    return json(502, { error: "Analysis completed but the score could not be saved" });
+    return json(502, { error: "Analysis completed but the score could not be saved" }, req);
   }
 
-  return json(200, { overall, checks });
+  return json(200, { overall, checks }, req);
 });

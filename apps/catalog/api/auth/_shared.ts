@@ -233,3 +233,74 @@ export function redirectOrigin(request: Request): string {
   if (!host) throw new Error("Missing request host");
   return `${protocol}://${host}`;
 }
+
+function requestIp(request: Request): string {
+  return (
+    request.headers.get("x-real-ip") ??
+    (request.headers.get("x-forwarded-for") ?? "").split(",")[0]?.trim() ??
+    "unknown"
+  );
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value)
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Postgres-backed auth throttle. Uses the same service-role RPC as analytics.
+ * When the service role is absent (local without secrets), the check is skipped
+ * so developers can still sign in.
+ */
+export async function assertAuthRateLimit(
+  request: Request,
+  scope: "login" | "signup" | "recovery",
+  limit: number,
+  windowSeconds: number
+): Promise<Response | null> {
+  const supabaseBase = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseBase || !serviceKey) return null;
+
+  try {
+    const salt = process.env.RATE_LIMIT_SALT ?? "okavo-edge-v1";
+    const actor = requestIp(request);
+    const bucketHash = await sha256Hex(`${salt}:auth-${scope}:${actor}`);
+    const response = await fetch(
+      `${supabaseBase.replace(/\/$/, "")}/rest/v1/rpc/consume_edge_rate_limit`,
+      {
+        method: "POST",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          p_bucket_hash: bucketHash,
+          p_limit: limit,
+          p_window_seconds: windowSeconds,
+        }),
+      }
+    );
+    if (!response.ok) return null;
+    const allowed = await response.json();
+    if (allowed === true) return null;
+    return json(
+      {
+        error: "Too many authentication attempts. Please try again shortly.",
+        retry_after_seconds: windowSeconds,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(windowSeconds) },
+      }
+    );
+  } catch {
+    return null;
+  }
+}

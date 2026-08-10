@@ -5,6 +5,7 @@ import {
   requireEnv,
   serviceClient,
 } from "../_shared/backend.ts";
+import { consumeRateLimit, tooManyRequests } from "../_shared/rateLimit.ts";
 
 /**
  * Settles a platform fee after Razorpay Checkout succeeds in the browser.
@@ -94,9 +95,9 @@ async function settlePayment(input: Record<string, unknown>) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders() });
+    return new Response("ok", { headers: corsHeaders(req) });
   }
-  if (req.method !== "POST") return json(405, { error: "Method not allowed" });
+  if (req.method !== "POST") return json(405, { error: "Method not allowed" }, req);
 
   let user: { id: string };
   try {
@@ -104,7 +105,21 @@ serve(async (req) => {
   } catch (error) {
     return json(401, {
       error: error instanceof Error ? error.message : "Not signed in",
-    });
+    }, req);
+  }
+
+  const withinLimit = await consumeRateLimit({
+    scope: "razorpay-confirm",
+    actor: user.id,
+    limit: 30,
+    windowSeconds: 3600,
+  });
+  if (!withinLimit) {
+    return tooManyRequests(
+      req,
+      3600,
+      "Too many payment confirmations. Try again in an hour."
+    );
   }
 
   let payload: {
@@ -116,7 +131,7 @@ serve(async (req) => {
   try {
     payload = await req.json();
   } catch {
-    return json(400, { error: "Invalid JSON" });
+    return json(400, { error: "Invalid JSON" }, req);
   }
 
   const okavoPaymentId = (payload.payment_id ?? "").trim();
@@ -127,7 +142,7 @@ serve(async (req) => {
   if (!okavoPaymentId || !orderId || !razorpayPaymentId || !signature) {
     return json(400, {
       error: "payment_id, razorpay_order_id, razorpay_payment_id, and razorpay_signature are required",
-    });
+    }, req);
   }
 
   try {
@@ -136,7 +151,7 @@ serve(async (req) => {
       `${orderId}|${razorpayPaymentId}`
     );
     if (!timingSafeEqual(expected, signature)) {
-      return json(400, { error: "Invalid payment signature" });
+      return json(400, { error: "Invalid payment signature" }, req);
     }
 
     const db = serviceClient();
@@ -154,18 +169,18 @@ serve(async (req) => {
     }>;
 
     const record = rows?.[0];
-    if (!record) return json(404, { error: "Payment not found" });
+    if (!record) return json(404, { error: "Payment not found" }, req);
     if (record.profile_id !== user.id) {
-      return json(403, { error: "This payment does not belong to you" });
+      return json(403, { error: "This payment does not belong to you" }, req);
     }
     if (record.provider !== "razorpay") {
-      return json(400, { error: "Not a Razorpay payment" });
+      return json(400, { error: "Not a Razorpay payment" }, req);
     }
     if (record.provider_order_id !== orderId) {
-      return json(400, { error: "Order does not match this payment" });
+      return json(400, { error: "Order does not match this payment" }, req);
     }
     if (record.status === "paid") {
-      return json(200, { ok: true, alreadyPaid: true });
+      return json(200, { ok: true, alreadyPaid: true }, req);
     }
 
     const remote = await razorpayGet(`payments/${razorpayPaymentId}`);
@@ -174,24 +189,24 @@ serve(async (req) => {
     const remoteAmount = Number(remote.amount);
     const remoteCurrency = String(remote.currency ?? "").toUpperCase();
     if (remoteOrder && remoteOrder !== orderId) {
-      return json(400, { error: "Razorpay order mismatch" });
+      return json(400, { error: "Razorpay order mismatch" }, req);
     }
     if (remoteStatus !== "captured") {
       return json(409, {
         error: `Payment is ${remoteStatus || "unknown"}, not captured`,
-      });
+      }, req);
     }
     if (
       remoteAmount !== record.amount_cents ||
       remoteCurrency !== record.currency.toUpperCase()
     ) {
-      return json(400, { error: "Payment amount or currency does not match" });
+      return json(400, { error: "Payment amount or currency does not match" }, req);
     }
 
     // notes.payment_id was set when the order was created — prefer that match.
     const notes = (remote.notes ?? {}) as Record<string, string>;
     if (notes.payment_id && notes.payment_id !== okavoPaymentId) {
-      return json(400, { error: "Payment notes do not match" });
+      return json(400, { error: "Payment notes do not match" }, req);
     }
 
     const result = await settlePayment({
@@ -207,9 +222,9 @@ serve(async (req) => {
       ok: true,
       alreadyPaid: result === "already_paid",
       purpose: record.purpose,
-    });
+    }, req);
   } catch (error) {
     console.error("razorpay-confirm failed");
-    return json(500, { error: "Could not confirm payment" });
+    return json(500, { error: "Could not confirm payment" }, req);
   }
 });

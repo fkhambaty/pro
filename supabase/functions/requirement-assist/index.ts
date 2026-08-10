@@ -5,7 +5,7 @@ import {
 } from "../_shared/backend.ts";
 import { checkGuardrails } from "../_shared/guardrails.ts";
 import { recordOpsEvent } from "../_shared/ops.ts";
-import { consumeRateLimit } from "../_shared/rateLimit.ts";
+import { consumeRateLimit, tooManyRequests } from "../_shared/rateLimit.ts";
 
 /**
  * Optional grounded assist.
@@ -84,14 +84,14 @@ function heuristic(body: Body) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders() });
+    return new Response(null, { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json(405, { error: "POST only" });
+    return json(405, { error: "POST only" }, req);
   }
 
   const user = await authenticatedUser(req);
-  if (!user) return json(401, { error: "Sign in required" });
+  if (!user) return json(401, { error: "Sign in required" }, req);
 
   const withinLimit = await consumeRateLimit({
     scope: "requirement-assist",
@@ -100,34 +100,39 @@ Deno.serve(async (req) => {
     windowSeconds: 3600,
   });
   if (!withinLimit) {
-    return json(429, {
-      error: "Too many assist requests. Try again in an hour.",
-      retry_after_seconds: 3600,
-    });
+    return tooManyRequests(
+      req,
+      3600,
+      "Too many assist requests. Try again in an hour."
+    );
   }
 
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
-    return json(400, { error: "Invalid JSON" });
+    return json(400, { error: "Invalid JSON" }, req);
   }
 
   const outcome = (body.outcome ?? "").trim();
   const guard = checkGuardrails("outcome", outcome);
   if (!guard.ok) {
-    return json(400, {
-      error: guard.message,
-      code: guard.code,
-      blocked: true,
-    });
+    return json(
+      400,
+      {
+        error: guard.message,
+        code: guard.code,
+        blocked: true,
+      },
+      req
+    );
   }
 
   const base = heuristic(body);
   const apiKey = Deno.env.get("OPENAI_API_KEY");
 
   if (!apiKey) {
-    return json(200, base);
+    return json(200, base, req);
   }
 
   try {
@@ -138,7 +143,7 @@ Deno.serve(async (req) => {
       "Return JSON: { summary: string, suggestions: [{ id, kind, title, detail }] } " +
       "kind must be acceptance|exclusion|screen. Max 8 suggestions.";
 
-    const user = JSON.stringify({
+    const promptContext = JSON.stringify({
       outcome: body.outcome,
       categoryLabel: body.categoryLabel,
       mustHaves: body.mustHaves ?? [],
@@ -159,7 +164,7 @@ Deno.serve(async (req) => {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
-          { role: "user", content: user },
+          { role: "user", content: promptContext },
         ],
       }),
     });
@@ -174,7 +179,7 @@ Deno.serve(async (req) => {
         entityId: user.id,
         detail: { status: response.status },
       });
-      return json(200, { ...base, mode: "heuristic", llmError: true });
+      return json(200, { ...base, mode: "heuristic", llmError: true }, req);
     }
 
     const payload = (await response.json()) as {
@@ -187,17 +192,21 @@ Deno.serve(async (req) => {
     };
 
     if (!Array.isArray(parsed.suggestions) || parsed.suggestions.length === 0) {
-      return json(200, base);
+      return json(200, base, req);
     }
 
-    return json(200, {
-      available: true,
-      mode: "llm",
-      summary:
-        parsed.summary ??
-        "LLM polish of your own draft only — no new product inventing.",
-      suggestions: parsed.suggestions.slice(0, 8),
-    });
+    return json(
+      200,
+      {
+        available: true,
+        mode: "llm",
+        summary:
+          parsed.summary ??
+          "LLM polish of your own draft only — no new product inventing.",
+        suggestions: parsed.suggestions.slice(0, 8),
+      },
+      req
+    );
   } catch (error) {
     await recordOpsEvent({
       category: "requirement-assist",
@@ -210,6 +219,6 @@ Deno.serve(async (req) => {
         message: error instanceof Error ? error.message : "unknown",
       },
     });
-    return json(200, base);
+    return json(200, base, req);
   }
 });

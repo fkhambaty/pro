@@ -1,4 +1,5 @@
 import {
+  assertAuthRateLimit,
   assertCookieMutation,
   authHeaders,
   json,
@@ -20,6 +21,9 @@ type LoginBody = {
 export default async function handler(request: Request): Promise<Response> {
   const invalid = assertCookieMutation(request);
   if (invalid) return invalid;
+
+  const throttled = await assertAuthRateLimit(request, "login", 20, 900);
+  if (throttled) return throttled;
 
   let input: LoginBody;
   try {

@@ -57,13 +57,13 @@ async function resolveUser(req: Request): Promise<{ id: string; email?: string }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders() });
+    return new Response("ok", { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json(405, { error: "Method not allowed" });
+    return json(405, { error: "Method not allowed" }, req);
   }
   if (Deno.env.get("PAYMENTS_PROVIDER") !== "stripe") {
-    return json(503, { error: "Stripe payments are disabled" });
+    return json(503, { error: "Stripe payments are disabled" }, req);
   }
 
   let user: { id: string; email?: string };
