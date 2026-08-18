@@ -87,6 +87,60 @@ export async function getAccessToken(): Promise<string | null> {
   return currentSession?.access_token ?? null;
 }
 
+/**
+ * Calls GoTrue directly for the two operations the receptionist does not own.
+ * The Supabase client cannot be used: passing `accessToken` to createClient
+ * makes its `auth` namespace throw on every access.
+ */
+async function gotrue<T>(
+  path: string,
+  init: { method: string; body: Record<string, unknown>; token?: string }
+): Promise<T> {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!url || !anonKey) throw new Error("Authentication is not configured.");
+
+  const response = await fetch(`${url}/auth/v1/${path}`, {
+    method: init.method,
+    headers: {
+      "Content-Type": "application/json",
+      apikey: anonKey,
+      ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}),
+    },
+    body: JSON.stringify(init.body),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    msg?: string;
+    message?: string;
+    error_description?: string;
+  };
+  if (!response.ok) {
+    throw new Error(
+      payload.msg ??
+        payload.error_description ??
+        payload.message ??
+        "Authentication request failed."
+    );
+  }
+  return payload as T;
+}
+
+export async function resendSignupVerification(email: string): Promise<void> {
+  await gotrue("resend", {
+    method: "POST",
+    body: { type: "signup", email },
+  });
+}
+
+export async function updateAccountPassword(password: string): Promise<void> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error("Your reset link has expired. Request a new one.");
+  }
+  await gotrue("user", { method: "PUT", body: { password }, token });
+}
+
 export async function receptionistSignIn(
   email: string,
   password: string

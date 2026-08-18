@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getAccessToken, getMemorySession } from "./sessionClient";
+import { getAccessToken } from "./sessionClient";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -36,15 +36,8 @@ export function getSupabase(): SupabaseClient | null {
     accessToken: getAccessToken,
   });
 
-  // Existing callers use auth.getSession() to obtain a bearer token for edge
-  // functions. Point that method at the receptionist's memory-only session;
-  // the Supabase auth client never receives the refresh token.
-  Object.defineProperty(client.auth, "getSession", {
-    configurable: true,
-    value: async () => ({
-      data: { session: getMemorySession() },
-      error: null,
-    }),
-  });
+  // Passing `accessToken` makes supabase-js replace `client.auth` with a proxy
+  // that throws on every property read, so nothing here may touch that
+  // namespace. Use sessionClient for tokens and GoTrue calls instead.
   return client;
 }

@@ -13,7 +13,7 @@ import {
 import { checkGuardrails } from "../../lib/guardrails";
 import { MEMBERSHIP_FEE_LABEL, MEMBERSHIP_SETTLEMENT_HINT } from "../../lib/pricing";
 import { REVIEW_CRITERIA, formatRating } from "../../lib/reviewCriteria";
-import { getSupabase } from "../../lib/supabase";
+import { getAccessToken } from "../../lib/sessionClient";
 import { useStore } from "../../store";
 import type { DeveloperListing } from "../../types";
 
@@ -409,14 +409,11 @@ export default function Verification() {
                             githubUrl.trim(),
                             liveUrl.trim()
                           );
-                          const { data: session } =
-                            (await getSupabase()?.auth.getSession()) ?? {
-                              data: { session: null },
-                            };
-                          if (session?.session?.access_token) {
+                          const accessToken = await getAccessToken();
+                          if (accessToken) {
                             await examApi.requestExamAnalysis(
                               exam.id,
-                              session.session.access_token
+                              accessToken
                             );
                           }
                           await loadExam();

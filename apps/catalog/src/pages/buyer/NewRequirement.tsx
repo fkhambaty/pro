@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import RequirementPreview from "../../components/RequirementPreview";
 import { CATEGORY_OPTIONS, SCALE_OPTIONS } from "../../data";
 import { money } from "../../format";
-import { collectFee } from "../../lib/checkout";
+import { collectFee, type CheckoutResult } from "../../lib/checkout";
 import * as api from "../../lib/api";
 import {
   requestAssist,
@@ -21,7 +21,7 @@ import {
   suggestedMustHaves,
   type Audience,
 } from "../../lib/requirementBlueprint";
-import { getSupabase } from "../../lib/supabase";
+import { getAccessToken } from "../../lib/sessionClient";
 import { useStore } from "../../store";
 import type { BuyerScale, ScopeItem } from "../../types";
 
@@ -351,8 +351,19 @@ export default function NewRequirement() {
       return;
     }
 
-    const result = await collectFee("requirement_posting", { name, email });
-    setSaving(false);
+    let result: CheckoutResult;
+    try {
+      result = await collectFee("requirement_posting", { name, email });
+    } catch (cause) {
+      setPublishError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not open the payment window. Nothing has been published."
+      );
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     if (result.status === "cancelled") {
       setPublishError("Payment was cancelled. Nothing has been published.");
@@ -392,9 +403,7 @@ export default function NewRequirement() {
     });
 
     try {
-      const { data: session } = (await getSupabase()?.auth.getSession()) ?? {
-        data: { session: null },
-      };
+      const accessToken = (await getAccessToken()) ?? undefined;
       const result = await requestAssist(
         {
           outcome,
@@ -403,7 +412,7 @@ export default function NewRequirement() {
           excluded,
           primaryAction,
         },
-        { accessToken: session?.session?.access_token }
+        { accessToken }
       );
       setAssist(result);
       logAudit("assist.complete", "requirement", null, {

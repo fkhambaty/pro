@@ -17,6 +17,8 @@ import {
   receptionistSignUp,
   refreshMemorySession,
   requestPasswordRecovery,
+  resendSignupVerification,
+  updateAccountPassword,
 } from "./sessionClient";
 import type { BuyerScale, Role } from "../types";
 
@@ -231,17 +233,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resendVerification = useCallback(async (email: string) => {
     setError(null);
     setNotice(null);
-    const supabase = getSupabase();
-    if (!supabase) return;
-    const { error: resendError } = await supabase.auth.resend({
-      type: "signup",
-      email,
-    });
-    if (resendError) {
-      setError(resendError.message);
-      return;
+    try {
+      await resendSignupVerification(email);
+      setNotice(`Verification link sent again to ${email}.`);
+    } catch (resendError) {
+      setError(
+        resendError instanceof Error
+          ? resendError.message
+          : "Could not resend the verification link."
+      );
     }
-    setNotice(`Verification link sent again to ${email}.`);
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
@@ -264,19 +265,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePassword = useCallback(async (password: string) => {
     setError(null);
     setNotice(null);
-    const supabase = getSupabase();
-    if (!supabase) return;
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) {
-      setError(updateError.message);
-      return;
+    try {
+      await updateAccountPassword(password);
+      setPasswordRecovery(false);
+      setNotice("Password updated. You are signed in.");
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Could not update your password."
+      );
     }
-    setPasswordRecovery(false);
-    setNotice("Password updated. You are signed in.");
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {

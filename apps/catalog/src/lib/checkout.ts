@@ -1,4 +1,5 @@
 import { logAudit } from "./audit";
+import { getAccessToken } from "./sessionClient";
 import { getSupabase } from "./supabase";
 
 export type CheckoutPurpose =
@@ -123,8 +124,7 @@ export async function collectFee(
     return { status: "error", message: "Payments are unavailable in demo mode." };
   }
 
-  const { data: session } = await supabase.auth.getSession();
-  const token = session.session?.access_token;
+  const token = await getAccessToken();
   if (!token) {
     return { status: "error", message: "Sign in again to continue to payment." };
   }

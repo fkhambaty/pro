@@ -6,7 +6,7 @@ import {
   type ExamControls,
 } from "../../lib/exam";
 import { checkGuardrails } from "../../lib/guardrails";
-import { getSupabase } from "../../lib/supabase";
+import { getAccessToken } from "../../lib/sessionClient";
 
 export default function AdminExams() {
   const [rows, setRows] = useState<BuildExam[]>([]);
@@ -191,14 +191,11 @@ export default function AdminExams() {
                       void (async () => {
                         setBusyId(exam.id);
                         try {
-                          const { data: session } =
-                            (await getSupabase()?.auth.getSession()) ?? {
-                              data: { session: null },
-                            };
-                          if (session?.session?.access_token) {
+                          const accessToken = await getAccessToken();
+                          if (accessToken) {
                             await examApi.requestExamAnalysis(
                               exam.id,
-                              session.session.access_token
+                              accessToken
                             );
                           }
                           await load();
