@@ -178,9 +178,11 @@ export async function collectFee(
 
   return new Promise<CheckoutResult>((resolve) => {
     let settled = false;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
     const finish = (result: CheckoutResult) => {
       if (settled) return;
       settled = true;
+      if (watchdog) clearTimeout(watchdog);
       if (result.status === "paid") {
         logAudit(
           purpose === "requirement_posting"
@@ -244,5 +246,17 @@ export async function collectFee(
     });
 
     checkout.open();
+
+    // Razorpay only calls handler/ondismiss once its modal renders. If the
+    // iframe is blocked (CSP, extension, network), neither ever fires and the
+    // caller would wait forever, so surface an actionable error instead.
+    watchdog = setTimeout(() => {
+      if (document.querySelector(".razorpay-container")) return;
+      finish({
+        status: "error",
+        message:
+          "The payment window could not open. Disable any ad/script blocker for okavo.org and try again — you have not been charged.",
+      });
+    }, 6000);
   });
 }
